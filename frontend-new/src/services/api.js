@@ -9,7 +9,7 @@ const normalizeBaseUrl = (url) => String(url || '').replace(/\/+$/, '');
 const resolveApiUrl = () => {
     // If running in production (e.g. Vercel), forcefully use the relative /api path
     // This overrides any misconfigured VITE_API_URL environment variables
-    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    if (typeof window !== 'undefined' && (window.location.hostname !== 'localhost' || window.location.hostname.endsWith('.vercel.app'))) {
         return normalizeBaseUrl(`${window.location.origin}/api`);
     }
 
