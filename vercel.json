@@ -29,7 +29,7 @@
         },
         {
             "source": "/((?!api/).*)",
-            "destination": "/dist/index.html"
+            "destination": "/index.html"
         }
     ],
     "functions": {
