@@ -1,14 +1,13 @@
 import axios from 'axios';
 import { ENDPOINTS } from './endpoints';
 
-const API_PREFIX = import.meta.env.VITE_API_PREFIX?.trim() || '/api/v1';
-const DEFAULT_REMOTE_API = 'https://sri-ram-fashion-backend.onrender.com/api/v1';
+const API_PREFIX = '/api/v1';
 
 const normalizeBaseUrl = (url) => String(url || '').replace(/\/+$/, '');
 
 const resolveApiUrl = () => {
     // If running in production (e.g. Vercel), forcefully use the relative /api path
-    // This overrides any misconfigured VITE_API_URL environment variables
+    // This ensures Vercel's serverless functions are used instead of external backends like Render
     if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost')) {
         return normalizeBaseUrl(`${window.location.origin}/api`);
     }
