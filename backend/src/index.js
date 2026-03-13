@@ -169,6 +169,29 @@ const createApiRouter = () => {
     return router;
 };
 
+// For Vercel serverless, ensure DB is connected before any routes run
+if (process.env.VERCEL === '1') {
+    const connectToDb = async () => {
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(MONGODB_URI, {
+                serverSelectionTimeoutMS: 10000,
+                socketTimeoutMS: 30000,
+            });
+            console.log('Connected to MongoDB (Vercel Serverless)');
+        }
+    };
+
+    app.use(async (req, res, next) => {
+        try {
+            await connectToDb();
+            next();
+        } catch (err) {
+            console.error('DB connection error:', err.message);
+            res.status(500).json({ success: false, message: 'Database connection failed' });
+        }
+    });
+}
+
 const apiRouter = createApiRouter();
 app.use(API_BASES.legacy, apiRouter);
 app.use(API_BASES.versioned, apiRouter);
@@ -239,26 +262,6 @@ const startServer = async () => {
 // Vercel will handle the routing and initialization
 if (process.env.VERCEL !== '1') {
     startServer();
-} else {
-    // For Vercel, we still need to connect to DB
-    // We'll do a lazy connection or top-level await if supported
-    // but better to wrap the handler. However, mongoose.connect 
-    // at top level (outside startServer) is often used for Vercel.
-    const connectToDb = async () => {
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(MONGODB_URI, {
-                serverSelectionTimeoutMS: 10000,
-                socketTimeoutMS: 30000,
-            });
-            console.log('Connected to MongoDB (Vercel Serverless)');
-        }
-    };
-    
-    // Middleware-like function to ensure DB connection
-    app.use(async (req, res, next) => {
-        await connectToDb();
-        next();
-    });
 }
 
 export default app;
