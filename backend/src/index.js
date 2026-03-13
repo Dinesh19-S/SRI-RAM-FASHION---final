@@ -179,8 +179,20 @@ const createApiRouter = () => {
 };
 
 const apiRouter = createApiRouter();
-app.use(API_BASES.legacy, apiRouter);
-app.use(API_BASES.versioned, apiRouter);
+
+// In Vercel serverless functions the request URL may be rewritten, which can
+// strip the `/api` prefix. Mount the routes at both the expected `/api` paths
+// (for local development + normal builds) and at the root (for Vercel rewrites).
+const mountPaths = [API_BASES.legacy, API_BASES.versioned];
+if (process.env.VERCEL === '1') {
+    mountPaths.push('/', '/v1');
+}
+
+mountPaths.forEach((basePath) => {
+    if (basePath) {
+        app.use(basePath, apiRouter);
+    }
+});
 
 // Helper function to check if a port is available
 const isPortAvailable = (port) => {
