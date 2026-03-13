@@ -1,0 +1,273 @@
+/* Report Print Template Styles - A4 Professional Layout - Improved */
+.report-print-template {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 10mm 15mm;
+    margin: 0 auto;
+    background: white;
+    font-family: 'Manrope', Arial, sans-serif;
+    font-size: 11px;
+    color: #000;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header Section */
+.report-print-header {
+    text-align: center;
+    padding-bottom: 8mm;
+    border-bottom: 2px solid #1a5fb4;
+    margin-bottom: 6mm;
+}
+
+.report-company-name {
+    font-size: 26px;
+    font-weight: bold;
+    color: #1a5fb4;
+    margin: 0 0 4px 0;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.report-company-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.report-company-address {
+    font-size: 11px;
+    color: #333;
+    margin: 2px 0;
+    font-weight: 500;
+}
+
+.report-company-contact {
+    font-size: 11px;
+    color: #333;
+    margin: 2px 0;
+    font-weight: 600;
+}
+
+/* Report Title Section */
+.report-title-section {
+    text-align: center;
+    margin-bottom: 6mm;
+    padding: 4mm 0;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+}
+
+.report-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #1a5fb4;
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.report-company-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.report-date-range {
+    font-size: 12px;
+    color: #555;
+    margin: 0;
+    font-weight: 500;
+}
+
+.report-generated-date {
+    font-size: 10px;
+    color: #777;
+    margin-top: 4px;
+}
+
+/* Table Styles */
+.report-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6mm;
+    font-size: 10px;
+}
+
+.report-print-table th {
+    background: #1a5fb4;
+    color: white;
+    padding: 8px 6px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 10px;
+    border: 1px solid #1a5fb4;
+    text-transform: uppercase;
+}
+
+.report-print-table th.text-right {
+    text-align: right;
+}
+
+.report-print-table th.text-center {
+    text-align: center;
+}
+
+.report-print-table td {
+    padding: 6px;
+    border: 1px solid #ddd;
+    font-size: 10px;
+    color: #333;
+}
+
+.report-print-table td.text-right {
+    text-align: right;
+}
+
+.report-print-table td.text-center {
+    text-align: center;
+}
+
+.report-print-table tbody tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+.report-print-table tbody tr:hover {
+    background: #f0f5ff;
+}
+
+/* Totals Row */
+.report-print-table tfoot tr {
+    background: #1a5fb4 !important;
+    color: white;
+}
+
+.report-print-table tfoot td {
+    padding: 8px 6px;
+    font-weight: bold;
+    font-size: 11px;
+    border: 1px solid #1a5fb4;
+    color: white;
+}
+
+/* Summary Section */
+.report-summary-section {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8mm;
+    padding-top: 6mm;
+    border-top: 1px solid #ddd;
+}
+
+.report-summary-left {
+    flex: 1;
+}
+
+.report-summary-right {
+    text-align: right;
+}
+
+.report-summary-item {
+    font-size: 11px;
+    margin: 4px 0;
+    font-weight: 500;
+}
+
+.report-summary-item strong {
+    font-weight: 700;
+}
+
+/* Footer Section */
+.report-print-footer {
+    margin-top: auto;
+    padding-top: 10mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-top: 1px solid #ddd;
+}
+
+.report-footer-left {
+    font-size: 10px;
+    color: #666;
+}
+
+.report-footer-right {
+    text-align: center;
+}
+
+.report-signature-line {
+    width: 150px;
+    border-top: 1px solid #000;
+    padding-top: 4px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* Print Styles */
+@media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    .report-print-template {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0;
+        padding: 8mm 12mm;
+        page-break-after: always;
+    }
+
+    .report-print-table th {
+        background: #1a5fb4 !important;
+        color: white !important;
+    }
+
+    .report-print-table tfoot tr {
+        background: #1a5fb4 !important;
+    }
+
+    .report-print-table tfoot td {
+        color: white !important;
+    }
+
+    .report-company-name,
+    .report-title {
+        color: #1a5fb4 !important;
+    }
+
+    .report-print-table tbody tr:nth-child(even) {
+        background: #f9f9f9 !important;
+    }
+}
+
+@page {
+    size: A4;
+    margin: 0;
+}
+
+/* Modal wrapper for preview */
+.report-print-modal-content {
+    background: #e5e5e5;
+    padding: 20px;
+    overflow: auto;
+    max-height: calc(95vh - 80px);
+}
+
+.report-print-modal-content .report-print-template {
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
+}

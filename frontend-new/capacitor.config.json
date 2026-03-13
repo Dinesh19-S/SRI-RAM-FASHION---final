@@ -1,0 +1,6 @@
+{
+    "appId": "com.sriramfashions.app",
+    "appName": "Sri Ram Fashions",
+    "webDir": "dist",
+    "bundledWebRuntime": false
+}
