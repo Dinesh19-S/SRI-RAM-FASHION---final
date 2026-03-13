@@ -78,7 +78,7 @@ const PurchaseEntryPage = () => {
     });
 
     const [items, setItems] = useState([
-        { id: 1, particular: '', hsnCode: '', designColor: '', weightKg: '', ratePerKg: '' }
+        { id: 1, particular: '', hsnCode: '', designColor: '', weightKg: '', ratePerKg: '', gstRate: '0' }
     ]);
 
     useEffect(() => {
@@ -166,7 +166,7 @@ const PurchaseEntryPage = () => {
             date: new Date().toISOString().split('T')[0],
             invNo: ''
         });
-        setItems([{ id: 1, particular: '', hsnCode: '', designColor: '', weightKg: '', ratePerKg: '' }]);
+        setItems([{ id: 1, particular: '', hsnCode: '', designColor: '', weightKg: '', ratePerKg: '', gstRate: '0' }]);
         setIsEditing(false);
         setSelectedEntry(null);
     };
@@ -178,7 +178,8 @@ const PurchaseEntryPage = () => {
             hsnCode: '',
             designColor: '',
             weightKg: '',
-            ratePerKg: ''
+            ratePerKg: '',
+            gstRate: '0'
         }]);
     };
 
@@ -196,7 +197,9 @@ const PurchaseEntryPage = () => {
     };
 
     const calculateItemTotal = (item) => {
-        return (parseFloat(item.weightKg) || 0) * (parseFloat(item.ratePerKg) || 0);
+        const amount = (parseFloat(item.weightKg) || 0) * (parseFloat(item.ratePerKg) || 0);
+        const gst = (amount * (parseFloat(item.gstRate) || 0)) / 100;
+        return amount + gst;
     };
 
     const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', {
@@ -232,7 +235,11 @@ const PurchaseEntryPage = () => {
         setIsSubmitting(true);
         try {
             const entryData = {
-                supplier: { name: newPurchase.supplier },
+                supplier: { 
+                    name: newPurchase.supplier,
+                    // Try to find supplier details if they exist in state
+                    ...(suppliers.find(s => s.companyName === newPurchase.supplier) || {})
+                },
                 date: newPurchase.date,
                 invoiceNumber: newPurchase.invNo,
                 items: validItems.map(item => ({
@@ -240,7 +247,8 @@ const PurchaseEntryPage = () => {
                     hsnCode: item.hsnCode || '',
                     designColor: item.designColor || '',
                     weightKg: parseFloat(item.weightKg) || 0,
-                    ratePerKg: parseFloat(item.ratePerKg) || 0
+                    ratePerKg: parseFloat(item.ratePerKg) || 0,
+                    gstRate: parseFloat(item.gstRate) || 0
                 }))
             };
 
@@ -279,8 +287,9 @@ const PurchaseEntryPage = () => {
             hsnCode: item.hsnCode || '',
             designColor: item.designColor || '',
             weightKg: item.weightKg?.toString() || '',
-            ratePerKg: item.ratePerKg?.toString() || ''
-        })) || [{ id: 1, particular: '', hsnCode: '', designColor: '', weightKg: '', ratePerKg: '' }]);
+            ratePerKg: item.ratePerKg?.toString() || '',
+            gstRate: item.gstRate?.toString() || '0'
+        })) || [{ id: 1, particular: '', hsnCode: '', designColor: '', weightKg: '', ratePerKg: '', gstRate: '0' }]);
         setSelectedEntry(entry);
         setIsEditing(true);
         setShowNewEntry(true);
@@ -294,7 +303,7 @@ const PurchaseEntryPage = () => {
     const handleGenerateBill = (entry) => {
         const totalWeight = entry.items?.reduce((sum, item) => sum + (item.weightKg || 0), 0) || 0;
         const bill = {
-            _id: entry._id, // Added for email functionality
+            _id: entry._id,
             billNumber: `PUR-${entry.invoiceNumber}`,
             billType: 'PURCHASE',
             referenceInvoiceNumber: entry.invoiceNumber,
@@ -304,9 +313,9 @@ const PurchaseEntryPage = () => {
                 phone: entry.supplier?.mobile || '',
                 address: entry.supplier?.address || '',
                 gstin: entry.supplier?.gstin || '',
-                state: 'Tamilnadu',
-                stateCode: '33',
-                email: entry.supplier?.email || '' // Added for email functionality
+                state: entry.supplier?.state || 'Tamilnadu',
+                stateCode: entry.supplier?.stateCode || '33',
+                email: entry.supplier?.email || ''
             },
             items: entry.items?.map(item => ({
                 productName: item.particular,
@@ -317,17 +326,22 @@ const PurchaseEntryPage = () => {
                 ratePerKg: item.ratePerKg || 0,
                 quantity: item.weightKg || 0,
                 price: item.ratePerKg || 0,
+                gstRate: item.gstRate || 0,
+                cgst: item.cgst || 0,
+                sgst: item.sgst || 0,
+                igst: item.igst || 0,
                 total: item.total || (item.weightKg || 0) * (item.ratePerKg || 0)
             })) || [],
-            subtotal: entry.subtotal || entry.grandTotal || 0,
+            subtotal: entry.subtotal || 0,
             discountAmount: 0,
-            taxableAmount: entry.subtotal || entry.grandTotal || 0,
-            totalTax: 0,
-            cgst: 0,
-            sgst: 0,
-            totalPacks: totalWeight,
+            taxableAmount: entry.subtotal || 0,
+            totalTax: entry.totalTax || 0,
+            cgst: entry.totalCgst || 0,
+            sgst: entry.totalSgst || 0,
+            igst: entry.totalIgst || 0,
+            totalPacks: entry.totalWeight || totalWeight,
             numOfBundles: 1,
-            roundOff: 0,
+            roundOff: entry.roundOff || 0,
             grandTotal: entry.grandTotal || 0
         };
         setBillData(bill);
@@ -471,12 +485,13 @@ const PurchaseEntryPage = () => {
                                 <tr className="bg-gray-100 border-b-2 border-gray-300">
                                     <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '60px' }}>S No</th>
                                     <th className="p-3 text-left text-sm font-semibold text-gray-700">Particulars *</th>
-                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '120px' }}>HSN Code</th>
-                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '160px' }}>Design / Color</th>
-                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '120px' }}>Weight (KG) *</th>
-                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '140px' }}>Rate Per KG *</th>
-                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '130px' }}>Amount Rs.</th>
-                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '80px' }}></th>
+                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '100px' }}>HSN</th>
+                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '140px' }}>Design / Color</th>
+                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '90px' }}>WT (KG) *</th>
+                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '100px' }}>Rate *</th>
+                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '80px' }}>GST %</th>
+                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '120px' }}>Total Rs.</th>
+                                    <th className="p-3 text-left text-sm font-semibold text-gray-700" style={{ width: '50px' }}></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -534,6 +549,16 @@ const PurchaseEntryPage = () => {
                                                 onChange={(e) => handleItemChange(item.id, 'ratePerKg', e.target.value)}
                                                 min="0"
                                                 step="0.01"
+                                            />
+                                        </td>
+                                        <td className="p-3">
+                                            <input
+                                                type="number"
+                                                className="form-input w-full"
+                                                placeholder="GST%"
+                                                value={item.gstRate}
+                                                onChange={(e) => handleItemChange(item.id, 'gstRate', e.target.value)}
+                                                min="0"
                                             />
                                         </td>
                                         <td className="p-3 text-sm font-bold text-gray-900">

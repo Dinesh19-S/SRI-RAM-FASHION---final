@@ -16,6 +16,7 @@ const loadSettingsPage = () => import('./pages/SettingsPage');
 const loadPurchaseEntryPage = () => import('./pages/PurchaseEntryPage');
 const loadPurchaseBillingPage = () => import('./pages/PurchaseBillingPage');
 const loadSalesReportsPage = () => import('./pages/SalesReportsPage');
+const loadPurchaseReportsPage = () => import('./pages/PurchaseReportsPage');
 const loadStockReportsPage = () => import('./pages/StockReportsPage');
 const loadCustomerEntryPage = () => import('./pages/CustomerEntryPage');
 const loadItemsPage = () => import('./pages/ItemsPage');
@@ -31,6 +32,7 @@ const SettingsPage = lazy(loadSettingsPage);
 const PurchaseEntryPage = lazy(loadPurchaseEntryPage);
 const PurchaseBillingPage = lazy(loadPurchaseBillingPage);
 const SalesReportsPage = lazy(loadSalesReportsPage);
+const PurchaseReportsPage = lazy(loadPurchaseReportsPage);
 const StockReportsPage = lazy(loadStockReportsPage);
 const CustomerEntryPage = lazy(loadCustomerEntryPage);
 const ItemsPage = lazy(loadItemsPage);
@@ -157,6 +159,7 @@ const AnimatedRoutes = () => {
             <Route path="billing" element={<BillingPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="reports/sales" element={<SalesReportsPage />} />
+            <Route path="reports/purchase" element={<PurchaseReportsPage />} />
             <Route path="reports/stock" element={<StockReportsPage />} />
             <Route path="master/customers" element={<CustomerEntryPage />} />
             <Route path="master/items" element={<ItemsPage />} />

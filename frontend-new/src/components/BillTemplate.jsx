@@ -301,14 +301,23 @@ const BillTemplate = ({ bill, settings, forPrint = false }) => {
                             <span>Taxable Amt</span>
                             <span>{taxableAmt.toFixed(2)}</span>
                         </div>
-                        <div className="ti-tax-row ti-tax-highlight">
-                            <span>CGST @{cgstRate.toFixed(2).replace(/\.00$/, '')}%</span>
-                            <span>{cgstAmt.toFixed(2)}</span>
-                        </div>
-                        <div className="ti-tax-row ti-tax-highlight">
-                            <span>SGST @{sgstRate.toFixed(2).replace(/\.00$/, '')}%</span>
-                            <span>{sgstAmt.toFixed(2)}</span>
-                        </div>
+                        {igstAmt > 0 ? (
+                            <div className="ti-tax-row ti-tax-highlight">
+                                <span>IGST @{(igstAmt * 100 / taxableAmt).toFixed(2).replace(/\.00$/, '')}%</span>
+                                <span>{igstAmt.toFixed(2)}</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="ti-tax-row ti-tax-highlight">
+                                    <span>CGST @{cgstRate.toFixed(2).replace(/\.00$/, '')}%</span>
+                                    <span>{cgstAmt.toFixed(2)}</span>
+                                </div>
+                                <div className="ti-tax-row ti-tax-highlight">
+                                    <span>SGST @{sgstRate.toFixed(2).replace(/\.00$/, '')}%</span>
+                                    <span>{sgstAmt.toFixed(2)}</span>
+                                </div>
+                            </>
+                        )}
                         <div className="ti-tax-row">
                             <span>Round Off</span>
                             <span>{roundOff.toFixed(2)}</span>

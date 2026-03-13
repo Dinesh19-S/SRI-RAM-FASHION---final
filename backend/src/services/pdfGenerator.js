@@ -474,10 +474,17 @@ export const generateBillPDF = async (bill) => {
         { label: 'Product Amt', value: productAmt.toFixed(2) },
         { label: 'Discount', value: discount.toFixed(2) },
         { label: 'Taxable Amt', value: taxableAmt.toFixed(2) },
-        { label: `CGST @ ${cgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: cgstAmt.toFixed(2), highlight: true },
-        { label: `SGST @ ${sgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: sgstAmt.toFixed(2), highlight: true },
-        { label: 'Round Off', value: roundOff.toFixed(2) }
     ];
+
+    if (igstAmt > 0) {
+        const igstRate = taxableAmt > 0 ? (igstAmt * 100) / taxableAmt : 5;
+        taxRows.push({ label: `IGST @ ${igstRate.toFixed(2).replace(/\.00$/, '')}%`, value: igstAmt.toFixed(2), highlight: true });
+    } else {
+        taxRows.push({ label: `CGST @ ${cgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: cgstAmt.toFixed(2), highlight: true });
+        taxRows.push({ label: `SGST @ ${sgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: sgstAmt.toFixed(2), highlight: true });
+    }
+
+    taxRows.push({ label: 'Round Off', value: roundOff.toFixed(2) });
     const rightTop = y + 8;
     const totalLineY = y + row6H - 20;
     const totalTextY = y + row6H - 10;

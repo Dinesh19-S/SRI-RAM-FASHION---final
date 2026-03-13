@@ -47,14 +47,15 @@ const navigationSections = [
         title: 'REPORTS',
         items: [
             { name: 'Sales Reports', href: '/dashboard/reports/sales', icon: TrendingUp },
+            { name: 'Purchase Reports', href: '/dashboard/reports/purchase', icon: Calculator },
             { name: 'Stock Reports', href: '/dashboard/reports/stock', icon: Package },
         ]
     },
     {
         title: 'MASTER',
         items: [
-            { name: 'Suppliers', href: '/dashboard/master/suppliers', icon: Truck },
             { name: 'Customers', href: '/dashboard/master/customers', icon: Users },
+            { name: 'Suppliers', href: '/dashboard/master/suppliers', icon: Truck },
             { name: 'Items', href: '/dashboard/master/items', icon: Package },
         ]
     },
@@ -71,6 +72,7 @@ const searchSuggestions = [
     { label: 'Purchase Entry', path: '/dashboard/purchase/entry', keywords: ['purchase', 'buy', 'supplier', 'invoice'] },
     { label: 'Purchase Billing', path: '/dashboard/purchase/billing', keywords: ['purchase', 'bill', 'email', 'pdf'] },
     { label: 'Sales Reports', path: '/dashboard/reports/sales', keywords: ['sales', 'report', 'analysis'] },
+    { label: 'Purchase Reports', path: '/dashboard/reports/purchase', keywords: ['purchase', 'buy', 'report', 'analysis'] },
     { label: 'Billing', path: '/dashboard/billing', keywords: ['billing', 'bill', 'invoice', 'receipt'] },
     { label: 'Products', path: '/dashboard/inventory', keywords: ['inventory', 'stock', 'product', 'item'] },
     { label: 'Stock Reports', path: '/dashboard/reports/stock', keywords: ['stock', 'report', 'inventory'] },

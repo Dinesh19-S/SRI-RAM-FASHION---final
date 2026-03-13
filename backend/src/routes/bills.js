@@ -235,8 +235,22 @@ router.post('/', async (req, res) => {
 
             const discountAmount = (subtotal * toNumber(discount, 0)) / 100;
             const taxableAmount = subtotal - discountAmount;
-            const cgst = totalTax / 2;
-            const sgst = totalTax / 2;
+            
+            // Determine if it's Inter-state (IGST) or Intra-state (CGST + SGST)
+            // Tamilnadu code is '33'. If customer is outside TN, use IGST.
+            const isInterState = customer?.stateCode && customer.stateCode !== '33';
+            
+            let cgst = 0;
+            let sgst = 0;
+            let igst = 0;
+
+            if (isInterState) {
+                igst = totalTax;
+            } else {
+                cgst = totalTax / 2;
+                sgst = totalTax / 2;
+            }
+
             const grandTotal = taxableAmount + totalTax;
 
             createdBill = new Bill({
@@ -256,6 +270,7 @@ router.post('/', async (req, res) => {
                 taxableAmount,
                 cgst,
                 sgst,
+                igst,
                 totalTax,
                 grandTotal,
                 amountInWords: numberToWords(grandTotal),

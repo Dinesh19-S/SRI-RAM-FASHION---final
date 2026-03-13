@@ -209,6 +209,10 @@ router.get('/sales-report', async (req, res) => {
                     item: item.productName,
                     rate: item.price,
                     qty: item.quantity,
+                    taxableAmount: item.taxableAmount || (item.total - (item.gstAmount || 0)),
+                    cgst: (item.gstAmount || 0) / 2, // Approximating per item if not explicit
+                    sgst: (item.gstAmount || 0) / 2,
+                    igst: bill.igst > 0 ? (item.gstAmount || 0) : 0,
                     total: item.total
                 });
             });
@@ -248,9 +252,13 @@ router.get('/purchase-report', async (req, res) => {
                     date: entry.date.toISOString().split('T')[0],
                     invNo: entry.invoiceNumber,
                     item: item.particular,
-                    rate: item.rate,
-                    qty: item.quantity,
-                    total: item.total || (item.rate * item.quantity)
+                    rate: item.ratePerKg || item.rate,
+                    qty: item.weightKg || item.quantity,
+                    taxableAmount: (item.weightKg || item.quantity) * (item.ratePerKg || item.rate),
+                    cgst: item.cgst || 0,
+                    sgst: item.sgst || 0,
+                    igst: item.igst || 0,
+                    total: item.total || (item.weightKg || item.quantity) * (item.ratePerKg || item.rate)
                 });
             });
         });

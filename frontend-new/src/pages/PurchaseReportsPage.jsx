@@ -8,12 +8,12 @@ import { reportsAPI, emailAPI } from '../services/api';
 import { useToast } from '../components/common';
 import { formatDate } from '../utils/dateUtils';
 
-const SalesReportsPage = () => {
+const PurchaseReportsPage = () => {
     const toast = useToast();
     const { user } = useSelector((state) => state.auth);
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
-    const [customerSearch, setCustomerSearch] = useState('');
+    const [supplierSearch, setSupplierSearch] = useState('');
     const [invoiceNo, setInvoiceNo] = useState('');
     const [reportData, setReportData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -47,16 +47,16 @@ const SalesReportsPage = () => {
     const handleSearch = async () => {
         setIsLoading(true);
         try {
-            const response = await reportsAPI.getSalesReport({
+            const response = await reportsAPI.getPurchaseReport({
                 fromDate,
                 toDate,
-                customer: customerSearch,
+                supplier: supplierSearch,
                 invNo: invoiceNo
             });
             setReportData(response.data.data || []);
         } catch (error) {
-            console.error('Error fetching sales data:', error);
-            toast.error('Error loading sales data. Please try again.');
+            console.error('Error fetching purchase data:', error);
+            toast.error('Error loading purchase data. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -103,15 +103,15 @@ const SalesReportsPage = () => {
         // Note: rate is NOT summed as it's logically incorrect for a report total
 
         exportToExcelStyled({
-            title: 'Sales Report',
+            title: 'Purchase Report',
             businessName: 'Sri Ram Fashions',
             fromDate,
             toDate,
             columns,
             data: formattedData,
             totals: grandTotals,
-            filename: 'sales_report',
-            sheetName: 'Sales Report'
+            filename: 'purchase_report',
+            sheetName: 'Purchase Report'
         });
     };
 
@@ -130,11 +130,11 @@ const SalesReportsPage = () => {
             return;
         }
 
-        const toastId = toast.loading('Preparing sales report email...');
+        const toastId = toast.loading('Preparing purchase report email...');
         try {
             setIsSendingEmail(true);
             const response = await emailAPI.sendReport({
-                type: 'sales',
+                type: 'purchase',
                 fromDate,
                 toDate,
                 data: reportData
@@ -142,7 +142,7 @@ const SalesReportsPage = () => {
 
             if (response.data.success) {
                 toast.update(toastId, { 
-                    message: response.data.message || 'Sales report is being sent to admin', 
+                    message: response.data.message || 'Purchase report is being sent to admin', 
                     type: 'success',
                     duration: 5000 
                 });
@@ -173,8 +173,8 @@ const SalesReportsPage = () => {
                         <TrendingUp size={20} />
                     </div>
                     <div className="page-header-copy">
-                        <p className="page-header-kicker">Sales performance reports</p>
-                        <h1 className="page-header-title">Sales Reports</h1>
+                        <p className="page-header-kicker">Purchase inventory reports</p>
+                        <h1 className="page-header-title">Purchase Reports</h1>
                     </div>
                 </div>
             </div>
@@ -193,13 +193,13 @@ const SalesReportsPage = () => {
                     </div>
 
                     <div className="shrink-0 w-48">
-                        <label className="form-label">Customer</label>
+                        <label className="form-label">Supplier</label>
                         <input
                             type="text"
-                            placeholder="Customer name"
+                            placeholder="Supplier name"
                             className="form-input"
-                            value={customerSearch}
-                            onChange={(e) => setCustomerSearch(e.target.value)}
+                            value={supplierSearch}
+                            onChange={(e) => setSupplierSearch(e.target.value)}
                         />
                     </div>
 
@@ -227,7 +227,7 @@ const SalesReportsPage = () => {
                         <Search size={16} /> Search
                     </button>
 
-                    <button className="btn btn-secondary" onClick={() => { setCustomerSearch(''); setInvoiceNo(''); }}>
+                    <button className="btn btn-secondary" onClick={() => { setSupplierSearch(''); setInvoiceNo(''); }}>
                         <X size={16} /> Clear
                     </button>
 
@@ -259,7 +259,7 @@ const SalesReportsPage = () => {
             <div className="page-table-card print:shadow-none" id="printable-report">
                 <div className="p-6">
                     <ReportHeader
-                        reportTitle="Sales Report"
+                        reportTitle="Purchase Report"
                         fromDate={formatDate(fromDate)}
                         toDate={formatDate(toDate)}
                     />
@@ -308,7 +308,7 @@ const SalesReportsPage = () => {
                             ) : (
                                 <tr>
                                     <td colSpan="11" className="py-8 text-center text-gray-600 font-medium">
-                                        {isLoading ? 'Loading...' : 'No data available. Click SEARCH to load sales data.'}
+                                        {isLoading ? 'Loading...' : 'No data available. Click SEARCH to load purchase data.'}
                                     </td>
                                 </tr>
                             )}
@@ -321,7 +321,7 @@ const SalesReportsPage = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowInvoiceModal(false)}>
                     <div className="bg-white rounded-2xl shadow-2xl max-w-[230mm] w-full max-h-[95vh] overflow-hidden mx-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-                            <h3 className="text-lg font-semibold text-gray-900">Invoice View - Sales Report</h3>
+                            <h3 className="text-lg font-semibold text-gray-900">Invoice View - Purchase Report</h3>
                             <div className="flex items-center gap-2">
                                 <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors">
                                     <Printer size={16} /> Print
@@ -333,7 +333,7 @@ const SalesReportsPage = () => {
                         </div>
                         <div className="p-6 overflow-auto max-h-[calc(95vh-80px)]" style={{ backgroundColor: '#e5e5e5' }}>
                             <div className="bg-white mx-auto shadow-lg" style={{ width: '210mm', minHeight: '297mm', padding: '15mm', boxSizing: 'border-box' }}>
-                                <ReportHeader reportTitle="Sales Report" fromDate={formatDate(fromDate)} toDate={formatDate(toDate)} />
+                                <ReportHeader reportTitle="Purchase Report" fromDate={formatDate(fromDate)} toDate={formatDate(toDate)} />
                                 <table className="w-full border-collapse mt-4">
                                     <thead>
                                         <tr className="bg-gray-100 border-y-2 border-gray-300">
@@ -373,4 +373,4 @@ const SalesReportsPage = () => {
     );
 };
 
-export default SalesReportsPage;
+export default PurchaseReportsPage;

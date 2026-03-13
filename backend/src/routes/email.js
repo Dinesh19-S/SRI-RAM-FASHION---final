@@ -29,7 +29,19 @@ const uniqueRecipients = (values = []) => {
 
 const invalidRecipients = (recipients = []) => recipients.filter((entry) => !EMAIL_PATTERN.test(entry));
 
-const resolveRecipients = (req, ...fallbackSources) => {
+const resolveRecipients = (req, adminOnly = false, ...fallbackSources) => {
+    // If adminOnly is true, we ONLY send to the admin/email_user, ignoring req.body.to
+    if (adminOnly) {
+        const adminRecipients = uniqueRecipients([
+            process.env.ADMIN_EMAIL,
+            process.env.EMAIL_USER
+        ]);
+        return {
+            recipients: adminRecipients.filter((entry) => EMAIL_PATTERN.test(entry)),
+            invalidRecipients: invalidRecipients(adminRecipients)
+        };
+    }
+
     const requestedRecipients = uniqueRecipients(req.body?.to);
     const fallbackRecipients = uniqueRecipients([
         req.user?.email,
@@ -126,8 +138,8 @@ router.post('/daily-summary', async (req, res) => {
             });
         }
 
-        // Allow custom recipients or fallback to admin email
-        const { recipients, invalidRecipients: invalid } = resolveRecipients(req, process.env.ADMIN_EMAIL);
+        // Reports/Summaries are restricted to admin only by default for security
+        const { recipients, invalidRecipients: invalid } = resolveRecipients(req, true);
 
         if (recipients.length === 0) {
             return res.status(400).json({ success: false, message: buildMissingRecipientMessage(invalid) });
@@ -161,8 +173,8 @@ router.post('/send-report', async (req, res) => {
             });
         }
 
-        // Allow custom recipients or fallback to admin email
-        const { recipients, invalidRecipients: invalid } = resolveRecipients(req, process.env.ADMIN_EMAIL);
+        // Reports/Summaries are restricted to admin only by default for security
+        const { recipients, invalidRecipients: invalid } = resolveRecipients(req, true);
 
         if (recipients.length === 0) {
             return res.status(400).json({ success: false, message: buildMissingRecipientMessage(invalid) });

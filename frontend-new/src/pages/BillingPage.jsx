@@ -224,19 +224,54 @@ const BillingPage = () => {
     };
 
     const totals = useMemo(() => {
-        const subtotal = billItems.reduce((sum, item) => sum + (item.ratePerPack || item.price) * (item.noOfPacks || item.quantity), 0);
-        const discountAmount = (subtotal * discount) / 100;
+        let subtotal = 0;
+        let totalTax = 0;
+        let totalPacks = 0;
+
+        billItems.forEach(item => {
+            const itemPrice = toAmount(item.ratePerPack, toAmount(item.price, 0));
+            const itemQty = toAmount(item.noOfPacks, toAmount(item.quantity, 0));
+            const itemSubtotal = itemPrice * itemQty;
+            
+            subtotal += itemSubtotal;
+            totalPacks += Number(itemQty);
+
+            // Per-item tax calculation logic
+            const itemDiscountRate = toAmount(discount, 0);
+            const itemDiscount = (itemSubtotal * itemDiscountRate) / 100;
+            const itemTaxable = itemSubtotal - itemDiscount;
+            const itemGstRate = toAmount(item.gstRate, 5);
+            const itemTax = (itemTaxable * itemGstRate) / 100;
+            totalTax += itemTax;
+        });
+
+        const discountAmount = (subtotal * toAmount(discount, 0)) / 100;
         const taxableAmount = subtotal - discountAmount;
-        // CGST and SGST are 2.5% each for a total of 5% GST
-        const cgstRate = 2.5;
-        const sgstRate = 2.5;
-        const cgstAmount = (taxableAmount * cgstRate) / 100;
-        const sgstAmount = (taxableAmount * sgstRate) / 100;
-        const totalTax = cgstAmount + sgstAmount;
-        const totalPacks = billItems.reduce((sum, item) => sum + Number(item.noOfPacks || item.quantity), 0);
+        
+        // Determine if it's Inter-state (IGST) or Intra-state (CGST + SGST)
+        // Tamilnadu code is '33'.
+        const isInterState = customer?.stateCode && String(customer.stateCode) !== '33';
+        
+        let cgstAmount = 0;
+        let sgstAmount = 0;
+        let igstAmount = 0;
+
+        if (isInterState) {
+            igstAmount = totalTax;
+        } else {
+            cgstAmount = totalTax / 2;
+            sgstAmount = totalTax / 2;
+        }
+        
         const rawTotal = taxableAmount + totalTax;
         const grandTotal = Math.round(rawTotal);
         const roundOff = Number((grandTotal - rawTotal).toFixed(2));
+
+        // Aggregate GST rates for display
+        const firstGstRate = toAmount(billItems[0]?.gstRate, 5);
+        const cgstRate = isInterState ? 0 : firstGstRate / 2;
+        const sgstRate = isInterState ? 0 : firstGstRate / 2;
+        const igstRate = isInterState ? firstGstRate : 0;
 
         return {
             subtotal,
@@ -244,16 +279,18 @@ const BillingPage = () => {
             taxableAmount,
             cgstAmount,
             sgstAmount,
+            igstAmount,
             totalTax,
             grandTotal,
             totalPacks,
             roundOff,
             cgstRate,
-            sgstRate
+            sgstRate,
+            igstRate
         };
-    }, [billItems, discount]);
+    }, [billItems, discount, customer]);
 
-    const { subtotal, taxableAmount, cgstAmount, sgstAmount, totalTax, grandTotal, totalPacks, roundOff, cgstRate, sgstRate } = totals;
+    const { subtotal, taxableAmount, cgstAmount, sgstAmount, igstAmount, totalTax, grandTotal, totalPacks, roundOff, cgstRate, sgstRate, igstRate } = totals;
 
     const handleCreateBill = async () => {
         if (!customer.name || !customer.phone || billItems.length === 0) {
@@ -278,19 +315,28 @@ const BillingPage = () => {
                     state: customer.state,
                     stateCode: customer.stateCode
                 },
-                items: billItems.map(item => ({
-                    productId: item.productId,
-                    name: item.name,
-                    quantity: item.noOfPacks || item.quantity,
-                    price: item.price,
-                    ratePerPiece: item.ratePerPiece,
-                    pcsInPack: item.pcsInPack,
-                    ratePerPack: item.ratePerPack,
-                    sizesOrPieces: item.sizesOrPieces,
-                    hsnCode: item.hsnCode,
-                    gstRate: item.gstRate,
-                    total: (item.ratePerPack || item.price) * (item.noOfPacks || item.quantity)
-                })),
+                items: billItems.map(item => {
+                    const itemPrice = toAmount(item.ratePerPack, toAmount(item.price, 0));
+                    const itemQty = toAmount(item.noOfPacks, toAmount(item.quantity, 0));
+                    const itemSubtotal = itemPrice * itemQty;
+                    const itemDiscount = (itemSubtotal * toAmount(discount, 0)) / 100;
+                    const itemTaxable = itemSubtotal - itemDiscount;
+                    const itemGstAmount = (itemTaxable * toAmount(item.gstRate, 5)) / 100;
+
+                    return {
+                        productId: item.productId,
+                        name: item.name,
+                        quantity: itemQty,
+                        price: item.price,
+                        ratePerPiece: item.ratePerPiece,
+                        pcsInPack: item.pcsInPack,
+                        ratePerPack: item.ratePerPack,
+                        sizesOrPieces: item.sizesOrPieces,
+                        hsnCode: item.hsnCode,
+                        gstRate: item.gstRate,
+                        total: itemTaxable + itemGstAmount
+                    };
+                }),
                 transport,
                 fromDate,
                 toDate,
@@ -299,6 +345,7 @@ const BillingPage = () => {
                 taxableAmount,
                 cgst: cgstAmount,
                 sgst: sgstAmount,
+                igst: igstAmount,
                 totalTax,
                 roundOff,
                 grandTotal,

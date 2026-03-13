@@ -31,14 +31,25 @@ const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'
 const buildPurchaseBillItems = (items = []) => {
     let subtotal = 0;
     let totalWeight = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
 
     const billItems = items.map((item) => {
         const weightKg = parseFloat(item.weightKg) || 0;
         const ratePerKg = parseFloat(item.ratePerKg) || 0;
         const amount = weightKg * ratePerKg;
+        const gstRate = parseFloat(item.gstRate) || 0;
+        const cgst = parseFloat(item.cgst) || 0;
+        const sgst = parseFloat(item.sgst) || 0;
+        const igst = parseFloat(item.igst) || 0;
+        const total = parseFloat(item.total) || (amount + cgst + sgst + igst);
 
         subtotal += amount;
         totalWeight += weightKg;
+        totalCgst += cgst;
+        totalSgst += sgst;
+        totalIgst += igst;
 
         return {
             productName: item.particular,
@@ -48,19 +59,21 @@ const buildPurchaseBillItems = (items = []) => {
             weightKg,
             ratePerKg,
             hsnCode: item.hsnCode || '',
-            gstRate: 0,
-            gstAmount: 0,
-            discount: 0,
-            total: amount
+            gstRate,
+            cgst,
+            sgst,
+            igst,
+            total
         };
     });
 
-    return { billItems, subtotal, totalWeight };
+    return { billItems, subtotal, totalWeight, totalCgst, totalSgst, totalIgst };
 };
 
-const buildPurchaseBillPayload = ({ entry, items, subtotal, totalWeight }) => {
-    const grandTotal = Math.round(subtotal);
-    const roundOff = grandTotal - subtotal;
+const buildPurchaseBillPayload = ({ entry, items, subtotal, totalWeight, totalCgst, totalSgst, totalIgst }) => {
+    const totalTax = totalCgst + totalSgst + totalIgst;
+    const grandTotal = Math.round(subtotal + totalTax);
+    const roundOff = grandTotal - (subtotal + totalTax);
 
     return {
         billType: 'PURCHASE',
@@ -73,16 +86,17 @@ const buildPurchaseBillPayload = ({ entry, items, subtotal, totalWeight }) => {
             phone: entry.supplier.mobile || '',
             address: entry.supplier.address || '',
             gstin: entry.supplier.gstin || '',
-            state: 'Tamilnadu',
-            stateCode: '33'
+            state: entry.supplier.state || 'Tamilnadu',
+            stateCode: entry.supplier.stateCode || '33'
         },
         items,
         subtotal,
         discountAmount: 0,
         taxableAmount: subtotal,
-        cgst: 0,
-        sgst: 0,
-        totalTax: 0,
+        cgst: totalCgst,
+        sgst: totalSgst,
+        igst: totalIgst,
+        totalTax,
         grandTotal,
         roundOff,
         totalPacks: totalWeight,
@@ -178,12 +192,31 @@ router.post('/', async (req, res) => {
         await session.withTransaction(async () => {
             // Calculate totals
             let subtotal = 0;
+            let totalWeight = 0;
+            let totalCgst = 0;
+            let totalSgst = 0;
+            let totalIgst = 0;
+            const isInterState = supplier.stateCode && supplier.stateCode !== '33';
 
             const processedItems = items.map((item) => {
                 const weightKg = parseFloat(item.weightKg) || 0;
                 const ratePerKg = parseFloat(item.ratePerKg) || 0;
                 const amount = weightKg * ratePerKg;
+                const gstRate = parseFloat(item.gstRate) || 0;
+                
+                let cgst = 0, sgst = 0, igst = 0;
+                if (isInterState) {
+                    igst = (amount * gstRate) / 100;
+                } else {
+                    cgst = (amount * (gstRate / 2)) / 100;
+                    sgst = (amount * (gstRate / 2)) / 100;
+                }
+
                 subtotal += amount;
+                totalWeight += weightKg;
+                totalCgst += cgst;
+                totalSgst += sgst;
+                totalIgst += igst;
 
                 return {
                     particular: item.particular,
@@ -192,11 +225,16 @@ router.post('/', async (req, res) => {
                     weightKg,
                     ratePerKg,
                     amount,
-                    total: amount
+                    gstRate,
+                    cgst,
+                    sgst,
+                    igst,
+                    total: amount + cgst + sgst + igst
                 };
             });
 
-            const grandTotal = subtotal;
+            const totalTax = totalCgst + totalSgst + totalIgst;
+            const grandTotal = subtotal + totalTax;
 
             entry = new PurchaseEntry({
                 invoiceNumber,
@@ -205,10 +243,17 @@ router.post('/', async (req, res) => {
                     name: supplier.name || supplier,
                     mobile: supplier.mobile || '',
                     gstin: supplier.gstin || '',
-                    address: supplier.address || ''
+                    address: supplier.address || '',
+                    state: supplier.state || 'Tamilnadu',
+                    stateCode: supplier.stateCode || '33'
                 },
                 items: processedItems,
+                totalWeight,
                 subtotal,
+                totalCgst,
+                totalSgst,
+                totalIgst,
+                totalTax,
                 grandTotal,
                 notes
             });
@@ -218,28 +263,7 @@ router.post('/', async (req, res) => {
             const stockMovements = [];
             const billId = new mongoose.Types.ObjectId();
 
-            const { billItems, subtotal: billSubtotal, totalWeight } = buildPurchaseBillItems(entry.items);
-
-            // Increase stock for items that match products by name
-            for (const item of entry.items) {
-                const product = await Product.findOne({ name: { $regex: new RegExp(`^${item.particular}$`, 'i') } }).session(session);
-                if (product) {
-                    const previousStock = product.stock;
-                    product.stock += (item.weightKg || 0);
-                    await product.save({ session });
-
-                    stockMovements.push({
-                        product: product._id,
-                        type: 'in',
-                        quantity: item.weightKg || 0,
-                        previousStock: previousStock,
-                        newStock: product.stock,
-                        reason: `Purchased - Purchase Entry #${entry.invoiceNumber}`,
-                        reference: `bill:${billId.toString()}`,
-                        createdBy: req.user?.id
-                    });
-                }
-            }
+            const { billItems, subtotal: billSubtotal, totalWeight: billTotalWeight, totalCgst: billCgst, totalSgst: billSgst, totalIgst: billIgst } = buildPurchaseBillItems(entry.items);
 
             bill = new Bill({
                 _id: billId,
@@ -248,7 +272,10 @@ router.post('/', async (req, res) => {
                     entry,
                     items: billItems,
                     subtotal: billSubtotal,
-                    totalWeight
+                    totalWeight: billTotalWeight,
+                    totalCgst: billCgst,
+                    totalSgst: billSgst,
+                    totalIgst: billIgst
                 })
             });
 
@@ -295,10 +322,30 @@ router.put('/:id', async (req, res) => {
 
         if (items && items.length > 0) {
             let subtotal = 0;
+            let totalWeight = 0;
+            let totalCgst = 0;
+            let totalSgst = 0;
+            let totalIgst = 0;
+            const supplierStateCode = (supplier?.stateCode || existingEntry.supplier?.stateCode || '33');
+            const isInterState = supplierStateCode !== '33';
 
             const processedItems = items.map(item => {
                 const amount = (parseFloat(item.weightKg) || 0) * (parseFloat(item.ratePerKg) || 0);
+                const gstRate = parseFloat(item.gstRate) || 0;
+                
+                let cgst = 0, sgst = 0, igst = 0;
+                if (isInterState) {
+                    igst = (amount * gstRate) / 100;
+                } else {
+                    cgst = (amount * (gstRate / 2)) / 100;
+                    sgst = (amount * (gstRate / 2)) / 100;
+                }
+
                 subtotal += amount;
+                totalWeight += parseFloat(item.weightKg) || 0;
+                totalCgst += cgst;
+                totalSgst += sgst;
+                totalIgst += igst;
 
                 return {
                     particular: item.particular,
@@ -307,16 +354,26 @@ router.put('/:id', async (req, res) => {
                     weightKg: parseFloat(item.weightKg) || 0,
                     ratePerKg: parseFloat(item.ratePerKg) || 0,
                     amount,
-                    total: amount
+                    gstRate,
+                    cgst,
+                    sgst,
+                    igst,
+                    total: amount + cgst + sgst + igst
                 };
             });
 
-            const grandTotal = subtotal;
+            const totalTax = totalCgst + totalSgst + totalIgst;
+            const grandTotal = subtotal + totalTax;
 
             updateData = {
                 ...updateData,
                 items: processedItems,
+                totalWeight,
                 subtotal,
+                totalCgst,
+                totalSgst,
+                totalIgst,
+                totalTax,
                 grandTotal
             };
         }
@@ -330,12 +387,15 @@ router.put('/:id', async (req, res) => {
                 { new: true, session }
             );
 
-            const { billItems, subtotal: billSubtotal, totalWeight } = buildPurchaseBillItems(entry.items);
+            const { billItems, subtotal: billSubtotal, totalWeight: billTotalWeight, totalCgst: billCgst, totalSgst: billSgst, totalIgst: billIgst } = buildPurchaseBillItems(entry.items);
             const billPayload = buildPurchaseBillPayload({
                 entry,
                 items: billItems,
                 subtotal: billSubtotal,
-                totalWeight
+                totalWeight: billTotalWeight,
+                totalCgst: billCgst,
+                totalSgst: billSgst,
+                totalIgst: billIgst
             });
 
             const existingBill = await Bill.findOne({

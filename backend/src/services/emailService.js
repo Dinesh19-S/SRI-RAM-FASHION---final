@@ -68,10 +68,13 @@ const sendEmail = async (to, subject, html, attachments = []) => {
       const { data, error } = await resend.emails.send(emailPayload);
       if (error) {
         console.error('❌ Resend API error:', JSON.stringify(error));
+        if (error.name === 'sandbox_not_allowed' || error.message?.includes('sandbox')) {
+          console.warn('⚠️ Resend Sandbox detected. Falling back to SMTP for non-verified recipient.');
+        }
         // Fall through to SMTP
       } else {
         console.log('✅ Email sent via Resend:', data?.id);
-        return { success: true, messageId: data?.id };
+        return { success: true, messageId: data?.id, provider: 'resend' };
       }
     } catch (error) {
       console.error('❌ Resend exception:', error.message || error);

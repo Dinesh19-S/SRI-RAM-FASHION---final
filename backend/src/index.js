@@ -3,6 +3,7 @@ import cors from 'cors';
 import compression from 'compression';
 import 'dotenv/config';
 import mongoose from 'mongoose';
+import net from 'net';
 import bcrypt from 'bcryptjs';
 import User from './models/User.js';
 import Bill from './models/Bill.js';
@@ -181,6 +182,37 @@ const apiRouter = createApiRouter();
 app.use(API_BASES.legacy, apiRouter);
 app.use(API_BASES.versioned, apiRouter);
 
+// Helper function to check if a port is available
+const isPortAvailable = (port) => {
+    return new Promise((resolve) => {
+        const server = net.createServer();
+        server.once('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                resolve(false);
+            } else {
+                resolve(false);
+            }
+        });
+        server.once('listening', () => {
+            server.close();
+            resolve(true);
+        });
+        server.listen(port, '127.0.0.1');
+    });
+};
+
+// Helper function to find an available port
+const findAvailablePort = async (startPort = 5000, maxAttempts = 10) => {
+    for (let i = 0; i < maxAttempts; i++) {
+        const port = startPort + i;
+        const isAvailable = await isPortAvailable(port);
+        if (isAvailable) {
+            return port;
+        }
+    }
+    return null;
+};
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
@@ -212,8 +244,18 @@ const startServer = async () => {
 
         // On Vercel, we don't start the server manually; it's handled as a function
         if (process.env.VERCEL !== '1') {
-            const PORT = process.env.PORT || 5000;
+            const preferredPort = parseInt(process.env.PORT) || 5000;
+            const PORT = await findAvailablePort(preferredPort);
+            
+            if (!PORT) {
+                console.error(`ERROR: Could not find an available port starting from ${preferredPort}`);
+                process.exit(1);
+            }
+
             const server = app.listen(PORT, () => {
+                if (PORT !== preferredPort) {
+                    console.log(`⚠️  Port ${preferredPort} was in use, using port ${PORT} instead`);
+                }
                 console.log(`Server running on port ${PORT}`);
                 console.log(`API URL (legacy): http://localhost:${PORT}${API_BASES.legacy}`);
                 console.log(`API URL (v1): http://localhost:${PORT}${API_BASES.versioned}`);
@@ -221,15 +263,8 @@ const startServer = async () => {
             });
 
             server.on('error', (err) => {
-                if (err.code === 'EADDRINUSE') {
-                    console.error(`ERROR: Port ${PORT} is already in use.`);
-                    console.error(`Try running: netstat -aon | findstr :${PORT}`);
-                    console.error(`Or kill the process: taskkill /F /PID <PID_FROM_ABOVE>`);
-                    process.exit(1);
-                } else {
-                    console.error('Server error:', err);
-                    process.exit(1);
-                }
+                console.error('Server error:', err);
+                process.exit(1);
             });
         }
     } catch (err) {

@@ -56,7 +56,7 @@ const StockReportsPage = () => {
         }
     };
 
-    const handleExport = () => {
+    const handleExport = () => {
         if (reportData.length === 0) {
             toast.warning('No data to export');
             return;
@@ -72,10 +72,10 @@ const StockReportsPage = () => {
         ];
 
         const grandTotals = {
-            qty: reportData.reduce((sum, r) => sum + (r.qty || 0), 0),
-            rate: reportData.reduce((sum, r) => sum + (r.rate || 0), 0),
-            total: reportData.reduce((sum, r) => sum + (r.total || 0), 0)
+            qty: reportData.reduce((sum, r) => sum + (Number(r.qty) || 0), 0),
+            total: reportData.reduce((sum, r) => sum + (Number(r.total) || 0), 0)
         };
+        // Note: rate is NOT summed as it's logically incorrect for a report total
 
         exportToExcelStyled({
             title: 'Stock Report',
@@ -91,7 +91,6 @@ const StockReportsPage = () => {
     const handlePrint = () => {
         printReport('printable-report');
     };
-
     const handleEmail = async () => {
         if (reportData.length === 0) {
             toast.warning('No data to email');
