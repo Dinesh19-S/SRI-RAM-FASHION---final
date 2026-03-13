@@ -1,11 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET environment variable is required');
-}
-
+export const JWT_SECRET = process.env.JWT_SECRET;
 export const authenticateToken = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization || '';
