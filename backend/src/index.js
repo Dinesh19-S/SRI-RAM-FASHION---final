@@ -62,10 +62,18 @@ const corsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Request-Private-Network']
 };
 
 // Middleware
+app.use((req, res, next) => {
+    // Check if it's a preflight request asking for Private Network Access
+    if (req.method === 'OPTIONS' && req.headers['access-control-request-private-network']) {
+        res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    }
+    next();
+});
+
 app.use(compression());
 app.use(cors(corsOptions));
 app.use(express.json());
