@@ -7,17 +7,16 @@ const DEFAULT_REMOTE_API = 'https://sri-ram-fashion-backend.onrender.com/api/v1'
 const normalizeBaseUrl = (url) => String(url || '').replace(/\/+$/, '');
 
 const resolveApiUrl = () => {
+    // If running in production (e.g. Vercel), forcefully use the relative /api path
+    // This overrides any misconfigured VITE_API_URL environment variables
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        return normalizeBaseUrl(`${window.location.origin}/api`);
+    }
+
+    // Otherwise, allow environment variables or fallback to localhost
     const explicitUrl = import.meta.env.VITE_API_URL?.trim();
     if (explicitUrl) {
         return normalizeBaseUrl(explicitUrl);
-    }
-
-    if (import.meta.env.PROD) {
-        const useOriginApi = import.meta.env.VITE_API_USE_ORIGIN === 'true';
-        if (useOriginApi && typeof window !== 'undefined' && window.location.protocol !== 'file:') {
-            return normalizeBaseUrl(`${window.location.origin}${API_PREFIX}`);
-        }
-        return DEFAULT_REMOTE_API;
     }
 
     return normalizeBaseUrl(`http://localhost:5000${API_PREFIX}`);
