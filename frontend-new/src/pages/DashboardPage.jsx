@@ -25,7 +25,8 @@ const PRODUCT_COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '
 const EMPTY_STATS = { totalRevenue: 0, totalOrders: 0, totalCustomers: 0 };
 const EMPTY_ORDER_COUNTS = { pending: 0, confirmed: 0, delivered: 0, cancelled: 0 };
 const DASHBOARD_OVERVIEW_CACHE_KEY = 'srf:dashboard:overview:v1';
-const DASHBOARD_OVERVIEW_CACHE_TTL = 60 * 1000;
+const DASHBOARD_OVERVIEW_CACHE_TTL = 5 * 1000; // 5 seconds for real-time updates
+const REAL_TIME_REFRESH_INTERVAL = 30 * 1000; // Refresh data every 30 seconds
 
 // Isolated Clock component to prevent Dashboard-wide re-renders every second
 const DigitalClock = memo(() => {
@@ -169,8 +170,16 @@ const DashboardPage = () => {
 
         loadDashboardData();
 
+        // Set up real-time polling to refresh data periodically
+        const refreshInterval = setInterval(() => {
+            if (!isCancelled) {
+                loadDashboardData();
+            }
+        }, REAL_TIME_REFRESH_INTERVAL);
+
         return () => {
             isCancelled = true;
+            clearInterval(refreshInterval);
         };
     }, []);
 
@@ -199,8 +208,16 @@ const DashboardPage = () => {
 
         loadChartData();
 
+        // Refresh chart data in real-time
+        const chartRefreshInterval = setInterval(() => {
+            if (!isCancelled) {
+                loadChartData();
+            }
+        }, REAL_TIME_REFRESH_INTERVAL);
+
         return () => {
             isCancelled = true;
+            clearInterval(chartRefreshInterval);
         };
     }, [chartPeriod]);
 
