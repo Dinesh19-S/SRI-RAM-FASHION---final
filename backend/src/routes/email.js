@@ -126,12 +126,11 @@ router.post('/daily-summary', async (req, res) => {
             });
         }
 
-        // Force recipients to be the admin email only as per user request
-        const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
-        const recipients = [adminEmail].filter((e) => EMAIL_PATTERN.test(e));
+        // Allow custom recipients or fallback to admin email
+        const { recipients, invalidRecipients: invalid } = resolveRecipients(req, process.env.ADMIN_EMAIL);
 
         if (recipients.length === 0) {
-            return res.status(400).json({ success: false, message: 'No valid admin email configured' });
+            return res.status(400).json({ success: false, message: buildMissingRecipientMessage(invalid) });
         }
 
         // Trigger calculation and sending in background for speed
@@ -141,7 +140,8 @@ router.post('/daily-summary', async (req, res) => {
 
         res.json({
             success: true,
-            message: `Daily summary is being sent to ${formatRecipientList(recipients)}. You will receive it shortly.`,
+            invalidRecipients: invalid,
+            message: appendSkippedInvalidMessage(`Daily summary is being sent to ${formatRecipientList(recipients)}. You will receive it shortly.`, invalid),
             sentRecipients: recipients
         });
     } catch (error) {
@@ -161,12 +161,11 @@ router.post('/send-report', async (req, res) => {
             });
         }
 
-        // Force recipients to be the admin email only as per user request
-        const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
-        const recipients = [adminEmail].filter((e) => EMAIL_PATTERN.test(e));
+        // Allow custom recipients or fallback to admin email
+        const { recipients, invalidRecipients: invalid } = resolveRecipients(req, process.env.ADMIN_EMAIL);
 
         if (recipients.length === 0) {
-            return res.status(400).json({ success: false, message: 'No valid admin email configured' });
+            return res.status(400).json({ success: false, message: buildMissingRecipientMessage(invalid) });
         }
 
         const reportTitles = {
@@ -187,7 +186,8 @@ router.post('/send-report', async (req, res) => {
         res.json({
             success: true,
             message: `${title} is being processed and will be sent to ${formatRecipientList(recipients)} shortly.`,
-            sentRecipients: recipients
+            invalidRecipients: invalid,
+            message: appendSkippedInvalidMessage(`${title} is being processed and will be sent to ${formatRecipientList(recipients)} shortly.`, invalid)
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
