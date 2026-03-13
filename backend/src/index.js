@@ -206,6 +206,7 @@ if (process.env.VERCEL === '1') {
 const apiRouter = createApiRouter();
 app.use(API_BASES.legacy, apiRouter);
 app.use(API_BASES.versioned, apiRouter);
+app.use('/', apiRouter); // Fallback for Vercel serverless environment where prefix might be stripped
 
 // Error handling middleware
 app.use((err, req, res, next) => {
