@@ -26,7 +26,7 @@ import supplierRoutes from './routes/suppliers.js';
 import paymentRoutes from './routes/payments.js';
 import salesEntriesRoutes from './routes/salesEntries.js';
 import purchaseEntriesRoutes from './routes/purchaseEntries.js';
-import aiRoutes from './routes/ai.js';
+// import aiRoutes from './routes/ai.js'; // Commented out - AI services not available
 import emailRoutes from './routes/email.js';
 
 const app = express();
@@ -171,7 +171,7 @@ const createApiRouter = () => {
     router.use('/payments', authenticateToken, cacheMiddleware(cachePolicies.DYNAMIC), paymentRoutes);
     router.use('/sales-entries', authenticateToken, cacheMiddleware(cachePolicies.DYNAMIC), salesEntriesRoutes);
     router.use('/purchase-entries', authenticateToken, cacheMiddleware(cachePolicies.DYNAMIC), purchaseEntriesRoutes);
-    router.use('/ai', authenticateToken, aiRoutes);
+    // router.use('/ai', authenticateToken, aiRoutes); // Commented out - AI services not available
     router.use('/email', authenticateToken, emailRoutes);
 
     return router;
