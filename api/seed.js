@@ -62,18 +62,18 @@ const seedDatabase = async () => {
         console.log('Categories created');
 
         const products = await Product.insertMany([
-            { name: 'Banarasi Silk Saree - Red', sku: 'SAR001', category: categories[0]._id, mrp: 4500, sellingPrice: 3999, stock: 15, gstRate: 12, hsn: '5007', lowStockThreshold: 5 },
-            { name: 'Kanjivaram Silk Saree - Gold', sku: 'SAR002', category: categories[0]._id, mrp: 8500, sellingPrice: 7499, stock: 8, gstRate: 12, hsn: '5007', lowStockThreshold: 3 },
-            { name: 'Cotton Saree - Blue', sku: 'SAR003', category: categories[0]._id, mrp: 1800, sellingPrice: 1499, stock: 25, gstRate: 5, hsn: '5208', lowStockThreshold: 10 },
-            { name: 'Georgette Saree - Pink', sku: 'SAR004', category: categories[0]._id, mrp: 2500, sellingPrice: 2199, stock: 3, gstRate: 12, hsn: '5407', lowStockThreshold: 5 },
-            { name: 'Silk Kurta - Blue', sku: 'KUR001', category: categories[1]._id, mrp: 1200, sellingPrice: 999, stock: 30, gstRate: 12, hsn: '6206', lowStockThreshold: 8 },
-            { name: 'Cotton Kurta Set - White', sku: 'KUR002', category: categories[1]._id, mrp: 1500, sellingPrice: 1299, stock: 20, gstRate: 5, hsn: '6206', lowStockThreshold: 5 },
-            { name: 'Designer Kurta - Maroon', sku: 'KUR003', category: categories[1]._id, mrp: 2200, sellingPrice: 1899, stock: 4, gstRate: 12, hsn: '6206', lowStockThreshold: 5 },
-            { name: 'Bridal Lehenga - Red Gold', sku: 'LEH001', category: categories[2]._id, mrp: 25000, sellingPrice: 21999, stock: 5, gstRate: 12, hsn: '6204', lowStockThreshold: 2 },
-            { name: 'Party Lehenga - Purple', sku: 'LEH002', category: categories[2]._id, mrp: 8500, sellingPrice: 7499, stock: 7, gstRate: 12, hsn: '6204', lowStockThreshold: 3 },
-            { name: 'Chiffon Dupatta - Multi', sku: 'DUP001', category: categories[3]._id, mrp: 600, sellingPrice: 499, stock: 50, gstRate: 5, hsn: '6214', lowStockThreshold: 15 },
-            { name: 'Silk Dupatta - Gold', sku: 'DUP002', category: categories[3]._id, mrp: 1200, sellingPrice: 999, stock: 25, gstRate: 12, hsn: '6214', lowStockThreshold: 8 },
-            { name: 'Anarkali Suit - Green', sku: 'SUT001', category: categories[4]._id, mrp: 3500, sellingPrice: 2999, stock: 12, gstRate: 12, hsn: '6204', lowStockThreshold: 4 }
+            { name: 'Banarasi Silk Saree - Red', sku: 'SAR001', category: categories[0]._id, mrp: 4500, sellingPrice: 3999, stock: 15, gstRate: 12, hsn: '5007', lowStockThreshold: 5, isActive: true },
+            { name: 'Kanjivaram Silk Saree - Gold', sku: 'SAR002', category: categories[0]._id, mrp: 8500, sellingPrice: 7499, stock: 8, gstRate: 12, hsn: '5007', lowStockThreshold: 3, isActive: true },
+            { name: 'Cotton Saree - Blue', sku: 'SAR003', category: categories[0]._id, mrp: 1800, sellingPrice: 1499, stock: 25, gstRate: 5, hsn: '5208', lowStockThreshold: 10, isActive: true },
+            { name: 'Georgette Saree - Pink', sku: 'SAR004', category: categories[0]._id, mrp: 2500, sellingPrice: 2199, stock: 3, gstRate: 12, hsn: '5407', lowStockThreshold: 5, isActive: true },
+            { name: 'Silk Kurta - Blue', sku: 'KUR001', category: categories[1]._id, mrp: 1200, sellingPrice: 999, stock: 30, gstRate: 12, hsn: '6206', lowStockThreshold: 8, isActive: true },
+            { name: 'Cotton Kurta Set - White', sku: 'KUR002', category: categories[1]._id, mrp: 1500, sellingPrice: 1299, stock: 20, gstRate: 5, hsn: '6206', lowStockThreshold: 5, isActive: true },
+            { name: 'Designer Kurta - Maroon', sku: 'KUR003', category: categories[1]._id, mrp: 2200, sellingPrice: 1899, stock: 4, gstRate: 12, hsn: '6206', lowStockThreshold: 5, isActive: true },
+            { name: 'Bridal Lehenga - Red Gold', sku: 'LEH001', category: categories[2]._id, mrp: 25000, sellingPrice: 21999, stock: 5, gstRate: 12, hsn: '6204', lowStockThreshold: 2, isActive: true },
+            { name: 'Party Lehenga - Purple', sku: 'LEH002', category: categories[2]._id, mrp: 8500, sellingPrice: 7499, stock: 7, gstRate: 12, hsn: '6204', lowStockThreshold: 3, isActive: true },
+            { name: 'Chiffon Dupatta - Multi', sku: 'DUP001', category: categories[3]._id, mrp: 600, sellingPrice: 499, stock: 50, gstRate: 5, hsn: '6214', lowStockThreshold: 15, isActive: true },
+            { name: 'Silk Dupatta - Gold', sku: 'DUP002', category: categories[3]._id, mrp: 1200, sellingPrice: 999, stock: 25, gstRate: 12, hsn: '6214', lowStockThreshold: 8, isActive: true },
+            { name: 'Anarkali Suit - Green', sku: 'SUT001', category: categories[4]._id, mrp: 3500, sellingPrice: 2999, stock: 12, gstRate: 12, hsn: '6204', lowStockThreshold: 4, isActive: true }
         ]);
         console.log('Products created');
 
