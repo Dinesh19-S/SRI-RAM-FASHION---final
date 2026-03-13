@@ -6,15 +6,22 @@ const API_PREFIX = '/api/v1';
 const normalizeBaseUrl = (url) => String(url || '').replace(/\/+$/, '');
 
 const resolveApiUrl = () => {
-    // For production (Vercel, mobile, etc.), use Render backend
-    if (typeof window !== 'undefined') {
-        const isLocal = window.location.hostname === 'localhost' || 
-                       window.location.hostname === '127.0.0.1';
-        
-        if (!isLocal) {
-            // Production: Always use Render backend
-            return normalizeBaseUrl('https://sri-ram-fashion-final.onrender.com/api/v1');
-        }
+    // Prefer an explicit API host when provided (useful for local development or testing).
+    const explicitUrl = import.meta.env.VITE_API_URL?.trim();
+    if (explicitUrl) {
+        return normalizeBaseUrl(explicitUrl);
+    }
+
+    // If running in a browser and NOT on localhost, use the same origin + /api.
+    // This matches Vercel and other serverless environments where the API is hosted
+    // on the same domain as the frontend.
+    const isLocalHost = typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname === '::1');
+
+    if (typeof window !== 'undefined' && !isLocalHost) {
+        return normalizeBaseUrl(`${window.location.origin}/api`);
     }
 
     // Otherwise, allow environment variables or fallback to localhost

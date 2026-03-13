@@ -1,39 +1,42 @@
 {
-  "version": 2,
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
+    "version": 2,
+    "buildCommand": "npm run build",
+    "outputDirectory": "frontend-new/dist",
+    "installCommand": "npm install",
+    "headers": [
         {
-          "key": "Cross-Origin-Opener-Policy",
-          "value": "same-origin-allow-popups"
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin-allow-popups"
+                },
+                {
+                    "key": "Cross-Origin-Embedder-Policy",
+                    "value": "unsafe-none"
+                }
+            ]
+        }
+    ],
+    "functions": {
+        "api/index.js": {
+            "memory": 1024,
+            "maxDuration": 10
+        },
+        "api/ping.js": {}
+    },
+    "rewrites": [
+        {
+            "source": "/api/ping",
+            "destination": "/api/ping.js"
         },
         {
-          "key": "Cross-Origin-Embedder-Policy",
-          "value": "unsafe-none"
+            "source": "/api/:path*",
+            "destination": "/api/index.js"
+        },
+        {
+            "source": "/((?!api/).*)",
+            "destination": "/frontend-new/dist/index.html"
         }
-      ]
-    }
-  ],
-  "functions": {
-    "api/index.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    },
-    "api/ping.js": {}
-  },
-  "rewrites": [
-    {
-      "source": "/api/ping",
-      "destination": "/api/ping.js"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
-  ]
+    ]
 }
