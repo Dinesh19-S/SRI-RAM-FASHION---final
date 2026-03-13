@@ -6,9 +6,12 @@ const API_PREFIX = '/api/v1';
 const normalizeBaseUrl = (url) => String(url || '').replace(/\/+$/, '');
 
 const resolveApiUrl = () => {
-    // If running in production (e.g. Vercel), forcefully use the relative /api path
-    // This ensures Vercel's serverless functions are used instead of external backends like Render
-    if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost')) {
+    // If running in a browser and NOT on localhost, forcefully use the local /api
+    const isLocal = typeof window !== 'undefined' && 
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    if (typeof window !== 'undefined' && !isLocal) {
+        // This MUST be the current origin to avoid calling Render/legacy backends
         return normalizeBaseUrl(`${window.location.origin}/api`);
     }
 
