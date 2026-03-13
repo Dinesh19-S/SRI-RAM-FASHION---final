@@ -34,7 +34,7 @@ const REQUIRED_ENV_VARS = ['MONGODB_URI', 'JWT_SECRET'];
 
 const missingEnvVars = REQUIRED_ENV_VARS.filter((name) => !process.env[name]?.trim());
 if (missingEnvVars.length > 0) {
-    console.error(
+    console.warn(
         `[WARNING] Missing required environment variables: ${missingEnvVars.join(', ')}`
     );
 }
@@ -206,10 +206,11 @@ const apiRouter = createApiRouter();
 
 // Mount API router
 // In Vercel, requests are rewritten to this function. 
-// We handle both /api prefixed and root paths just in case.
+// We handle legacy, v1, and root paths to be as robust as possible.
 app.use('/api/v1', apiRouter);
 app.use('/api', apiRouter);
 app.use('/', apiRouter);
+app.use('/api/v1', apiRouter); // Redundant but safe fallback
 
 // Set debug header
 app.use((req, res, next) => {
