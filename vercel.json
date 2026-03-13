@@ -1,8 +1,6 @@
 {
     "version": 2,
-    "buildCommand": "npm run build",
     "outputDirectory": "dist",
-    "installCommand": "npm install",
     "headers": [
         {
             "source": "/(.*)",
@@ -20,18 +18,12 @@
     ],
     "rewrites": [
         {
-            "source": "/api/:path*",
+            "source": "/api/(.*)",
             "destination": "/api/index.js"
         },
         {
             "source": "/((?!api/).*)",
             "destination": "/index.html"
         }
-    ],
-    "functions": {
-        "api/index.js": {
-            "memory": 1024,
-            "maxDuration": 10
-        }
-    }
+    ]
 }
