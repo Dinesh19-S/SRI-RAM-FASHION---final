@@ -4,10 +4,10 @@
     "description": "Sri Ram Fashions App",
     "type": "module",
     "scripts": {
-        "start": "cd backend && npm start",
+        "start": "node api/index.js",
+        "dev": "nodemon api/index.js",
         "build": "cd frontend-new && npm install && npm run build -- --outDir ../dist",
-        "build:frontend": "cd frontend-new && npm install && npm run build",
-        "install:backend": "cd backend && npm install"
+        "build:frontend": "cd frontend-new && npm install && npm run build"
     },
     "dependencies": {
         "@google/generative-ai": "^0.24.1",
