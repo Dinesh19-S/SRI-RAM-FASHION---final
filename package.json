@@ -4,7 +4,7 @@
     "description": "Sri Ram Fashions App",
     "scripts": {
         "start": "cd backend && npm start",
-        "build": "cd backend && npm install && cd ../frontend-new && npm install --include=dev && npm run build",
+        "build": "cd backend && npm install && cd ../frontend-new && npm install && npm run build",
         "build:frontend": "cd frontend-new && npm install && npm run build",
         "install:backend": "cd backend && npm install"
     },
