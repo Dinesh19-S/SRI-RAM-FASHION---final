@@ -21,7 +21,7 @@
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "/vercel-api.js"
+            "destination": "/api/index.js"
         },
         {
             "source": "/((?!api/).*)",
@@ -29,7 +29,7 @@
         }
     ],
     "functions": {
-        "vercel-api.js": {
+        "api/index.js": {
             "memory": 1024,
             "maxDuration": 10
         }
