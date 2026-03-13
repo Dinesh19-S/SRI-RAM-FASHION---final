@@ -20,12 +20,8 @@
     ],
     "rewrites": [
         {
-            "source": "/api/v1/(.*)",
-            "destination": "/api/index.js"
-        },
-        {
             "source": "/api/(.*)",
-            "destination": "/api/index.js"
+            "destination": "/vercel-api.js"
         },
         {
             "source": "/((?!api/).*)",
@@ -33,7 +29,7 @@
         }
     ],
     "functions": {
-        "api/index.js": {
+        "vercel-api.js": {
             "memory": 1024,
             "maxDuration": 10
         }
