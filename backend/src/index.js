@@ -204,9 +204,33 @@ if (process.env.VERCEL === '1') {
 }
 
 const apiRouter = createApiRouter();
+
+// Robust routing for Vercel: Handle requests with and without /api prefix
+app.use((req, res, next) => {
+    // Debug header to see what path Express is receiving
+    res.set('X-Debug-Path', req.url);
+    
+    // If the path starts with /api/v1, strip it for the versioned router
+    if (req.url.startsWith('/api/v1')) {
+        req.url = req.url.replace('/api/v1', '');
+        if (!req.url.startsWith('/')) req.url = '/' + req.url;
+        return apiRouter(req, res, next);
+    }
+    
+    // If the path starts with /api, strip it for the legacy router
+    if (req.url.startsWith('/api')) {
+        req.url = req.url.replace('/api', '');
+        if (!req.url.startsWith('/')) req.url = '/' + req.url;
+        return apiRouter(req, res, next);
+    }
+    
+    next();
+});
+
+// Also mount normally just in case
 app.use(API_BASES.legacy, apiRouter);
 app.use(API_BASES.versioned, apiRouter);
-app.use('/', apiRouter); // Fallback for Vercel serverless environment where prefix might be stripped
+app.use('/', apiRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
