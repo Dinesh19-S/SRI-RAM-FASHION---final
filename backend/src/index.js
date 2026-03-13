@@ -62,12 +62,23 @@ const corsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Access-Control-Allow-Private-Network']
 };
 
 // Middleware
 app.use(compression());
 app.use(cors(corsOptions));
+
+// Custom CORS middleware to handle Private Network Access for all responses
+app.use((req, res, next) => {
+    const origin = req.get('origin');
+    if (!origin || origin === 'file://' || origin?.startsWith('capacitor://') || origin?.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
+        res.set('Access-Control-Allow-Private-Network', 'true');
+    }
+    next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -195,6 +195,11 @@ const api = axios.create({
 
 api.interceptors.request.use(
     (config) => {
+        // Add Private Network Access header for localhost/private network requests
+        if (API_URL.includes('localhost') || API_URL.includes('127.0.0.1') || API_URL.includes('192.168') || API_URL.includes('10.')) {
+            config.headers['Access-Control-Request-Private-Network'] = 'true';
+        }
+        
         if (!config.skipAuth) {
             const token = localStorage.getItem('token');
             if (token) {
