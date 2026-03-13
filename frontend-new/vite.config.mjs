@@ -10,7 +10,6 @@ export default defineConfig({
     entries: ['src/**/*.{js,jsx,ts,tsx}'],
   },
   build: {
-    outDir: '../dist',
     emptyOutDir: true,
     // Lower warning threshold from 600KB to 400KB to catch unoptimized chunks
     chunkSizeWarningLimit: 400,
