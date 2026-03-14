@@ -1,0 +1,9 @@
+android
+ios
+electron
+.gradle
+gradlew
+gradlew.bat
+gradle.properties
+*.md
+!README.md
