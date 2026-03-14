@@ -11,6 +11,11 @@ import { getEmailRecipientValidation, pickDefaultRecipient } from '../utils/emai
 
 const BILL_REFRESH_INTERVAL = 30 * 1000;
 
+const toAmount = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 const BillingPage = () => {
     const toast = useToast();
     const dispatch = useDispatch();
