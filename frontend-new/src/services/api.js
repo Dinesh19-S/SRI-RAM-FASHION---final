@@ -24,12 +24,6 @@ const resolveApiUrl = () => {
         return normalizeBaseUrl(`${window.location.origin}/api`);
     }
 
-    // Otherwise, allow environment variables or fallback to localhost
-    const explicitUrl = import.meta.env.VITE_API_URL?.trim();
-    if (explicitUrl) {
-        return normalizeBaseUrl(explicitUrl);
-    }
-
     // Local development
     return normalizeBaseUrl(`http://localhost:5000${API_PREFIX}`);
 };
