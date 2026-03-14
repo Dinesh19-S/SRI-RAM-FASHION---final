@@ -6,8 +6,7 @@
     "scripts": {
         "start": "node api/index.js",
         "dev": "nodemon api/index.js",
-        "build:frontend": "cd frontend-new && npm ci && npm run build",
-        "build": "npm run build:frontend"
+        "build": "cd frontend-new && npm ci && npm run build"
     },
     "dependencies": {
         "@google/generative-ai": "^0.24.1",
