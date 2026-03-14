@@ -1,7 +1,7 @@
 {
     "version": 2,
-    "buildCommand": "npm run build",
-    "outputDirectory": "dist",
+    "buildCommand": "cd frontend-new && npm install && npm run build",
+    "outputDirectory": "frontend-new/dist",
     "installCommand": "npm install",
     "headers": [
         {
@@ -36,7 +36,7 @@
         },
         {
             "source": "/((?!api/).*)",
-            "destination": "/dist/index.html"
+            "destination": "/frontend-new/dist/index.html"
         }
     ]
 }
