@@ -1,6 +1,6 @@
 {
     "version": 2,
-    "buildCommand": "cd frontend-new && npm install && npm run build",
+    "buildCommand": "npm run build:frontend",
     "outputDirectory": "frontend-new/dist",
     "installCommand": "npm install",
     "headers": [
