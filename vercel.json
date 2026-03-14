@@ -1,7 +1,7 @@
 {
     "version": 2,
-    "buildCommand": "npm run build",
-    "outputDirectory": "frontend-new/dist",
+    "buildCommand": "cd frontend-new && npm ci && npm run build && cd .. && cp -r frontend-new/dist ./dist",
+    "outputDirectory": "dist",
     "installCommand": "npm install",
     "headers": [
         {
