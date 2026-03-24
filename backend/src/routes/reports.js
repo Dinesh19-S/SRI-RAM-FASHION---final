@@ -182,7 +182,7 @@ router.get('/stock', async (req, res) => {
 // Sales report with detailed items
 router.get('/sales-report', async (req, res) => {
     try {
-        const { fromDate, toDate, customer } = req.query;
+        const { fromDate, toDate, customer, invNo } = req.query;
 
         const query = {};
         if (fromDate && toDate) {
@@ -190,6 +190,9 @@ router.get('/sales-report', async (req, res) => {
         }
         if (customer) {
             query['customer.name'] = { $regex: customer, $options: 'i' };
+        }
+        if (invNo) {
+            query.billNumber = { $regex: invNo, $options: 'i' };
         }
 
         const bills = await Bill.find(query)
@@ -206,6 +209,8 @@ router.get('/sales-report', async (req, res) => {
                     sno: sno++,
                     date: bill.date.toISOString().split('T')[0],
                     invNo: bill.billNumber,
+                    customerName: bill.customer?.name || '',
+                    gstin: bill.customer?.gstin || '',
                     item: item.productName,
                     rate: item.price,
                     qty: item.quantity,

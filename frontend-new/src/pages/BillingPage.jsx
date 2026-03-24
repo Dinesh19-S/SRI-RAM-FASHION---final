@@ -8,6 +8,7 @@ import BillTemplate from '../components/BillTemplate';
 import { customersAPI, emailAPI } from '../services/api';
 import { EmailActionModal, useToast } from '../components/common';
 import { getEmailRecipientValidation, pickDefaultRecipient } from '../utils/emailUtils';
+import { downloadInvoicePDF } from '../utils/invoiceGenerator';
 
 const BILL_REFRESH_INTERVAL = 30 * 1000;
 
@@ -222,6 +223,13 @@ const BillingPage = () => {
                 const updatedItem = { ...item, [field]: value };
                 // Keep quantity and noOfPacks in sync
                 if (field === 'noOfPacks') updatedItem.quantity = value;
+                // Auto-calculate ratePerPack = ratePerPiece × pcsInPack
+                if (field === 'ratePerPiece') {
+                    updatedItem.ratePerPack = value * (toAmount(updatedItem.pcsInPack, 1));
+                }
+                if (field === 'pcsInPack') {
+                    updatedItem.ratePerPack = toAmount(updatedItem.ratePerPiece, 0) * value;
+                }
                 return updatedItem;
             }
             return item;
@@ -401,7 +409,6 @@ const BillingPage = () => {
         try {
             const currentSettings = await ensureSettingsLoaded();
             if (!currentSettings) return;
-            const { downloadInvoicePDF } = await import('../utils/invoiceGenerator');
             await downloadInvoicePDF(bill, currentSettings);
             toast.success('PDF download started');
         } catch (error) {
@@ -459,7 +466,6 @@ const BillingPage = () => {
         if (selectedBill) {
             const currentSettings = await ensureSettingsLoaded();
             if (!currentSettings) return;
-            const { downloadInvoicePDF } = await import('../utils/invoiceGenerator');
             await downloadInvoicePDF(selectedBill, currentSettings);
         }
     };
@@ -828,7 +834,7 @@ const BillingPage = () => {
                                                                 <p className="text-xs text-gray-500">HSN: {item.hsnCode || 'N/A'}</p>
                                                             </div>
                                                             <div className="flex items-center gap-2">
-                                                                <p className="font-semibold">{formatCurrency((item.ratePerPack || item.price) * (item.noOfPacks || item.quantity))}</p>
+                                                                <p className="font-semibold">{formatCurrency(toAmount(item.ratePerPack, toAmount(item.price, 0)) * toAmount(item.noOfPacks, toAmount(item.quantity, 0)))}</p>
                                                                 <button
                                                                     type="button"
                                                                     className="w-8 h-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center"

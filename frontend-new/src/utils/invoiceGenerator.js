@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 
 // ==============================
 // Helpers
@@ -61,7 +61,7 @@ export const generateInvoicePDF = (bill, settings = {}) => {
     // Page dimensions
     const PW = 210;
     const PH = 297;
-    const M = 8;       // 8mm margin (from CSS @page { margin: 8mm })
+    const M = 5;       // 5mm margin - gives more space for content
     const W = PW - M * 2; // content width
     const H = PH - M * 2; // content height
 
@@ -148,14 +148,14 @@ export const generateInvoicePDF = (bill, settings = {}) => {
         ]
         : [
             { header: 'S.No', width: 0.05, align: 'center', value: (_, index) => `${index + 1}` },
-            { header: 'Product', width: 0.18, align: 'left', value: (item) => item.productName || item.name || '' },
+            { header: 'Product', width: 0.20, align: 'left', value: (item) => item.productName || item.name || '' },
             { header: 'HSN\nCode', width: 0.09, align: 'center', value: (item) => String(item.hsnCode || item.hsn || '') },
-            { header: 'Sizes/\nPieces', width: 0.10, align: 'center', value: (item) => String(item.sizesOrPieces || '') },
+            { header: 'Sizes/\nPieces', width: 0.09, align: 'center', value: (item) => String(item.sizesOrPieces || '') },
             { header: 'Rate Per\nPiece', width: 0.10, align: 'center', value: (item) => item.ratePerPiece ? `${item.ratePerPiece}` : '' },
             { header: 'Pcs in\nPack', width: 0.08, align: 'center', value: (item) => item.pcsInPack ? `${item.pcsInPack}` : '' },
-            { header: 'Rate Per\nPack', width: 0.11, align: 'center', value: (item) => `${toAmount(item.ratePerPack, toAmount(item.price))}` },
+            { header: 'Rate Per\nPack', width: 0.12, align: 'center', value: (item) => `${toAmount(item.ratePerPack, toAmount(item.price))}` },
             { header: 'No Of\nPacks', width: 0.09, align: 'center', value: (item) => `${toAmount(item.noOfPacks, toAmount(item.quantity))}` },
-            { header: 'Amount\nRs.', width: 0.20, align: 'center', value: (item) => `${toAmount(item.total, toAmount(item.ratePerPack, toAmount(item.price)) * toAmount(item.noOfPacks, toAmount(item.quantity)))}` }
+            { header: 'Amount\nRs.', width: 0.18, align: 'right', value: (item) => `${toAmount(item.total, toAmount(item.ratePerPack, toAmount(item.price)) * toAmount(item.noOfPacks, toAmount(item.quantity)))}` }
         ];
 
     // ===== Fixed section heights (mm) =====
@@ -171,7 +171,7 @@ export const generateInvoicePDF = (bill, settings = {}) => {
     const tableBodyH = H - fixedH;
 
     // Dynamic row height to fill remaining space
-    const minRows = Math.max(items.length, 10);
+    const minRows = Math.max(items.length, 15);
     const rowH = tableBodyH / minRows;
 
     // ===== Outer border (2px solid #333) =====
@@ -235,7 +235,7 @@ export const generateInvoicePDF = (bill, settings = {}) => {
 
     // Invoice details
     const detX = M + addrW + PX;
-    const detLabelW = 26;
+    const detLabelW = 32;   // wider so 'Invoice Number' fits without overflow
     let detY = row2Top + 4;
     const detRowH = 5;
 
@@ -458,14 +458,22 @@ export const generateInvoicePDF = (bill, settings = {}) => {
     // Right column: Tax breakdown
     const sRX = M + sumLeftW + sumMidW + PX;
     const sRW = sumRightW - PX * 2;
-    const taxRows = [
-        { label: 'Product Amt', value: productAmt.toFixed(2) },
-        { label: 'Discount', value: discount.toFixed(2) },
-        { label: 'Taxable Amt', value: taxableAmt.toFixed(2) },
-        { label: `CGST @ ${cgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: cgstAmt.toFixed(2), highlight: true },
-        { label: `SGST @ ${sgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: sgstAmt.toFixed(2), highlight: true },
-        { label: 'Round Off', value: roundOff.toFixed(2) }
-    ];
+    const taxRows = igstAmt > 0
+        ? [
+            { label: 'Product Amt', value: productAmt.toFixed(2) },
+            { label: 'Discount', value: discount.toFixed(2) },
+            { label: 'Taxable Amt', value: taxableAmt.toFixed(2) },
+            { label: `IGST @ ${(igstAmt > 0 && taxableAmt > 0 ? (igstAmt * 100 / taxableAmt) : 0).toFixed(2).replace(/\.00$/, '')}%`, value: igstAmt.toFixed(2), highlight: true },
+            { label: 'Round Off', value: roundOff.toFixed(2) }
+        ]
+        : [
+            { label: 'Product Amt', value: productAmt.toFixed(2) },
+            { label: 'Discount', value: discount.toFixed(2) },
+            { label: 'Taxable Amt', value: taxableAmt.toFixed(2) },
+            { label: `CGST @ ${cgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: cgstAmt.toFixed(2), highlight: true },
+            { label: `SGST @ ${sgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: sgstAmt.toFixed(2), highlight: true },
+            { label: 'Round Off', value: roundOff.toFixed(2) }
+        ];
     const rightTop = y + 4;
     const totalLineY = y + row6H - 8;
     const totalTextY = y + row6H - 3;

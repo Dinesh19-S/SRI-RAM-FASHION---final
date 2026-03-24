@@ -162,8 +162,10 @@ router.post('/', async (req, res) => {
 
             for (const item of items) {
                 const quantity = toNumber(item.quantity, toNumber(item.noOfPacks, 0));
-                const price = toNumber(item.price, 0);
-                const discountRate = toNumber(item.discount, 0);
+                // Use ratePerPack as the user-entered billing rate; fall back to item.price only if not provided
+                const price = toNumber(item.ratePerPack, toNumber(item.price, 0));
+                // Bill-level discount applied per item so GST is calculated on the discounted amount
+                const billDiscountRate = toNumber(discount, 0);
 
                 if (!item.productId) {
                     throw createHttpError(400, 'Each item must include productId');
@@ -185,10 +187,10 @@ router.post('/', async (req, res) => {
                 }
 
                 const itemSubtotal = price * quantity;
-                const itemDiscount = (itemSubtotal * discountRate) / 100;
-                const taxableAmount = itemSubtotal - itemDiscount;
+                const itemDiscount = (itemSubtotal * billDiscountRate) / 100;
+                const itemTaxable = itemSubtotal - itemDiscount;
                 const gstRate = toNumber(product.gstRate, 0);
-                const gstAmount = (taxableAmount * gstRate) / 100;
+                const gstAmount = (itemTaxable * gstRate) / 100;
 
                 processedItems.push({
                     product: product._id,
@@ -202,12 +204,13 @@ router.post('/', async (req, res) => {
                     price,
                     ratePerPiece: toNumber(item.ratePerPiece, price),
                     pcsInPack: toNumber(item.pcsInPack, 1),
-                    ratePerPack: toNumber(item.ratePerPack, price),
+                    ratePerPack: price,
                     noOfPacks: toNumber(item.noOfPacks, quantity),
-                    discount: discountRate,
+                    discount: billDiscountRate,
                     gstRate,
                     gstAmount,
-                    total: taxableAmount + gstAmount
+                    taxableAmount: itemTaxable,
+                    total: itemTaxable + gstAmount
                 });
 
                 subtotal += itemSubtotal;
@@ -235,11 +238,11 @@ router.post('/', async (req, res) => {
 
             const discountAmount = (subtotal * toNumber(discount, 0)) / 100;
             const taxableAmount = subtotal - discountAmount;
-            
+
             // Determine if it's Inter-state (IGST) or Intra-state (CGST + SGST)
             // Tamilnadu code is '33'. If customer is outside TN, use IGST.
             const isInterState = customer?.stateCode && customer.stateCode !== '33';
-            
+
             let cgst = 0;
             let sgst = 0;
             let igst = 0;
@@ -251,7 +254,9 @@ router.post('/', async (req, res) => {
                 sgst = totalTax / 2;
             }
 
-            const grandTotal = taxableAmount + totalTax;
+            const rawTotal = taxableAmount + totalTax;
+            const grandTotal = Math.round(rawTotal);
+            const roundOff = Number((grandTotal - rawTotal).toFixed(2));
 
             createdBill = new Bill({
                 _id: billId,
@@ -272,6 +277,7 @@ router.post('/', async (req, res) => {
                 sgst,
                 igst,
                 totalTax,
+                roundOff,
                 grandTotal,
                 amountInWords: numberToWords(grandTotal),
                 paymentMethod,

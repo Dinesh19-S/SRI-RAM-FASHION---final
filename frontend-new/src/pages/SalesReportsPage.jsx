@@ -72,6 +72,8 @@ const SalesReportsPage = () => {
             { key: 'sno', header: 'S.No', width: 8, align: 'left' },
             { key: 'date', header: 'Date', width: 14, align: 'left' },
             { key: 'invNo', header: 'Invoice No', width: 16, align: 'left' },
+            { key: 'customerName', header: 'Customer Name', width: 22, align: 'left' },
+            { key: 'gstin', header: 'GST No', width: 20, align: 'left' },
             { key: 'item', header: 'Item', width: 28, align: 'left' },
             { key: 'rate', header: 'Rate', width: 12, align: 'right' },
             { key: 'qty', header: 'Qty', width: 10, align: 'right' },
@@ -272,6 +274,8 @@ const SalesReportsPage = () => {
                                 <th className="print:text-black text-left py-2 px-4">S.No</th>
                                 <th className="print:text-black text-left py-2 px-4">Date</th>
                                 <th className="print:text-black text-left py-2 px-4">Inv No</th>
+                                <th className="print:text-black text-left py-2 px-4">Customer Name</th>
+                                <th className="print:text-black text-left py-2 px-4">GST No</th>
                                 <th className="print:text-black text-left py-2 px-4">Item</th>
                                 <th className="text-right print:text-black py-2 px-4">Rate</th>
                                 <th className="text-right print:text-black py-2 px-4">Qty</th>
@@ -290,6 +294,8 @@ const SalesReportsPage = () => {
                                             <td className="py-2 px-4 font-medium text-gray-900 print:text-black">{row.sno}</td>
                                             <td className="py-2 px-4 font-medium text-gray-900 print:text-black">{formatDate(row.date)}</td>
                                             <td className="py-2 px-4 font-medium text-gray-900 print:text-black">{row.invNo}</td>
+                                            <td className="py-2 px-4 font-medium text-gray-900 print:text-black">{row.customerName || '—'}</td>
+                                            <td className="py-2 px-4 font-medium text-gray-900 print:text-black">{row.gstin || '—'}</td>
                                             <td className="py-2 px-4 font-medium text-gray-900 print:text-black">{row.item}</td>
                                             <td className="py-2 px-4 text-right font-semibold text-gray-900 print:text-black">₹{row.rate}</td>
                                             <td className="py-2 px-4 text-right font-semibold text-gray-900 print:text-black">{row.qty}</td>
@@ -301,13 +307,13 @@ const SalesReportsPage = () => {
                                         </tr>
                                     ))}
                                     <tr className="bg-gray-100 border-t-2 border-gray-300">
-                                        <td colSpan="10" className="py-4 px-4 text-right font-bold text-gray-900 print:text-black">Grand Total:</td>
+                                        <td colSpan="12" className="py-4 px-4 text-right font-bold text-gray-900 print:text-black">Grand Total:</td>
                                         <td className="py-4 px-4 text-right font-bold text-blue-600 print:text-black text-lg">₹{reportData.reduce((sum, row) => sum + (row.total || (row.rate * row.qty)), 0).toLocaleString('en-IN')}</td>
                                     </tr>
                                 </>
                             ) : (
                                 <tr>
-                                    <td colSpan="11" className="py-8 text-center text-gray-600 font-medium">
+                                    <td colSpan="13" className="py-8 text-center text-gray-600 font-medium">
                                         {isLoading ? 'Loading...' : 'No data available. Click SEARCH to load sales data.'}
                                     </td>
                                 </tr>
@@ -340,6 +346,8 @@ const SalesReportsPage = () => {
                                             <th className="text-left py-3 px-3 font-bold text-gray-900 text-sm">S.No</th>
                                             <th className="text-left py-3 px-3 font-bold text-gray-900 text-sm">Date</th>
                                             <th className="text-left py-3 px-3 font-bold text-gray-900 text-sm">Inv No</th>
+                                            <th className="text-left py-3 px-3 font-bold text-gray-900 text-sm">Customer Name</th>
+                                            <th className="text-left py-3 px-3 font-bold text-gray-900 text-sm">GST No</th>
                                             <th className="text-left py-3 px-3 font-bold text-gray-900 text-sm">Item</th>
                                             <th className="text-right py-3 px-3 font-bold text-gray-900 text-sm">Rate</th>
                                             <th className="text-right py-3 px-3 font-bold text-gray-900 text-sm">Qty</th>
@@ -352,6 +360,8 @@ const SalesReportsPage = () => {
                                                 <td className="py-2 px-3 text-gray-900 text-sm">{row.sno}</td>
                                                 <td className="py-2 px-3 text-gray-900 text-sm">{formatDate(row.date)}</td>
                                                 <td className="py-2 px-3 text-gray-900 text-sm">{row.invNo}</td>
+                                                <td className="py-2 px-3 text-gray-900 text-sm">{row.customerName || '—'}</td>
+                                                <td className="py-2 px-3 text-gray-900 text-sm">{row.gstin || '—'}</td>
                                                 <td className="py-2 px-3 text-gray-900 text-sm">{row.item}</td>
                                                 <td className="py-2 px-3 text-right text-gray-900 text-sm">₹{row.rate}</td>
                                                 <td className="py-2 px-3 text-right text-gray-900 text-sm">{row.qty}</td>
@@ -359,7 +369,7 @@ const SalesReportsPage = () => {
                                             </tr>
                                         ))}
                                         <tr className="bg-gray-100 border-t-2 border-gray-300">
-                                            <td colSpan="6" className="py-3 px-3 text-right font-bold text-gray-900 text-sm">Grand Total:</td>
+                                            <td colSpan="8" className="py-3 px-3 text-right font-bold text-gray-900 text-sm">Grand Total:</td>
                                             <td className="py-3 px-3 text-right font-bold text-blue-600 text-sm">₹{reportData.reduce((sum, row) => sum + (row.total || (row.rate * row.qty)), 0).toLocaleString('en-IN')}</td>
                                         </tr>
                                     </tbody>

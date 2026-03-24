@@ -152,14 +152,14 @@ export const generateBillPDF = async (bill) => {
         ]
         : [
             { header: 'S.No', width: 0.05, align: 'center', value: (_, index) => `${index + 1}` },
-            { header: 'Product', width: 0.18, align: 'left', value: (item) => item.productName || item.name || '' },
+            { header: 'Product', width: 0.20, align: 'left', value: (item) => item.productName || item.name || '' },
             { header: 'HSN\nCode', width: 0.09, align: 'center', value: (item) => String(item.hsnCode || item.hsn || '') },
-            { header: 'Sizes/\nPieces', width: 0.10, align: 'center', value: (item) => String(item.sizesOrPieces || '') },
+            { header: 'Sizes/\nPieces', width: 0.09, align: 'center', value: (item) => String(item.sizesOrPieces || '') },
             { header: 'Rate Per\nPiece', width: 0.10, align: 'center', value: (item) => item.ratePerPiece ? `${item.ratePerPiece}` : '' },
             { header: 'Pcs in\nPack', width: 0.08, align: 'center', value: (item) => item.pcsInPack ? `${item.pcsInPack}` : '' },
-            { header: 'Rate Per\nPack', width: 0.11, align: 'center', value: (item) => `${toAmount(item.ratePerPack, toAmount(item.price))}` },
+            { header: 'Rate Per\nPack', width: 0.12, align: 'center', value: (item) => `${toAmount(item.ratePerPack, toAmount(item.price))}` },
             { header: 'No Of\nPacks', width: 0.09, align: 'center', value: (item) => `${toAmount(item.noOfPacks, toAmount(item.quantity))}` },
-            { header: 'Amount\nRs.', width: 0.20, align: 'center', value: (item) => `${toAmount(item.total, toAmount(item.ratePerPack, toAmount(item.price)) * toAmount(item.noOfPacks, toAmount(item.quantity)))}` }
+            { header: 'Amount\nRs.', width: 0.18, align: 'right', value: (item) => `${toAmount(item.total, toAmount(item.ratePerPack, toAmount(item.price)) * toAmount(item.noOfPacks, toAmount(item.quantity)))}` }
         ];
 
     // ===== Page dimensions =====
@@ -175,14 +175,14 @@ export const generateBillPDF = async (bill) => {
     const row3H = 22;   // TAX INVOICE title
     const row4H = 56;   // Buyer / Consignee
     const thH = 26;     // Table header row
-    const row6H = 80;   // Summary section
-    const row7H = 85;   // Footer (terms + bank + certification)
+    const row6H = 100;  // Summary section (increased for readable tax breakdown)
+    const row7H = 95;   // Footer (increased for readable bank details)
 
     const fixedH = row1H + row2H + row3H + row4H + thH + row6H + row7H;
     const tableBodyH = H - fixedH; // Remaining height for table data rows
 
     // Dynamic row height: fill the entire table body
-    const minRows = Math.max(items.length, 10);
+    const minRows = Math.max(items.length, 15);
     const rowH = Math.floor(tableBodyH / minRows);
 
     const doc = new PDFDocument({
@@ -459,13 +459,13 @@ export const generateBillPDF = async (bill) => {
     doc.font('Helvetica-Bold').fontSize(11).fillColor(BLACK);
     doc.text(`${numBundles}`, sMX + sMW * 0.7, y + 8, { width: sMW * 0.3, align: 'right' });
 
-    const gstBoxY = y + row6H - 32;
-    const gstBoxH = 24;
+    const gstBoxY = y + row6H - 38;
+    const gstBoxH = 28;
     doc.lineWidth(2).rect(sMX, gstBoxY, sMW, gstBoxH).stroke(RED);
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(RED);
-    doc.text('TOTAL GST', sMX + 8, gstBoxY + 7, { width: sMW * 0.5 });
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(RED);
-    doc.text(`${totalGst.toFixed(0)}`, sMX + sMW * 0.5, gstBoxY + 5, { width: sMW * 0.45, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(RED);
+    doc.text('TOTAL GST', sMX + 8, gstBoxY + 8, { width: sMW * 0.5 });
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(RED);
+    doc.text(`${totalGst.toFixed(0)}`, sMX + sMW * 0.5, gstBoxY + 7, { width: sMW * 0.45, align: 'right' });
 
     // Right column - Tax breakdown
     const sRX = M + sumLeftW + sumMidW + 14;
@@ -486,23 +486,26 @@ export const generateBillPDF = async (bill) => {
 
     taxRows.push({ label: 'Round Off', value: roundOff.toFixed(2) });
     const rightTop = y + 8;
-    const totalLineY = y + row6H - 20;
-    const totalTextY = y + row6H - 10;
-    const taxRowGap = (totalLineY - rightTop - 2) / Math.max(taxRows.length - 1, 1);
+    const totalLineY = y + row6H - 22;
+    const totalTextY = y + row6H - 11;
+    const taxRowCount = taxRows.length;
+    const availH = totalLineY - rightTop - 2;
+    const taxRowGap = taxCount => availH / Math.max(taxCount - 1, 1);
+    const gap = taxRowGap(taxRowCount);
 
     taxRows.forEach((row, index) => {
-        const rowY = rightTop + (taxRowGap * index);
+        const rowY = rightTop + (gap * index);
         const color = row.highlight ? RED : BLACK;
         const fontWeight = row.highlight ? 'Helvetica-Bold' : 'Helvetica';
 
-        doc.font(fontWeight).fontSize(8.6).fillColor(color);
+        doc.font(fontWeight).fontSize(9).fillColor(color);
         doc.text(row.label, sRX, rowY, { width: sRW * 0.58 });
-        doc.font('Helvetica-Bold').fontSize(8.6).fillColor(color);
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(color);
         doc.text(row.value, sRX + sRW * 0.58, rowY, { width: sRW * 0.42, align: 'right' });
     });
 
     doc.lineWidth(1.5).moveTo(sRX - 4, totalLineY).lineTo(sRX + sRW + 4, totalLineY).stroke(BLACK);
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(BLACK);
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(BLACK);
     doc.text('Total Amt', sRX, totalTextY, { width: sRW * 0.58 });
     doc.text(`${totalAmt.toFixed(2)}`, sRX + sRW * 0.58, totalTextY, { width: sRW * 0.42, align: 'right' });
 
@@ -532,32 +535,32 @@ export const generateBillPDF = async (bill) => {
     );
 
     // Bank box
-    const bankBoxY = y + 42;
+    const bankBoxY = y + 44;
     const bankBoxW = footLeftW - 28;
-    const bankBoxH = 34;
+    const bankBoxH = 40;
     doc.rect(fLX, bankBoxY, bankBoxW, bankBoxH).fill('#fffbe6');
     doc.lineWidth(1.5).rect(fLX, bankBoxY, bankBoxW, bankBoxH).stroke('#d4a017');
 
-    doc.font('Helvetica-Bold').fontSize(8).fillColor(RED);
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(RED);
     doc.text('Bank Details:', fLX + 8, bankBoxY + 5, { underline: true });
-    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(BLUE);
-    doc.text(`ACC NAME: ${bankAccName}`, fLX + 8, bankBoxY + 14, { width: bankBoxW - 16 });
-    doc.text(`BANK: ${bankName}`, fLX + 8, bankBoxY + 20, { width: bankBoxW - 16 });
-    doc.text(`ACC NUM: ${bankAccount} | BRANCH: ${bankBranch} | IFSC: ${bankIfsc}`, fLX + 8, bankBoxY + 27, { width: bankBoxW - 16 });
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(BLUE);
+    doc.text(`ACC NAME: ${bankAccName}`, fLX + 8, bankBoxY + 16, { width: bankBoxW - 16 });
+    doc.text(`BANK: ${bankName}`, fLX + 8, bankBoxY + 25, { width: bankBoxW - 16 });
+    doc.text(`ACC NUM: ${bankAccount} | BRANCH: ${bankBranch} | IFSC: ${bankIfsc}`, fLX + 8, bankBoxY + 33, { width: bankBoxW - 16 });
 
     // Right: Certification + Signature
     const fRX = M + footLeftW + 14;
     const fRW = footRightW - 28;
 
-    doc.font('Helvetica-Oblique').fontSize(9).fillColor(GRAY_BORDER);
-    doc.text('Certified that above particulars are true\nand correct', fRX, y + 16, {
+    doc.font('Helvetica-Oblique').fontSize(9.5).fillColor(GRAY_BORDER);
+    doc.text('Certified that above particulars are true\nand correct', fRX, y + 18, {
         width: fRW,
         align: 'center',
-        lineGap: 2
+        lineGap: 3
     });
 
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(BLUE);
-    doc.text(`For ${companyName}`, fRX, y + 56, {
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(BLUE);
+    doc.text(`For ${companyName}`, fRX, y + 65, {
         width: fRW,
         align: 'center'
     });
