@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Package, Plus, Search, Edit, Trash2, X, Save, FolderPlus } from 'lucide-react';
-import { productsAPI, categoriesAPI } from '../services/api';
+import { productsAPI, categoriesAPI, clearAPICache } from '../services/api';
 import { useToast } from '../components/common';
 
 const ItemsPage = () => {
@@ -18,6 +18,8 @@ const ItemsPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
     const [newCategory, setNewCategory] = useState({ name: '', description: '' });
+    // Counter to force a refetch after data mutations (save/delete/search)
+    const [refreshKey, setRefreshKey] = useState(0);
 
     // Full product form data (without SKU)
     const [formData, setFormData] = useState({
@@ -33,10 +35,11 @@ const ItemsPage = () => {
         description: ''
     });
 
+    // Fetch items whenever page, limit, or refreshKey changes
     useEffect(() => {
         fetchItems();
         fetchCategories();
-    }, [pagination.page, pagination.limit]);
+    }, [pagination.page, pagination.limit, refreshKey]);
 
     const fetchItems = async () => {
         setIsLoading(true);
@@ -70,8 +73,10 @@ const ItemsPage = () => {
     };
 
     const handleSearch = () => {
+        // Clear stale cache and trigger a fresh fetch via refreshKey
+        clearAPICache();
         setPagination(prev => ({ ...prev, page: 1 }));
-        fetchItems();
+        setRefreshKey(prev => prev + 1);
     };
 
     const handleCategoryChange = (e) => {
@@ -182,7 +187,9 @@ const ItemsPage = () => {
             }
             setShowModal(false);
             resetForm();
-            fetchItems();
+            // Force fresh data fetch after mutation
+            clearAPICache();
+            setRefreshKey(prev => prev + 1);
         } catch (error) {
             toast.error('Error saving product: ' + (error.response?.data?.message || error.message));
         } finally {
@@ -201,7 +208,9 @@ const ItemsPage = () => {
             toast.success('Product deleted successfully');
             setShowDeleteConfirm(false);
             setSelectedItem(null);
-            fetchItems();
+            // Force fresh data fetch after mutation
+            clearAPICache();
+            setRefreshKey(prev => prev + 1);
         } catch (error) {
             toast.error('Error deleting product: ' + (error.response?.data?.message || error.message));
         }
@@ -274,7 +283,7 @@ const ItemsPage = () => {
                         Search
                     </button>
                     <button
-                        onClick={() => { setSearchName(''); setSearchHSN(''); fetchItems(); }}
+                        onClick={() => { setSearchName(''); setSearchHSN(''); clearAPICache(); setRefreshKey(prev => prev + 1); }}
                         className="btn btn-ghost"
                     >
                         <X size={16} />

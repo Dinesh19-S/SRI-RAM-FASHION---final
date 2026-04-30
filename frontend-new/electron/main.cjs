@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, Tray, shell, dialog, session } = require('electron');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock();
@@ -34,7 +35,7 @@ function createWindow() {
         backgroundColor: '#f8fafc',
         show: false, // Show when ready to prevent flash
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
+            preload: path.join(__dirname, 'preload.cjs'),
             nodeIntegration: false,
             contextIsolation: true,
             devTools: !app.isPackaged,
@@ -49,18 +50,29 @@ function createWindow() {
 
     // Set Content Security Policy to fix Electron security warning
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        const isDev = !app.isPackaged;
+        const csp = isDev
+            ? // Dev: allow Vite HMR inline scripts & eval for source maps
+              "default-src 'self' http://localhost:* https://*.mongodb.net; " +
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.gstatic.com; " +
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
+              "font-src 'self' https://fonts.gstatic.com data:; " +
+              "img-src 'self' data: blob: https:; " +
+              "frame-src 'self' https://accounts.google.com; " +
+              "connect-src 'self' http://localhost:* https://*.mongodb.net https://*.googleapis.com https://accounts.google.com ws://localhost:*;"
+            : // Production: strict CSP without unsafe-eval
+              "default-src 'self' https://*.mongodb.net; " +
+              "script-src 'self' 'unsafe-inline' https://accounts.google.com https://*.gstatic.com; " +
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
+              "font-src 'self' https://fonts.gstatic.com data:; " +
+              "img-src 'self' data: blob: https:; " +
+              "frame-src 'self' https://accounts.google.com; " +
+              "connect-src 'self' https://*.mongodb.net https://*.googleapis.com https://accounts.google.com;";
+
         callback({
             responseHeaders: {
                 ...details.responseHeaders,
-                'Content-Security-Policy': [
-                    "default-src 'self' http://localhost:* https://*.mongodb.net; " +
-                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.gstatic.com; " +
-                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
-                    "font-src 'self' https://fonts.gstatic.com data:; " +
-                    "img-src 'self' data: blob: https:; " +
-                    "frame-src 'self' https://accounts.google.com; " +
-                    "connect-src 'self' http://localhost:* https://*.mongodb.net https://*.googleapis.com https://accounts.google.com ws://localhost:*;"
-                ]
+                'Content-Security-Policy': [csp]
             }
         });
     });
@@ -211,13 +223,20 @@ function createAppMenu() {
             label: 'Help',
             submenu: [
                 {
+                    label: 'Check for Updates...',
+                    click: () => {
+                        autoUpdater.checkForUpdates();
+                    },
+                },
+                { type: 'separator' },
+                {
                     label: 'About Sri Ram Fashions',
                     click: () => {
                         dialog.showMessageBox(mainWindow, {
                             type: 'info',
                             title: 'About',
                             message: 'Sri Ram Fashions',
-                            detail: 'Business Management Desktop Application\nVersion 1.0.0\n\n© 2026 Sri Ram Fashions, Tirupur',
+                            detail: `Business Management Desktop Application\nVersion ${app.getVersion()}\n\n© 2026 Sri Ram Fashions, Tirupur`,
                         });
                     },
                 },
@@ -229,11 +248,82 @@ function createAppMenu() {
     Menu.setApplicationMenu(menu);
 }
 
+// ─── Auto-Updater Setup ─────────────────────────────────────
+function setupAutoUpdater() {
+    // Only check for updates in packaged (production) builds
+    if (!app.isPackaged) return;
+
+    // Configure updater
+    autoUpdater.autoDownload = false;       // Ask user before downloading
+    autoUpdater.autoInstallOnAppQuit = true; // Install update when app quits
+
+    // Update available — ask user if they want to download
+    autoUpdater.on('update-available', (info) => {
+        dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            title: 'Update Available',
+            message: `A new version (v${info.version}) is available!`,
+            detail: 'Would you like to download it now?',
+            buttons: ['Download', 'Later'],
+            defaultId: 0,
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.downloadUpdate();
+            }
+        });
+    });
+
+    // No update available
+    autoUpdater.on('update-not-available', () => {
+        // Silent on auto-check; only show dialog on manual check
+    });
+
+    // Download progress
+    autoUpdater.on('download-progress', (progress) => {
+        if (mainWindow) {
+            mainWindow.setProgressBar(progress.percent / 100);
+            mainWindow.setTitle(`Sri Ram Fashions — Downloading update ${Math.round(progress.percent)}%`);
+        }
+    });
+
+    // Download complete — prompt to restart
+    autoUpdater.on('update-downloaded', () => {
+        if (mainWindow) {
+            mainWindow.setProgressBar(-1); // Remove progress bar
+            mainWindow.setTitle('Sri Ram Fashions');
+        }
+        dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            title: 'Update Ready',
+            message: 'Update downloaded successfully!',
+            detail: 'The application will restart to install the update.',
+            buttons: ['Restart Now', 'Later'],
+            defaultId: 0,
+        }).then((result) => {
+            if (result.response === 0) {
+                app.isQuitting = true;
+                autoUpdater.quitAndInstall();
+            }
+        });
+    });
+
+    // Error handling
+    autoUpdater.on('error', (err) => {
+        console.error('Auto-updater error:', err);
+    });
+
+    // Check for updates after a short delay (give the app time to fully load)
+    setTimeout(() => {
+        autoUpdater.checkForUpdates();
+    }, 5000);
+}
+
 // App lifecycle
 app.whenReady().then(() => {
     createAppMenu();
     createWindow();
     createTray();
+    setupAutoUpdater();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {

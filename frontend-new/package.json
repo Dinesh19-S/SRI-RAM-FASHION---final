@@ -5,7 +5,7 @@
     "description": "Sri Ram Fashions Business Management Web Application",
     "type": "module",
     "author": "Sri Ram Fashions",
-    "main": "electron/main.js",
+    "main": "electron/main.cjs",
     "scripts": {
         "dev": "vite",
         "build": "npx vite build",
@@ -28,8 +28,12 @@
         "@react-oauth/google": "^0.12.2",
         "@reduxjs/toolkit": "^2.11.1",
         "@tailwindcss/vite": "^4.1.17",
+        "@vitejs/plugin-react": "^5.1.1",
+        "@vitejs/plugin-react-swc": "^4.2.3",
         "axios": "^1.13.2",
         "core-util-is": "^1.0.3",
+        "cross-env": "^10.1.0",
+        "electron-updater": "^6.8.3",
         "exceljs": "^4.4.0",
         "file-saver": "^2.0.5",
         "framer-motion": "^12.23.26",
@@ -44,11 +48,8 @@
         "react-router-dom": "^7.10.1",
         "recharts": "^3.5.1",
         "tailwindcss": "^4.1.17",
-        "xlsx": "^0.18.5",
         "vite": "^7.2.4",
-        "@vitejs/plugin-react-swc": "^4.2.3",
-        "@vitejs/plugin-react": "^5.1.1",
-        "cross-env": "^10.1.0"
+        "xlsx": "^0.18.5"
     },
     "devDependencies": {
         "@eslint/js": "^9.39.1",
@@ -75,7 +76,7 @@
         },
         "files": [
             "dist/**/*",
-            "electron/**/*"
+            "electron/**/*.cjs"
         ],
         "win": {
             "target": [
@@ -96,6 +97,11 @@
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
             "shortcutName": "Sri Ram Fashions"
+        },
+        "publish": {
+            "provider": "github",
+            "owner": "Dinesh19-S",
+            "repo": "SRI-RAM-FASHION---final"
         }
     }
 }
