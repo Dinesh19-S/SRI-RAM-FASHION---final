@@ -110,11 +110,38 @@ const billSchema = new mongoose.Schema({
         default: 'cash'
     },
     paymentDetails: {
+        // Common fields
+        payerName: String,
+        transactionRefId: String,
+        notes: String,
+        
+        // Card specific
+        cardType: String,
+        last4Digits: String,
+        authCode: String,
+        
+        // UPI specific
+        utrNumber: String,
         upiId: String,
+        appName: String,
+        
+        // Net Banking specific
+        accountHolderName: String,
+        gatewayName: String,
         transactionId: String,
-        bankName: String,
+        
+        // Cash specific
+        receivedBy: String,
+        receiptNumber: String,
+        location: String,
+        
+        // Cheque specific
         chequeNumber: String,
         chequeDate: Date,
+        clearingStatus: String,
+        
+        // Shared/Legacy compatibility
+        bankName: String,
         accountNumber: String,
         referenceNote: String
     },

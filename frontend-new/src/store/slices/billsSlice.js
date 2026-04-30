@@ -40,9 +40,9 @@ export const fetchBillById = createAsyncThunk(
 
 export const updateBillStatus = createAsyncThunk(
     'bills/updateStatus',
-    async ({ id, status }, { rejectWithValue }) => {
+    async ({ id, status, data = {} }, { rejectWithValue }) => {
         try {
-            const response = await billsAPI.update(id, { paymentStatus: status });
+            const response = await billsAPI.update(id, { paymentStatus: status, ...data });
             return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update bill');

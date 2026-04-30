@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchBills, createBill, deleteBill } from '../store/slices/billsSlice';
+import { fetchBills, createBill, deleteBill, updateBillStatus } from '../store/slices/billsSlice';
 import { fetchProducts } from '../store/slices/productsSlice';
 import { fetchSettings } from '../store/slices/settingsSlice';
 import { Plus, Search, Printer, Eye, Trash2, X, FileText, Download, Users, Receipt, Mail } from 'lucide-react';
@@ -62,21 +62,43 @@ const BillingPage = () => {
     const [toDate, setToDate] = useState('');
     const [billItems, setBillItems] = useState([]);
     const [discount, setDiscount] = useState(0);
-    const [paymentMethod, setPaymentMethod] = useState('cash');
-    const [billPaymentStatus, setBillPaymentStatus] = useState('pending');
-    const [paymentDetails, setPaymentDetails] = useState({
+    const EMPTY_PAYMENT_DETAILS = {
+        payerName: '',
+        transactionRefId: '',
+        notes: '',
+        cardType: '',
+        last4Digits: '',
+        authCode: '',
+        utrNumber: '',
         upiId: '',
-        transactionId: '',
+        appName: '',
         bankName: '',
+        accountHolderName: '',
+        gatewayName: '',
+        transactionId: '',
+        receivedBy: '',
+        receiptNumber: '',
+        location: '',
         chequeNumber: '',
         chequeDate: '',
         accountNumber: '',
+        clearingStatus: 'pending',
         referenceNote: ''
-    });
+    };
+
+    const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [billPaymentStatus, setBillPaymentStatus] = useState('pending');
+    const [paymentDetails, setPaymentDetails] = useState(EMPTY_PAYMENT_DETAILS);
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerSuggestions, setCustomerSuggestions] = useState([]);
     const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
     const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
+    
+    // Status update states
+    const [showStatusUpdateModal, setShowStatusUpdateModal] = useState(false);
+    const [statusUpdateBill, setStatusUpdateBill] = useState(null);
+    const [statusUpdateMethod, setStatusUpdateMethod] = useState('cash');
+    const [statusUpdateDetails, setStatusUpdateDetails] = useState(EMPTY_PAYMENT_DETAILS);
     const TAMIL_NADU_DISTRICTS = [
         'Ariyalur', 'Chengalpattu', 'Chennai', 'Coimbatore', 'Cuddalore', 'Dharmapuri', 'Dindigul',
         'Erode', 'Kallakurichi', 'Kanchipuram', 'Kanyakumari', 'Karur', 'Krishnagiri', 'Madurai',
@@ -451,6 +473,201 @@ const BillingPage = () => {
         }
     };
 
+    const handleStatusChange = async (billId, newStatus) => {
+        if (newStatus === 'paid') {
+            const bill = bills.find(b => b._id === billId);
+            setStatusUpdateBill(bill);
+            setStatusUpdateMethod(bill?.paymentMethod || 'cash');
+            setStatusUpdateDetails(bill?.paymentDetails || EMPTY_PAYMENT_DETAILS);
+            setShowStatusUpdateModal(true);
+            return;
+        }
+
+        try {
+            await dispatch(updateBillStatus({ id: billId, status: newStatus })).unwrap();
+            toast.success(`Bill status updated to ${newStatus}`);
+        } catch (error) {
+            toast.error(error || 'Failed to update status');
+        }
+    };
+
+    const handleStatusUpdateSubmit = async () => {
+        if (!statusUpdateBill) return;
+        
+        try {
+            await dispatch(updateBillStatus({ 
+                id: statusUpdateBill._id, 
+                status: 'paid',
+                data: {
+                    paymentMethod: statusUpdateMethod,
+                    paymentDetails: statusUpdateDetails
+                }
+            })).unwrap();
+            toast.success('Bill marked as paid with payment details');
+            setShowStatusUpdateModal(false);
+        } catch (error) {
+            toast.error(error || 'Failed to update status');
+        }
+    };
+
+    const renderPaymentFields = (method, details, setDetails) => {
+        const update = (key, val) => setDetails({ ...details, [key]: val });
+
+        return (
+            <div className="space-y-3 pt-3 border-t border-gray-100">
+                {/* Method Specific Fields */}
+                {method === 'upi' && (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">UTR Number</label>
+                                <input className="form-input" placeholder="UTR Ref" value={details.utrNumber} onChange={(e) => update('utrNumber', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Payer UPI ID</label>
+                                <input className="form-input" placeholder="e.g. name@upi" value={details.upiId} onChange={(e) => update('upiId', e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Payer Name</label>
+                                <input className="form-input" placeholder="Full Name" value={details.payerName} onChange={(e) => update('payerName', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">App Name</label>
+                                <input className="form-input" placeholder="GPay, PhonePe" value={details.appName} onChange={(e) => update('appName', e.target.value)} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Bank Name</label>
+                            <input className="form-input" placeholder="e.g. SBI, HDFC" value={details.bankName} onChange={(e) => update('bankName', e.target.value)} />
+                        </div>
+                    </div>
+                )}
+
+                {method === 'card' && (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Card Type</label>
+                                <select className="form-input" value={details.cardType} onChange={(e) => update('cardType', e.target.value)}>
+                                    <option value="">Select Type</option>
+                                    <option value="Visa">Visa</option>
+                                    <option value="MasterCard">MasterCard</option>
+                                    <option value="Rupay">Rupay</option>
+                                    <option value="Amex">Amex</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Last 4 Digits</label>
+                                <input className="form-input" maxLength="4" placeholder="1234" value={details.last4Digits} onChange={(e) => update('last4Digits', e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Auth Code</label>
+                                <input className="form-input" placeholder="Appr ID" value={details.authCode} onChange={(e) => update('authCode', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Bank Name</label>
+                                <input className="form-input" placeholder="Issuing Bank" value={details.bankName} onChange={(e) => update('bankName', e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {method === 'netbanking' && (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Bank Name</label>
+                                <input className="form-input" placeholder="e.g. SBI, HDFC" value={details.bankName} onChange={(e) => update('bankName', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Transaction ID</label>
+                                <input className="form-input" placeholder="Ref No" value={details.transactionId} onChange={(e) => update('transactionId', e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">A/C Holder Name</label>
+                                <input className="form-input" placeholder="Name" value={details.accountHolderName} onChange={(e) => update('accountHolderName', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Gateway Name</label>
+                                <input className="form-input" placeholder="Razorpay, etc" value={details.gatewayName} onChange={(e) => update('gatewayName', e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {method === 'cash' && (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Received By</label>
+                                <input className="form-input" placeholder="Staff Name" value={details.receivedBy} onChange={(e) => update('receivedBy', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Receipt No</label>
+                                <input className="form-input" placeholder="Manual No" value={details.receiptNumber} onChange={(e) => update('receiptNumber', e.target.value)} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Location</label>
+                            <input className="form-input" placeholder="Store location" value={details.location} onChange={(e) => update('location', e.target.value)} />
+                        </div>
+                    </div>
+                )}
+
+                {method === 'cheque' && (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Cheque Number *</label>
+                                <input className="form-input" placeholder="No" value={details.chequeNumber} onChange={(e) => update('chequeNumber', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Cheque Date</label>
+                                <input type="date" className="form-input" value={details.chequeDate} onChange={(e) => update('chequeDate', e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Bank Name</label>
+                                <input className="form-input" placeholder="Bank" value={details.bankName} onChange={(e) => update('bankName', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Clearing Status</label>
+                                <select className="form-input" value={details.clearingStatus} onChange={(e) => update('clearingStatus', e.target.value)}>
+                                    <option value="pending">Pending</option>
+                                    <option value="cleared">Cleared</option>
+                                    <option value="bounced">Bounced</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs text-gray-500 mb-1 block">A/C Holder Name</label>
+                            <input className="form-input" placeholder="Name" value={details.accountHolderName} onChange={(e) => update('accountHolderName', e.target.value)} />
+                        </div>
+                    </div>
+                )}
+
+                {/* Common Fields */}
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Transaction Ref ID</label>
+                        <input className="form-input" placeholder="General Ref" value={details.transactionRefId} onChange={(e) => update('transactionRefId', e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Note (optional)</label>
+                        <input className="form-input" placeholder="Remarks" value={details.referenceNote} onChange={(e) => update('referenceNote', e.target.value)} />
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const handleEmailBill = async () => {
         if (!emailBill) return;
         const { hasValidRecipients } = getEmailRecipientValidation(emailTo);
@@ -546,19 +763,6 @@ const BillingPage = () => {
                                 </button>
                             ))}
                         </div>
-                        <div className="flex gap-2 flex-wrap items-center">
-                            <span className="text-xs font-semibold text-gray-600 uppercase">Status:</span>
-                            {[{ key: 'all', label: 'All' }, { key: 'paid', label: 'Paid' }, { key: 'pending', label: 'Pending' }, { key: 'partial', label: 'Partial' }, { key: 'cancel', label: 'Cancel' }].map(f => (
-                                <button
-                                    key={f.key}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterStatus === f.key ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                                    style={filterStatus === f.key ? { backgroundColor: f.key === 'paid' ? '#16a34a' : f.key === 'pending' ? '#f59e0b' : f.key === 'partial' ? '#3b82f6' : f.key === 'cancel' ? '#ef4444' : '#7c3aed' } : {}}
-                                    onClick={() => setFilterStatus(f.key)}
-                                >
-                                    {f.label}
-                                </button>
-                            ))}
-                        </div>
                     </div>
                 </div>
             </div>
@@ -589,12 +793,21 @@ const BillingPage = () => {
                                     <td><div><p className="font-medium">{bill.partyName || bill.customer?.name}</p><p className="text-xs text-gray-500">{bill.customer?.phone}</p></div></td>
                                     <td className="font-semibold">{formatCurrency(bill.grandTotal)}</td>
                                     <td>
-                                        <span className="px-2 py-1 rounded-full text-xs font-semibold" style={{
-                                            backgroundColor: bill.paymentStatus === 'paid' ? '#dcfce7' : bill.paymentStatus === 'pending' ? '#fef3c7' : bill.paymentStatus === 'partial' ? '#dbeafe' : '#fee2e2',
-                                            color: bill.paymentStatus === 'paid' ? '#15803d' : bill.paymentStatus === 'pending' ? '#92400e' : bill.paymentStatus === 'partial' ? '#1d4ed8' : '#991b1b'
-                                        }}>
-                                            {bill.paymentStatus ? bill.paymentStatus.charAt(0).toUpperCase() + bill.paymentStatus.slice(1) : 'Pending'}
-                                        </span>
+                                        <select
+                                            className="px-2 py-1 rounded-full text-xs font-semibold border-none cursor-pointer focus:ring-2 focus:ring-offset-1 transition-all outline-none"
+                                            style={{
+                                                backgroundColor: bill.paymentStatus === 'paid' ? '#dcfce7' : bill.paymentStatus === 'pending' ? '#fef3c7' : bill.paymentStatus === 'partial' ? '#dbeafe' : '#fee2e2',
+                                                color: bill.paymentStatus === 'paid' ? '#15803d' : bill.paymentStatus === 'pending' ? '#92400e' : bill.paymentStatus === 'partial' ? '#1d4ed8' : '#991b1b',
+                                                appearance: 'none',
+                                                textAlign: 'center'
+                                            }}
+                                            value={bill.paymentStatus || 'pending'}
+                                            onChange={(e) => handleStatusChange(bill._id, e.target.value)}
+                                        >
+                                            <option value="pending">Pending</option>
+                                            <option value="paid">Paid</option>
+                                            <option value="cancel">Cancel</option>
+                                        </select>
                                     </td>
                                     <td>
                                         <div className="flex justify-end gap-2">
@@ -949,7 +1162,7 @@ const BillingPage = () => {
                                                         setBillPaymentStatus(s.key);
                                                         if (s.key !== 'paid') {
                                                             setPaymentMethod('cash');
-                                                            setPaymentDetails({ upiId: '', transactionId: '', bankName: '', chequeNumber: '', chequeDate: '', accountNumber: '', referenceNote: '' });
+                                                            setPaymentDetails(EMPTY_PAYMENT_DETAILS);
                                                         }
                                                     }}
                                                 >
@@ -975,68 +1188,7 @@ const BillingPage = () => {
                                                     </select>
                                                 </div>
 
-                                                {paymentMethod === 'upi' && (
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div>
-                                                            <label className="text-xs text-gray-500 mb-1 block">UPI ID</label>
-                                                            <input className="form-input" placeholder="e.g. name@upi" value={paymentDetails.upiId} onChange={(e) => setPaymentDetails({ ...paymentDetails, upiId: e.target.value })} />
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-xs text-gray-500 mb-1 block">Transaction ID</label>
-                                                            <input className="form-input" placeholder="Transaction reference" value={paymentDetails.transactionId} onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })} />
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {paymentMethod === 'netbanking' && (
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div>
-                                                            <label className="text-xs text-gray-500 mb-1 block">Bank Name</label>
-                                                            <input className="form-input" placeholder="e.g. SBI, HDFC" value={paymentDetails.bankName} onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value })} />
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-xs text-gray-500 mb-1 block">Transaction ID</label>
-                                                            <input className="form-input" placeholder="Transaction reference" value={paymentDetails.transactionId} onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })} />
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {paymentMethod === 'cheque' && (
-                                                    <div className="space-y-3">
-                                                        <div className="grid grid-cols-2 gap-3">
-                                                            <div>
-                                                                <label className="text-xs text-gray-500 mb-1 block">Cheque Number *</label>
-                                                                <input className="form-input" placeholder="Enter cheque number" value={paymentDetails.chequeNumber} onChange={(e) => setPaymentDetails({ ...paymentDetails, chequeNumber: e.target.value })} />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs text-gray-500 mb-1 block">Cheque Date</label>
-                                                                <input type="date" className="form-input" value={paymentDetails.chequeDate} onChange={(e) => setPaymentDetails({ ...paymentDetails, chequeDate: e.target.value })} />
-                                                            </div>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-3">
-                                                            <div>
-                                                                <label className="text-xs text-gray-500 mb-1 block">Bank Name</label>
-                                                                <input className="form-input" placeholder="Bank name" value={paymentDetails.bankName} onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value })} />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs text-gray-500 mb-1 block">Account Number</label>
-                                                                <input className="form-input" placeholder="Account number (optional)" value={paymentDetails.accountNumber} onChange={(e) => setPaymentDetails({ ...paymentDetails, accountNumber: e.target.value })} />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {paymentMethod === 'card' && (
-                                                    <div>
-                                                        <label className="text-xs text-gray-500 mb-1 block">Transaction / Approval ID</label>
-                                                        <input className="form-input" placeholder="Card transaction reference" value={paymentDetails.transactionId} onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })} />
-                                                    </div>
-                                                )}
-
-                                                <div>
-                                                    <label className="text-xs text-gray-500 mb-1 block">Note (optional)</label>
-                                                    <input className="form-input" placeholder="Any payment remarks" value={paymentDetails.referenceNote} onChange={(e) => setPaymentDetails({ ...paymentDetails, referenceNote: e.target.value })} />
-                                                </div>
+                                                {renderPaymentFields(paymentMethod, paymentDetails, setPaymentDetails)}
                                             </div>
                                         )}
                                     </div>
@@ -1148,6 +1300,38 @@ const BillingPage = () => {
                                     settings={settings}
                                 />
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showStatusUpdateModal && statusUpdateBill && (
+                <div className="modal-overlay" onClick={() => setShowStatusUpdateModal(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="text-lg font-semibold text-gray-900">Update Payment - {statusUpdateBill.billNumber}</h3>
+                            <button className="btn btn-ghost btn-icon" onClick={() => setShowStatusUpdateModal(false)}><X size={20} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block">Payment Method *</label>
+                                <select
+                                    className="form-input"
+                                    value={statusUpdateMethod}
+                                    onChange={(e) => setStatusUpdateMethod(e.target.value)}
+                                >
+                                    <option value="cash">💵 Cash</option>
+                                    <option value="upi">📱 UPI</option>
+                                    <option value="netbanking">🏦 Net Banking</option>
+                                    <option value="cheque">📄 Cheque</option>
+                                    <option value="card">💳 Card</option>
+                                </select>
+                            </div>
+
+                            {renderPaymentFields(statusUpdateMethod, statusUpdateDetails, setStatusUpdateDetails)}
+                        </div>
+                        <div className="modal-footer bg-gray-50">
+                            <button className="btn btn-secondary" onClick={() => setShowStatusUpdateModal(false)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={handleStatusUpdateSubmit}>Confirm Paid</button>
                         </div>
                     </div>
                 </div>
