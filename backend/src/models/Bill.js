@@ -106,8 +106,17 @@ const billSchema = new mongoose.Schema({
     amountInWords: String,
     paymentMethod: {
         type: String,
-        enum: ['cash', 'card', 'upi', 'credit'],
+        enum: ['cash', 'card', 'upi', 'netbanking', 'cheque', 'credit'],
         default: 'cash'
+    },
+    paymentDetails: {
+        upiId: String,
+        transactionId: String,
+        bankName: String,
+        chequeNumber: String,
+        chequeDate: Date,
+        accountNumber: String,
+        referenceNote: String
     },
     paymentStatus: {
         type: String,

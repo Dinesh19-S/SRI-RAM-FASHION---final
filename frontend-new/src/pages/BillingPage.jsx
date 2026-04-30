@@ -63,6 +63,16 @@ const BillingPage = () => {
     const [billItems, setBillItems] = useState([]);
     const [discount, setDiscount] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [billPaymentStatus, setBillPaymentStatus] = useState('pending');
+    const [paymentDetails, setPaymentDetails] = useState({
+        upiId: '',
+        transactionId: '',
+        bankName: '',
+        chequeNumber: '',
+        chequeDate: '',
+        accountNumber: '',
+        referenceNote: ''
+    });
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerSuggestions, setCustomerSuggestions] = useState([]);
     const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -363,7 +373,9 @@ const BillingPage = () => {
                 roundOff,
                 grandTotal,
                 totalPacks,
-                paymentStatus: 'pending'
+                paymentMethod: billPaymentStatus === 'paid' ? paymentMethod : undefined,
+                paymentStatus: billPaymentStatus,
+                paymentDetails: billPaymentStatus === 'paid' ? paymentDetails : undefined
             };
 
             await dispatch(createBill(billData)).unwrap();
@@ -383,6 +395,9 @@ const BillingPage = () => {
         setBillItems([]);
         setDiscount(0);
         setCustomerSearch('');
+        setBillPaymentStatus('pending');
+        setPaymentMethod('cash');
+        setPaymentDetails({ upiId: '', transactionId: '', bankName: '', chequeNumber: '', chequeDate: '', accountNumber: '', referenceNote: '' });
     };
 
     const handleViewBill = (bill) => {
@@ -910,6 +925,120 @@ const BillingPage = () => {
                                             <div className="flex justify-between text-gray-600"><span>Total Packs</span><span>{totalPacks}</span></div>
                                             <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200"><span>Grand Total</span><span style={{ color: '#1e40af' }}>{formatCurrency(grandTotal)}</span></div>
                                         </div>
+                                    </div>
+
+                                    {/* Payment Status & Method */}
+                                    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                                        <h4 className="font-semibold text-gray-900 mb-3">Payment Status</h4>
+                                        <div className="flex gap-2 mb-4">
+                                            {[
+                                                { key: 'pending', label: 'Unpaid', color: '#f59e0b', bg: '#fef3c7' },
+                                                { key: 'paid', label: 'Paid', color: '#15803d', bg: '#dcfce7' },
+                                                { key: 'cancel', label: 'Cancelled', color: '#991b1b', bg: '#fee2e2' }
+                                            ].map(s => (
+                                                <button
+                                                    key={s.key}
+                                                    type="button"
+                                                    className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                                                    style={{
+                                                        backgroundColor: billPaymentStatus === s.key ? s.bg : '#f3f4f6',
+                                                        color: billPaymentStatus === s.key ? s.color : '#6b7280',
+                                                        border: billPaymentStatus === s.key ? `2px solid ${s.color}` : '2px solid transparent'
+                                                    }}
+                                                    onClick={() => {
+                                                        setBillPaymentStatus(s.key);
+                                                        if (s.key !== 'paid') {
+                                                            setPaymentMethod('cash');
+                                                            setPaymentDetails({ upiId: '', transactionId: '', bankName: '', chequeNumber: '', chequeDate: '', accountNumber: '', referenceNote: '' });
+                                                        }
+                                                    }}
+                                                >
+                                                    {s.label}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {billPaymentStatus === 'paid' && (
+                                            <div className="space-y-3 pt-3 border-t border-gray-100">
+                                                <div>
+                                                    <label className="text-xs text-gray-500 mb-1 block">Payment Method *</label>
+                                                    <select
+                                                        className="form-input"
+                                                        value={paymentMethod}
+                                                        onChange={(e) => setPaymentMethod(e.target.value)}
+                                                    >
+                                                        <option value="cash">💵 Cash</option>
+                                                        <option value="upi">📱 UPI</option>
+                                                        <option value="netbanking">🏦 Net Banking</option>
+                                                        <option value="cheque">📄 Cheque</option>
+                                                        <option value="card">💳 Card</option>
+                                                    </select>
+                                                </div>
+
+                                                {paymentMethod === 'upi' && (
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="text-xs text-gray-500 mb-1 block">UPI ID</label>
+                                                            <input className="form-input" placeholder="e.g. name@upi" value={paymentDetails.upiId} onChange={(e) => setPaymentDetails({ ...paymentDetails, upiId: e.target.value })} />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-gray-500 mb-1 block">Transaction ID</label>
+                                                            <input className="form-input" placeholder="Transaction reference" value={paymentDetails.transactionId} onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })} />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {paymentMethod === 'netbanking' && (
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="text-xs text-gray-500 mb-1 block">Bank Name</label>
+                                                            <input className="form-input" placeholder="e.g. SBI, HDFC" value={paymentDetails.bankName} onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value })} />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-gray-500 mb-1 block">Transaction ID</label>
+                                                            <input className="form-input" placeholder="Transaction reference" value={paymentDetails.transactionId} onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })} />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {paymentMethod === 'cheque' && (
+                                                    <div className="space-y-3">
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <label className="text-xs text-gray-500 mb-1 block">Cheque Number *</label>
+                                                                <input className="form-input" placeholder="Enter cheque number" value={paymentDetails.chequeNumber} onChange={(e) => setPaymentDetails({ ...paymentDetails, chequeNumber: e.target.value })} />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs text-gray-500 mb-1 block">Cheque Date</label>
+                                                                <input type="date" className="form-input" value={paymentDetails.chequeDate} onChange={(e) => setPaymentDetails({ ...paymentDetails, chequeDate: e.target.value })} />
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <label className="text-xs text-gray-500 mb-1 block">Bank Name</label>
+                                                                <input className="form-input" placeholder="Bank name" value={paymentDetails.bankName} onChange={(e) => setPaymentDetails({ ...paymentDetails, bankName: e.target.value })} />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs text-gray-500 mb-1 block">Account Number</label>
+                                                                <input className="form-input" placeholder="Account number (optional)" value={paymentDetails.accountNumber} onChange={(e) => setPaymentDetails({ ...paymentDetails, accountNumber: e.target.value })} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {paymentMethod === 'card' && (
+                                                    <div>
+                                                        <label className="text-xs text-gray-500 mb-1 block">Transaction / Approval ID</label>
+                                                        <input className="form-input" placeholder="Card transaction reference" value={paymentDetails.transactionId} onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })} />
+                                                    </div>
+                                                )}
+
+                                                <div>
+                                                    <label className="text-xs text-gray-500 mb-1 block">Note (optional)</label>
+                                                    <input className="form-input" placeholder="Any payment remarks" value={paymentDetails.referenceNote} onChange={(e) => setPaymentDetails({ ...paymentDetails, referenceNote: e.target.value })} />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

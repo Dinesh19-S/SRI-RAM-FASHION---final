@@ -139,6 +139,8 @@ router.post('/', async (req, res) => {
             items = [],
             discount = 0,
             paymentMethod,
+            paymentStatus,
+            paymentDetails,
             notes,
             transport,
             fromDate,
@@ -280,8 +282,9 @@ router.post('/', async (req, res) => {
                 roundOff,
                 grandTotal,
                 amountInWords: numberToWords(grandTotal),
-                paymentMethod,
-                paymentStatus: paymentMethod === 'credit' ? 'pending' : 'paid',
+                paymentMethod: paymentMethod || 'cash',
+                paymentStatus: paymentStatus || 'pending',
+                paymentDetails: paymentDetails || {},
                 notes
             });
 
