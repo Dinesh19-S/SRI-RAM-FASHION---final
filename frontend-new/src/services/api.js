@@ -125,6 +125,59 @@ const prepareBillItem = (item) => {
     };
 };
 
+const mapPurchaseItem = (i) => {
+    if (!i) return null;
+    return {
+        ...i,
+        _id: i.id,
+        hsnCode: i.hsn_code,
+        designColor: i.design_color,
+        weightKg: Number(i.weight_kg || 0),
+        ratePerKg: Number(i.rate_per_kg || 0),
+        gstRate: Number(i.gst_rate || 0),
+        total: Number(i.total || 0)
+    };
+};
+
+const mapPurchase = (p) => {
+    if (!p) return null;
+    return {
+        ...p,
+        _id: p.id,
+        invoiceNumber: p.invoice_number,
+        supplier: p.supplier_data,
+        grandTotal: Number(p.grand_total || 0),
+        totalWeight: Number(p.total_weight || 0),
+        subtotal: Number(p.subtotal || 0),
+        totalTax: Number(p.total_tax || 0),
+        items: Array.isArray(p.purchase_items) ? p.purchase_items.map(mapPurchaseItem) : (p.items || [])
+    };
+};
+
+const preparePurchaseData = (data) => {
+    return {
+        invoice_number: data.invoiceNumber,
+        date: data.date || new Date().toISOString(),
+        supplier_data: data.supplier || {},
+        subtotal: Number(data.subtotal || 0),
+        total_tax: Number(data.totalTax || 0),
+        grand_total: Number(data.grandTotal || 0),
+        total_weight: Number(data.totalWeight || 0)
+    };
+};
+
+const preparePurchaseItem = (item) => {
+    return {
+        particular: item.particular,
+        hsn_code: item.hsnCode || '',
+        design_color: item.designColor || '',
+        weight_kg: Number(item.weightKg || 0),
+        rate_per_kg: Number(item.ratePerKg || 0),
+        gst_rate: Number(item.gstRate || 0),
+        total: Number(item.total || 0)
+    };
+};
+
 const prepareProductData = (data) => {
     return {
         name: data.name,
@@ -784,12 +837,12 @@ export const customersAPI = {
         }
         const { data, error } = await query.order('name', { ascending: true });
         if (error) throw error;
-        return { data: { success: true, data } };
+        return { data: { success: true, data: data.map(c => ({ ...c, _id: c.id })) } };
     },
     getById: async (id) => {
         const { data, error } = await supabase.from('customers').select('*').eq('id', id).single();
         if (error) throw error;
-        return { data: { success: true, data } };
+        return { data: { success: true, data: { ...data, _id: data.id } } };
     },
     create: async (data) => {
         const { data: result, error } = await supabase.from('customers').insert([data]).select().single();
@@ -848,12 +901,12 @@ export const suppliersAPI = {
         }
         const { data, error } = await query.order('name', { ascending: true });
         if (error) throw error;
-        return { data: { success: true, data } };
+        return { data: { success: true, data: data.map(s => ({ ...s, _id: s.id })) } };
     },
     getById: async (id) => {
         const { data, error } = await supabase.from('suppliers').select('*').eq('id', id).single();
         if (error) throw error;
-        return { data: { success: true, data } };
+        return { data: { success: true, data: { ...data, _id: data.id } } };
     },
     create: async (data) => {
         const { data: result, error } = await supabase.from('suppliers').insert([data]).select().single();
@@ -936,25 +989,87 @@ export const salesEntriesAPI = {
 
 export const purchaseEntriesAPI = {
     getAll: async (params) => {
-        let query = supabase.from('purchase_entries').select('*');
-        const { data, error } = await query.order('date', { ascending: false });
+        let query = supabase.from('purchase_entries').select('*, purchase_items(*)');
+        
+        if (params?.search) {
+            query = query.or(`invoice_number.ilike.%${params.search}%`);
+        }
+
+        const page = params?.page ? parseInt(params.page) : 1;
+        const limit = params?.limit ? parseInt(params.limit) : 20;
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        const { data, error, count } = await query
+            .order('date', { ascending: false })
+            .range(from, to);
+
         if (error) throw error;
-        return { data: { success: true, data } };
+        return { data: { success: true, data: data.map(mapPurchase), pagination: { total: count, page, limit } } };
     },
     getById: async (id) => {
-        const { data, error } = await supabase.from('purchase_entries').select('*').eq('id', id).single();
+        const { data, error } = await supabase
+            .from('purchase_entries')
+            .select('*, purchase_items(*)')
+            .eq('id', id)
+            .single();
+
         if (error) throw error;
-        return { data: { success: true, data } };
+        return { data: { success: true, data: mapPurchase(data) } };
     },
     create: async (data) => {
-        const { data: result, error } = await supabase.from('purchase_entries').insert([data]).select().single();
+        const { items } = data;
+        const entryData = preparePurchaseData(data);
+
+        const { data: result, error } = await supabase
+            .from('purchase_entries')
+            .insert([entryData])
+            .select()
+            .single();
+
         if (error) throw error;
-        return { data: { success: true, data: result } };
+
+        if (items && items.length > 0) {
+            const preparedItems = items.map(item => ({ 
+                ...preparePurchaseItem(item), 
+                purchase_id: result.id 
+            }));
+            const { error: itemsError } = await supabase
+                .from('purchase_items')
+                .insert(preparedItems);
+            
+            if (itemsError) throw itemsError;
+        }
+
+        return { data: { success: true, data: mapPurchase(result) } };
     },
     update: async (id, data) => {
-        const { data: result, error } = await supabase.from('purchase_entries').update(data).eq('id', id).select().single();
+        const { items } = data;
+        const entryData = preparePurchaseData(data);
+
+        const { data: result, error } = await supabase
+            .from('purchase_entries')
+            .update(entryData)
+            .eq('id', id)
+            .select()
+            .single();
+
         if (error) throw error;
-        return { data: { success: true, data: result } };
+
+        if (items) {
+            await supabase.from('purchase_items').delete().eq('purchase_id', id);
+            const preparedItems = items.map(item => ({ 
+                ...preparePurchaseItem(item), 
+                purchase_id: result.id 
+            }));
+            const { error: itemsError } = await supabase
+                .from('purchase_items')
+                .insert(preparedItems);
+            
+            if (itemsError) throw itemsError;
+        }
+
+        return { data: { success: true, data: mapPurchase(result) } };
     },
     delete: async (id) => {
         const { error } = await supabase.from('purchase_entries').delete().eq('id', id);

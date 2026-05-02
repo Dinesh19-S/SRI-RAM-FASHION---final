@@ -137,7 +137,33 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. Settings
+-- 9. Purchase Entries
+CREATE TABLE IF NOT EXISTS purchase_entries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    invoice_number TEXT UNIQUE NOT NULL,
+    date TIMESTAMPTZ DEFAULT NOW(),
+    supplier_data JSONB NOT NULL,
+    subtotal DECIMAL(12,2) DEFAULT 0,
+    total_tax DECIMAL(12,2) DEFAULT 0,
+    grand_total DECIMAL(12,2) DEFAULT 0,
+    total_weight DECIMAL(12,2) DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS purchase_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    purchase_id UUID REFERENCES purchase_entries(id) ON DELETE CASCADE,
+    particular TEXT,
+    hsn_code TEXT,
+    design_color TEXT,
+    weight_kg DECIMAL(12,2) DEFAULT 0,
+    rate_per_kg DECIMAL(12,2) DEFAULT 0,
+    gst_rate DECIMAL(5,2) DEFAULT 0,
+    total DECIMAL(12,2) DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. Settings
 CREATE TABLE IF NOT EXISTS settings (
     id UUID PRIMARY KEY DEFAULT '00000000-0000-0000-0000-000000000001', -- Single row
     company_name TEXT,
@@ -181,6 +207,9 @@ CREATE POLICY "Allow authenticated read" ON stock_movements FOR SELECT TO authen
 CREATE POLICY "Allow authenticated read" ON settings FOR SELECT TO authenticated USING (true);
 
 -- Allow all for authenticated users (Simplify for initial sync goal)
+ALTER TABLE purchase_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_items ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Allow all for authenticated" ON categories ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for authenticated" ON products ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for authenticated" ON customers ALL TO authenticated USING (true) WITH CHECK (true);
@@ -188,5 +217,10 @@ CREATE POLICY "Allow all for authenticated" ON hsn_codes ALL TO authenticated US
 CREATE POLICY "Allow all for authenticated" ON suppliers ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for authenticated" ON bills ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for authenticated" ON bill_items ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for authenticated" ON purchase_entries ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for authenticated" ON purchase_items ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for authenticated" ON stock_movements ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for authenticated" ON settings ALL TO authenticated USING (true) WITH CHECK (true);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE purchase_entries;
+ALTER PUBLICATION supabase_realtime ADD TABLE purchase_items;
