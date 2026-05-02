@@ -22,6 +22,9 @@ import {
     TrendingUp,
     Users,
     Truck,
+    RefreshCw,
+    Wifi,
+    WifiOff,
 } from 'lucide-react';
 
 import logoImage from '../../assets/logo.jpg';
@@ -124,7 +127,7 @@ const MainLayout = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
-    const { syncStatus } = useSelector((state) => state.app);
+    const { syncStatus, isOnline, lastSyncedAt } = useSelector((state) => state.app);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');

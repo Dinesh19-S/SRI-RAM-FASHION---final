@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSettings, updateSettings } from '../store/slices/settingsSlice';
-import { Building, User, Bell, Shield, Save, Check, FileText, Download, Eye, Printer, Database, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Building, User, Bell, Shield, Save, Check, FileText, Download, Eye, Printer, Database, Trash2, AlertTriangle, Loader2, Upload } from 'lucide-react';
 import { useToast } from '../components/common';
 import { downloadLetterheadWithContent, getLetterheadPreviewUrlWithContent } from '../utils/letterheadGenerator';
 import { backupService } from '../services/backupService';
@@ -44,6 +44,8 @@ const SettingsPage = () => {
     const [isBackingUp, setIsBackingUp] = useState(false);
     const [isFlashing, setIsFlashing] = useState(false);
     const [showFlashConfirm, setShowFlashConfirm] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false);
+    const fileInputRef = useRef(null);
 
     const handleBackup = async () => {
         setIsBackingUp(true);
@@ -67,6 +69,30 @@ const SettingsPage = () => {
         } else {
             toast.error(result.message);
         }
+    };
+
+    const handleRestore = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const jsonData = JSON.parse(e.target.result);
+                setIsRestoring(true);
+                const result = await backupService.importData(jsonData);
+                setIsRestoring(false);
+                if (result.success) {
+                    toast.success(result.message);
+                    window.location.reload();
+                } else {
+                    toast.error(result.message);
+                }
+            } catch (err) {
+                toast.error('Invalid backup file format');
+            }
+        };
+        reader.readAsText(file);
     };
 
     const handleSave = async () => {
@@ -490,6 +516,107 @@ const SettingsPage = () => {
                                         Download PDF
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Data Management Tab */}
+                    {activeTab === 'data' && (
+                        <div className='settings-panel'>
+                            <div className='settings-panel-header'>
+                                <Database size={24} className='panel-icon' />
+                                <div>
+                                    <h2 className='settings-panel-title'>Data Management</h2>
+                                    <p className='settings-panel-desc'>Backup and manage your application data</p>
+                                </div>
+                            </div>
+
+                            <div className='settings-panel-body'>
+                                <div className='data-management-grid'>
+                                    <div className='data-action-card'>
+                                        <div className='action-card-icon backup'>
+                                            <Download size={24} />
+                                        </div>
+                                        <div className='action-card-content'>
+                                            <h3 className='action-title'>Backup All Data</h3>
+                                            <p className='action-desc'>Download a complete backup of all your customers, products, and bills in JSON format.</p>
+                                            <button 
+                                                className='btn btn-primary mt-4' 
+                                                onClick={handleBackup}
+                                                disabled={isBackingUp}
+                                            >
+                                                {isBackingUp ? <Loader2 size={18} className='animate-spin' /> : <Download size={18} />}
+                                                {isBackingUp ? 'Backing up...' : 'Download Backup'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className='data-action-card'>
+                                        <div className='action-card-icon restore'>
+                                            <Upload size={24} />
+                                        </div>
+                                        <div className='action-card-content'>
+                                            <h3 className='action-title'>Restore Backup</h3>
+                                            <p className='action-desc'>Upload a previously saved backup file to restore your data. <strong>Warning: This may overwrite existing data.</strong></p>
+                                            <button 
+                                                className='btn btn-ghost border mt-4'
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isRestoring}
+                                            >
+                                                {isRestoring ? <Loader2 size={18} className='animate-spin' /> : <Upload size={18} />}
+                                                {isRestoring ? 'Restoring...' : 'Upload & Restore'}
+                                            </button>
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                className="hidden" 
+                                                accept=".json" 
+                                                onChange={handleRestore} 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className='data-action-card danger'>
+                                        <div className='action-card-icon flash'>
+                                            <Trash2 size={24} />
+                                        </div>
+                                        <div className='action-card-content'>
+                                            <h3 className='action-title'>Flash (Clear All Data)</h3>
+                                            <p className='action-desc'>Permanently delete all records from the database. This action cannot be undone.</p>
+                                            <button 
+                                                className='btn btn-danger mt-4'
+                                                onClick={() => setShowFlashConfirm(true)}
+                                            >
+                                                <Trash2 size={18} />
+                                                Flash Data
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {showFlashConfirm && (
+                                    <div className='modal-backdrop'>
+                                        <div className='modal-content max-w-md'>
+                                            <div className='flex items-center gap-3 text-red-600 mb-4'>
+                                                <AlertTriangle size={24} />
+                                                <h3 className='text-xl font-bold'>Dangerous Action!</h3>
+                                            </div>
+                                            <p className='text-gray-600 mb-6'>
+                                                Are you absolutely sure you want to <strong>FLASH ALL DATA</strong>? This will delete all customers, bills, products, and settings. This cannot be undone.
+                                            </p>
+                                            <div className='flex justify-end gap-3'>
+                                                <button className='btn btn-secondary' onClick={() => setShowFlashConfirm(false)}>Cancel</button>
+                                                <button 
+                                                    className='btn btn-danger' 
+                                                    onClick={handleFlash}
+                                                    disabled={isFlashing}
+                                                >
+                                                    {isFlashing ? <Loader2 size={18} className='animate-spin' /> : 'Yes, Flash All Data'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -935,7 +1062,105 @@ const SettingsPage = () => {
                     box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
                 }
 
+                .data-management-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 24px;
+                    margin-top: 20px;
+                }
+
+                .data-action-card {
+                    display: flex;
+                    gap: 20px;
+                    padding: 24px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 16px;
+                    transition: all 0.2s ease;
+                }
+
+                .data-action-card:hover {
+                    border-color: #cbd5e1;
+                    background: #f1f5f9;
+                    transform: translateY(-2px);
+                }
+
+                .data-action-card.danger:hover {
+                    border-color: #fee2e2;
+                    background: #fffafa;
+                }
+
+                .action-card-icon {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+
+                .action-card-icon.backup {
+                    background: #e0f2fe;
+                    color: #0284c7;
+                }
+
+                .action-card-icon.restore {
+                    background: #f0f9ff;
+                    color: #0ea5e9;
+                }
+
+                .action-card-icon.flash {
+                    background: #fee2e2;
+                    color: #dc2626;
+                }
+
+                .action-card-content {
+                    flex: 1;
+                }
+
+                .action-title {
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: #1e293b;
+                    margin: 0 0 8px 0;
+                }
+
+                .action-desc {
+                    font-size: 14px;
+                    color: #64748b;
+                    margin: 0;
+                    line-height: 1.5;
+                }
+
+                .modal-backdrop {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    backdrop-filter: blur(4px);
+                }
+
+                .modal-content {
+                    background: white;
+                    padding: 32px;
+                    border-radius: 20px;
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                }
+
                 /* Responsive Styles */
+                @media (max-width: 1024px) {
+                    .data-management-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+
                 @media (max-width: 900px) {
                     .settings-container-grid {
                         grid-template-columns: 1fr;

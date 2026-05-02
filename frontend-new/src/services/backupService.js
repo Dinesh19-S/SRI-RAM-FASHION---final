@@ -78,5 +78,39 @@ export const backupService = {
             console.error('Flash error:', error);
             return { success: false, message: error.message };
         }
+    },
+
+    importData: async (jsonData) => {
+        try {
+            const tables = [
+                'hsn_codes',
+                'customers',
+                'suppliers',
+                'categories',
+                'products',
+                'bills',
+                'bill_items',
+                'purchase_entries',
+                'purchase_items',
+                'stock_movements',
+                'settings'
+            ];
+
+            for (const table of tables) {
+                const data = jsonData[table];
+                if (data && Array.isArray(data) && data.length > 0) {
+                    // Upsert data to avoid duplicates if some IDs already exist
+                    const { error } = await supabase.from(table).upsert(data);
+                    if (error) {
+                        console.error(`Error importing table ${table}:`, error);
+                    }
+                }
+            }
+
+            return { success: true, message: 'Data restored successfully' };
+        } catch (error) {
+            console.error('Import error:', error);
+            return { success: false, message: error.message };
+        }
     }
 };

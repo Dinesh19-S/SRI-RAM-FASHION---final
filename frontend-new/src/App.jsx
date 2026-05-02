@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from './components/layout/MainLayout';
 import { appAPI } from './services/api';
 import { supabase } from './services/supabase';
+import { setOnlineStatus } from './store/slices/appSlice';
 import { upsertBill, removeBill } from './store/slices/billsSlice';
 import { upsertProduct, removeProduct, upsertCategory } from './store/slices/productsSlice';
 import { useDispatch } from 'react-redux';
@@ -197,6 +198,20 @@ function App() {
 
     return () => {
       subscription.unsubscribe();
+    };
+  }, [dispatch]);
+
+  // Handle Online/Offline status
+  useEffect(() => {
+    const handleOnline = () => dispatch(setOnlineStatus(true));
+    const handleOffline = () => dispatch(setOnlineStatus(false));
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, [dispatch]);
 

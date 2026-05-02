@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import { supabase } from '../services/supabase';
 import { upsertBill, removeBill } from '../store/slices/billsSlice';
 import { upsertProduct, removeProduct, upsertCategory } from '../store/slices/productsSlice';
-import { setSyncStatus, setSyncError } from '../store/slices/appSlice';
+import { setSyncStatus, setSyncError, setLastSynced } from '../store/slices/appSlice';
 
 /**
  * Custom hook to manage Supabase Realtime subscriptions and sync with Redux.
@@ -42,6 +42,7 @@ export const useSupabaseRealtime = () => {
                     table: 'bills' 
                 }, (payload) => {
                     console.log('Real-time Bill Update:', payload);
+                    dispatch(setLastSynced());
                     if (payload.eventType === 'DELETE') {
                         dispatch(removeBill(payload.old.id));
                     } else {
@@ -57,6 +58,7 @@ export const useSupabaseRealtime = () => {
                     table: 'products' 
                 }, (payload) => {
                     console.log('Real-time Product Update:', payload);
+                    dispatch(setLastSynced());
                     if (payload.eventType === 'DELETE') {
                         dispatch(removeProduct(payload.old.id));
                     } else {
@@ -71,6 +73,7 @@ export const useSupabaseRealtime = () => {
                     table: 'categories' 
                 }, (payload) => {
                     console.log('Real-time Category Update:', payload);
+                    dispatch(setLastSynced());
                     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                         const category = { ...payload.new, _id: payload.new.id };
                         dispatch(upsertCategory(category));
