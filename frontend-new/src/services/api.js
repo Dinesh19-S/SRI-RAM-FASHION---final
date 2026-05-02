@@ -206,8 +206,8 @@ const prepareProductData = (data) => {
     return {
         name: data.name,
         sku: data.sku,
-        description: data.description,
-        category_id: data.categoryId || data.category?._id || data.category?.id,
+        description: data.description || '',
+        category_id: data.categoryId || (typeof data.category === 'string' ? data.category : (data.category?._id || data.category?.id)),
         mrp: Number(data.mrp || 0),
         selling_price: Number(data.sellingPrice || 0),
         stock: Number(data.stock || 0),
@@ -639,7 +639,7 @@ export const categoriesAPI = {
             .order('name', { ascending: true });
 
         if (error) throw error;
-        return { data: { success: true, data } };
+        return { data: { success: true, data: (data || []).map(cat => ({ ...cat, _id: cat.id })) } };
     },
     create: async (data) => {
         const { data: result, error } = await supabase
