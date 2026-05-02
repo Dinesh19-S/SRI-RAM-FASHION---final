@@ -6,7 +6,7 @@
     "scripts": {
         "start": "node api/index.js",
         "dev": "nodemon api/index.js",
-        "build": "node ./build-vercel.js"
+        "build": "npm run build --prefix frontend-new && mv frontend-new/dist ./dist"
     },
     "dependencies": {
         "@google/generative-ai": "^0.24.1",
