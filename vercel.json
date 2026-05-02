@@ -1,42 +1,5 @@
 {
-    "version": 2,
-    "buildCommand": "npm run build",
-    "outputDirectory": "dist",
-    "installCommand": "npm install",
-    "headers": [
-        {
-            "source": "/(.*)",
-            "headers": [
-                {
-                    "key": "Cross-Origin-Opener-Policy",
-                    "value": "same-origin-allow-popups"
-                },
-                {
-                    "key": "Cross-Origin-Embedder-Policy",
-                    "value": "unsafe-none"
-                }
-            ]
-        }
-    ],
-    "functions": {
-        "api/index.js": {
-            "memory": 1024,
-            "maxDuration": 10
-        },
-        "api/ping.js": {}
-    },
-    "rewrites": [
-        {
-            "source": "/api/ping",
-            "destination": "/api/ping.js"
-        },
-        {
-            "source": "/api/:path*",
-            "destination": "/api/index.js"
-        },
-        {
-            "source": "/((?!api/).*)",
-            "destination": "/index.html"
-        }
-    ]
+  "buildCommand": "cd frontend-new && npm install && npm run build",
+  "outputDirectory": "frontend-new/dist",
+  "framework": "vite"
 }
