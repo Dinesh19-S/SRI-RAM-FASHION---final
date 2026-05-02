@@ -780,17 +780,33 @@ export const inventoryAPI = {
 };
 
 export const reportsAPI = {
-    getSalesSummary: (params) => cachedGet(ENDPOINTS.reports.salesSummary, { params }, CACHE_TTL.SHORT),
-    getSalesTrend: (params) => cachedGet(ENDPOINTS.reports.salesTrend, { params }, CACHE_TTL.SHORT),
-    getTopProducts: (params) => cachedGet(ENDPOINTS.reports.topProducts, { params }, CACHE_TTL.SHORT),
-    getCategoryPerformance: (params) => cachedGet(ENDPOINTS.reports.categoryPerformance, { params }, CACHE_TTL.SHORT),
-    getPaymentMethods: (params) => cachedGet(ENDPOINTS.reports.paymentMethods, { params }, CACHE_TTL.SHORT),
-    getStock: (params) => cachedGet(ENDPOINTS.reports.stock, { params }, CACHE_TTL.SHORT),
-    getSalesReport: (params) => cachedGet(ENDPOINTS.reports.salesReport, { params }, CACHE_TTL.SHORT),
-    getPurchaseReport: (params) => cachedGet(ENDPOINTS.reports.purchaseReport, { params }, CACHE_TTL.SHORT),
-    getStockReport: (params) => cachedGet(ENDPOINTS.reports.stockReport, { params }, CACHE_TTL.SHORT),
-    getAuditorSales: (params) => cachedGet(ENDPOINTS.reports.auditorSales, { params }, CACHE_TTL.SHORT),
-    getAuditorPurchase: (params) => cachedGet(ENDPOINTS.reports.auditorPurchase, { params }, CACHE_TTL.SHORT),
+    getSalesSummary: async (params) => {
+        const { data, error } = await supabase.from('bills').select('*').neq('bill_type', 'PURCHASE');
+        if (error) throw error;
+        const total = data.reduce((sum, b) => sum + b.grand_total, 0);
+        return { data: { success: true, data: { total, count: data.length } } };
+    },
+    getSalesReport: async (params) => {
+        let query = supabase.from('bills').select('*, customers(*)').neq('bill_type', 'PURCHASE');
+        if (params?.startDate) query = query.gte('date', params.startDate);
+        if (params?.endDate) query = query.lte('date', params.endDate);
+        const { data, error } = await query.order('date', { ascending: false });
+        if (error) throw error;
+        return { data: { success: true, data: data.map(mapBill) } };
+    },
+    getPurchaseReport: async (params) => {
+        let query = supabase.from('bills').select('*, suppliers(*)').eq('bill_type', 'PURCHASE');
+        if (params?.startDate) query = query.gte('date', params.startDate);
+        if (params?.endDate) query = query.lte('date', params.endDate);
+        const { data, error } = await query.order('date', { ascending: false });
+        if (error) throw error;
+        return { data: { success: true, data: data.map(mapBill) } };
+    },
+    getStockReport: async (params) => {
+        const { data, error } = await supabase.from('products').select('*, categories(*)');
+        if (error) throw error;
+        return { data: { success: true, data: data.map(mapProduct) } };
+    }
 };
 
 export const settingsAPI = {
@@ -820,13 +836,63 @@ export const settingsAPI = {
 };
 
 export const dashboardAPI = {
-    getOverview: (params) => cachedGet(ENDPOINTS.dashboard.overview, { params, persist: true }, CACHE_TTL.SHORT),
-    getNotifications: (limit = 5) => cachedGet(ENDPOINTS.dashboard.notifications, { params: { limit }, persist: true }, CACHE_TTL.SHORT),
-    getStats: () => cachedGet(ENDPOINTS.dashboard.stats, {}, CACHE_TTL.SHORT),
-    getRecentBills: (limit) => cachedGet(ENDPOINTS.dashboard.recentBills, { params: { limit } }, CACHE_TTL.SHORT),
-    getRevenueChart: (period) => cachedGet(ENDPOINTS.dashboard.revenueChart, { params: { period } }, CACHE_TTL.SHORT),
-    getLowStockAlerts: () => cachedGet(ENDPOINTS.dashboard.lowStockAlerts, {}, CACHE_TTL.SHORT),
-    getCategoryStats: () => cachedGet(ENDPOINTS.dashboard.categoryStats, {}, CACHE_TTL.SHORT),
+    getOverview: async (params) => {
+        const { data: bills } = await supabase.from('bills').select('*').order('date', { ascending: false });
+        const { data: products } = await supabase.from('products').select('*').order('name', { ascending: true });
+        const { data: customers } = await supabase.from('customers').select('*');
+        const { data: categories } = await supabase.from('categories').select('*');
+
+        const salesBills = bills?.filter(b => b.bill_type !== 'PURCHASE') || [];
+        const purchaseBills = bills?.filter(b => b.bill_type === 'PURCHASE') || [];
+        
+        const totalRevenue = salesBills.reduce((sum, b) => sum + b.grand_total, 0) - purchaseBills.reduce((sum, b) => sum + b.grand_total, 0);
+        const lowStockAlerts = products?.filter(p => p.stock <= p.low_stock_threshold) || [];
+
+        return {
+            data: {
+                success: true,
+                data: {
+                    stats: {
+                        totalRevenue,
+                        totalOrders: salesBills.length,
+                        totalCustomers: customers?.length || 0,
+                        productCount: products?.length || 0
+                    },
+                    recentBills: salesBills.slice(0, params?.recentLimit || 6).map(mapBill),
+                    lowStockAlerts: lowStockAlerts.slice(0, 5).map(mapProduct),
+                    products: products?.slice(0, params?.productLimit || 10).map(mapProduct),
+                    categoryStats: categories?.map(cat => ({
+                        name: cat.name,
+                        count: products?.filter(p => p.category === cat.name || p.category_id === cat.id).length || 0,
+                        totalStock: products?.filter(p => p.category === cat.name || p.category_id === cat.id).reduce((sum, p) => sum + p.stock, 0) || 0
+                    }))
+                }
+            }
+        };
+    },
+    getRevenueChart: async (period) => {
+        const { data: bills } = await supabase.from('bills').select('*').order('date', { ascending: true });
+        // Simple day-wise aggregation for charts
+        const dailyData = bills?.reduce((acc, b) => {
+            const day = b.date?.split('T')[0] || new Date(b.created_at).toISOString().split('T')[0];
+            if (!acc[day]) acc[day] = { _id: day, sales: 0, purchase: 0, revenue: 0 };
+            if (b.bill_type === 'PURCHASE') {
+                acc[day].purchase += b.grand_total;
+                acc[day].revenue -= b.grand_total;
+            } else {
+                acc[day].sales += b.grand_total;
+                acc[day].revenue += b.grand_total;
+            }
+            return acc;
+        }, {}) || {};
+
+        return { data: { success: true, data: Object.values(dailyData) } };
+    },
+    getNotifications: async (limit = 5) => {
+        const { data: products } = await supabase.from('products').select('*');
+        const lowStock = products?.filter(p => p.stock <= p.low_stock_threshold).slice(0, limit) || [];
+        return { data: { success: true, data: { lowStockAlerts: lowStock.map(mapProduct) } } };
+    }
 };
 
 export const customersAPI = {

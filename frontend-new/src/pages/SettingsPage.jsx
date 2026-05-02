@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSettings, updateSettings } from '../store/slices/settingsSlice';
-import { Building, User, Bell, Shield, Save, Check, FileText, Download, Eye, Printer } from 'lucide-react';
+import { Building, User, Bell, Shield, Save, Check, FileText, Download, Eye, Printer, Database, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { useToast } from '../components/common';
 import { downloadLetterheadWithContent, getLetterheadPreviewUrlWithContent } from '../utils/letterheadGenerator';
+import { backupService } from '../services/backupService';
 
 const SettingsPage = () => {
     const toast = useToast();
@@ -36,8 +37,37 @@ const SettingsPage = () => {
         { id: 'profile', label: 'Profile', icon: User },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'security', label: 'Security', icon: Shield },
-        { id: 'letterpad', label: 'Letter Pad', icon: FileText }
+        { id: 'letterpad', label: 'Letter Pad', icon: FileText },
+        { id: 'data', label: 'Backup', icon: Database }
     ];
+
+    const [isBackingUp, setIsBackingUp] = useState(false);
+    const [isFlashing, setIsFlashing] = useState(false);
+    const [showFlashConfirm, setShowFlashConfirm] = useState(false);
+
+    const handleBackup = async () => {
+        setIsBackingUp(true);
+        const result = await backupService.exportAllData();
+        setIsBackingUp(false);
+        if (result.success) {
+            toast.success(result.message);
+        } else {
+            toast.error(result.message);
+        }
+    };
+
+    const handleFlash = async () => {
+        setIsFlashing(true);
+        const result = await backupService.flashAllData();
+        setIsFlashing(false);
+        setShowFlashConfirm(false);
+        if (result.success) {
+            toast.success(result.message);
+            window.location.reload();
+        } else {
+            toast.error(result.message);
+        }
+    };
 
     const handleSave = async () => {
         await dispatch(updateSettings(formData));
