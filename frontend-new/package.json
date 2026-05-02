@@ -4,6 +4,9 @@
     "private": true,
     "description": "Sri Ram Fashions Business Management Desktop Application",
     "type": "module",
+    "engines": {
+        "node": "22.x"
+    },
     "author": "Sri Ram Fashions",
     "main": "electron/main.cjs",
     "scripts": {

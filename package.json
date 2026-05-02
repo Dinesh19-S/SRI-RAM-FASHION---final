@@ -27,7 +27,7 @@
         "resend": "^6.9.2"
     },
     "engines": {
-        "node": "20.x"
+        "node": "22.x"
     },
     "devDependencies": {
         "nodemon": "^3.1.14"
