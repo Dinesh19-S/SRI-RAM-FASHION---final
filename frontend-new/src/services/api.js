@@ -78,6 +78,30 @@ const mapBill = (b) => {
     };
 };
 
+const flattenBillItems = (bills) => {
+    let flattened = [];
+    let sno = 1;
+    bills.forEach(bill => {
+        const items = Array.isArray(bill.bill_items) ? bill.bill_items : (Array.isArray(bill.items) ? bill.items : []);
+        items.forEach(item => {
+            flattened.push({
+                sno: sno++,
+                date: bill.date,
+                invNo: bill.bill_number || bill.invoiceNumber,
+                item: item.product_name || item.particular || 'N/A',
+                rate: Number(item.rate_per_piece || item.rate_per_kg || item.rate || 0),
+                qty: Number(item.quantity || item.weight_kg || item.qty || 0),
+                taxableAmount: Number(item.taxable_amount || 0),
+                cgst: Number(item.cgst || 0),
+                sgst: Number(item.sgst || 0),
+                igst: Number(item.igst || 0),
+                total: Number(item.total || item.total_price || 0)
+            });
+        });
+    });
+    return flattened;
+};
+
 /**
  * Data Preparation Utilities
  * Converts camelCase frontend data to snake_case for Supabase.
@@ -787,20 +811,20 @@ export const reportsAPI = {
         return { data: { success: true, data: { total, count: data.length } } };
     },
     getSalesReport: async (params) => {
-        let query = supabase.from('bills').select('*, customers(*)').neq('bill_type', 'PURCHASE');
+        let query = supabase.from('bills').select('*, bill_items(*)').neq('bill_type', 'PURCHASE');
         if (params?.startDate) query = query.gte('date', params.startDate);
         if (params?.endDate) query = query.lte('date', params.endDate);
         const { data, error } = await query.order('date', { ascending: false });
         if (error) throw error;
-        return { data: { success: true, data: data.map(mapBill) } };
+        return { data: { success: true, data: flattenBillItems(data) } };
     },
     getPurchaseReport: async (params) => {
-        let query = supabase.from('bills').select('*, suppliers(*)').eq('bill_type', 'PURCHASE');
+        let query = supabase.from('bills').select('*, bill_items(*)').eq('bill_type', 'PURCHASE');
         if (params?.startDate) query = query.gte('date', params.startDate);
         if (params?.endDate) query = query.lte('date', params.endDate);
         const { data, error } = await query.order('date', { ascending: false });
         if (error) throw error;
-        return { data: { success: true, data: data.map(mapBill) } };
+        return { data: { success: true, data: flattenBillItems(data) } };
     },
     getStockReport: async (params) => {
         const { data, error } = await supabase.from('products').select('*, categories(*)');
