@@ -535,7 +535,7 @@ const ItemsPage = () => {
                             </div>
 
                             <div>
-                                <label className="form-label">Description</label>
+                                <label className="form-label">Description (optional)</label>
                                 <textarea
                                     name="description"
                                     className="form-input"
@@ -613,7 +613,7 @@ const ItemsPage = () => {
                                 />
                             </div>
                             <div>
-                                <label className="form-label">Description</label>
+                                <label className="form-label">Description (optional)</label>
                                 <textarea
                                     className="form-input"
                                     rows="3"

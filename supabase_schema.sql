@@ -1,171 +1,155 @@
--- Enable UUID extension
+-- -- ========================================================
+-- SRI RAM FASHIONS - FULL SYSTEM MASTER SCHEMA
+-- ========================================================
+
+-- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Categories
+-- 2. CATEGORIES & PRODUCTS
 CREATE TABLE IF NOT EXISTS categories (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     description TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Products
 CREATE TABLE IF NOT EXISTS products (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     sku TEXT UNIQUE NOT NULL,
     description TEXT,
-    category_id UUID REFERENCES categories(id),
-    mrp DECIMAL(12,2) NOT NULL DEFAULT 0,
-    selling_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+    cost_price DECIMAL(12,2) DEFAULT 0,
+    mrp DECIMAL(12,2) DEFAULT 0,
+    selling_price DECIMAL(12,2) DEFAULT 0,
     stock INTEGER DEFAULT 0,
     low_stock_threshold INTEGER DEFAULT 5,
     unit TEXT DEFAULT 'pcs',
     size TEXT,
     hsn TEXT,
     gst_rate DECIMAL(5,2) DEFAULT 12,
-    image_url TEXT,
     is_active BOOLEAN DEFAULT TRUE,
-    last_low_stock_alert_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Customers
+-- 3. CUSTOMERS & SUPPLIERS
 CREATE TABLE IF NOT EXISTS customers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
+    company_name TEXT,
     phone TEXT,
+    mobile TEXT,
+    alternate_no TEXT,
     email TEXT,
     address TEXT,
     gstin TEXT,
     state TEXT DEFAULT 'Tamilnadu',
-    state_code TEXT DEFAULT '33',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    place_of_supply TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. HSN Codes
-CREATE TABLE IF NOT EXISTS hsn_codes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    code TEXT UNIQUE NOT NULL,
-    description TEXT,
-    gst_rate DECIMAL(5,2) DEFAULT 12,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 5. Suppliers
 CREATE TABLE IF NOT EXISTS suppliers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     contact_person TEXT,
     phone TEXT,
     email TEXT,
     address TEXT,
     gstin TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Bills
+-- 4. BILLING (SALES)
 CREATE TABLE IF NOT EXISTS bills (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     bill_number TEXT UNIQUE NOT NULL,
     date TIMESTAMPTZ DEFAULT NOW(),
-    customer_data JSONB NOT NULL, -- Stores snapshot of customer details
+    customer_data JSONB DEFAULT '{}',
     transport TEXT,
     from_text TEXT,
     to_text TEXT,
     total_packs INTEGER DEFAULT 0,
     num_of_bundles INTEGER DEFAULT 1,
-    subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
+    subtotal DECIMAL(12,2) DEFAULT 0,
     discount_amount DECIMAL(12,2) DEFAULT 0,
     taxable_amount DECIMAL(12,2) DEFAULT 0,
-    round_off DECIMAL(5,2) DEFAULT 0,
     cgst DECIMAL(12,2) DEFAULT 0,
     sgst DECIMAL(12,2) DEFAULT 0,
     igst DECIMAL(12,2) DEFAULT 0,
     total_tax DECIMAL(12,2) DEFAULT 0,
-    grand_total DECIMAL(12,2) NOT NULL DEFAULT 0,
-    amount_in_words TEXT,
-    payment_method TEXT DEFAULT 'cash',
-    payment_details JSONB,
+    round_off DECIMAL(5,2) DEFAULT 0,
+    grand_total DECIMAL(12,2) DEFAULT 0,
     payment_status TEXT DEFAULT 'pending',
-    notes TEXT,
+    payment_method TEXT DEFAULT 'cash',
     bill_type TEXT DEFAULT 'SALES',
-    reference_invoice_number TEXT,
-    party_name TEXT,
-    created_by UUID REFERENCES auth.users(id),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. Bill Items
 CREATE TABLE IF NOT EXISTS bill_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     bill_id UUID REFERENCES bills(id) ON DELETE CASCADE,
-    product_id UUID REFERENCES products(id),
+    product_id UUID REFERENCES products(id) ON DELETE SET NULL,
     product_name TEXT,
     sku TEXT,
-    hsn TEXT,
     hsn_code TEXT,
     sizes_or_pieces TEXT,
     quantity INTEGER NOT NULL DEFAULT 1,
-    rate_per_piece DECIMAL(12,2),
+    rate_per_piece DECIMAL(12,2) NOT NULL DEFAULT 0,
     pcs_in_pack INTEGER DEFAULT 1,
     rate_per_pack DECIMAL(12,2),
-    no_of_packs INTEGER DEFAULT 1,
+    no_of_packs INTEGER,
     mrp DECIMAL(12,2),
-    price DECIMAL(12,2) NOT NULL,
-    discount DECIMAL(5,2) DEFAULT 0,
+    price DECIMAL(12,2) NOT NULL DEFAULT 0,
     gst_rate DECIMAL(5,2) DEFAULT 5,
-    gst_amount DECIMAL(12,2),
-    total DECIMAL(12,2),
+    gst_amount DECIMAL(12,2) DEFAULT 0,
+    total DECIMAL(12,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 8. Stock Movements
-CREATE TABLE IF NOT EXISTS stock_movements (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    product_id UUID REFERENCES products(id),
-    type TEXT NOT NULL, -- 'IN' or 'OUT'
-    quantity INTEGER NOT NULL,
-    reference_id UUID, -- Optional link to bill_id
-    notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 9. Purchase Entries
+-- 7. Purchase Entries
 CREATE TABLE IF NOT EXISTS purchase_entries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     invoice_number TEXT UNIQUE NOT NULL,
     date TIMESTAMPTZ DEFAULT NOW(),
-    supplier_data JSONB NOT NULL,
+    supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
+    supplier_data JSONB NOT NULL, -- Stores snapshot
     subtotal DECIMAL(12,2) DEFAULT 0,
     total_tax DECIMAL(12,2) DEFAULT 0,
     grand_total DECIMAL(12,2) DEFAULT 0,
     total_weight DECIMAL(12,2) DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 8. Purchase Items
 CREATE TABLE IF NOT EXISTS purchase_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     purchase_id UUID REFERENCES purchase_entries(id) ON DELETE CASCADE,
-    particular TEXT,
+    particular TEXT NOT NULL,
     hsn_code TEXT,
     design_color TEXT,
     weight_kg DECIMAL(12,2) DEFAULT 0,
     rate_per_kg DECIMAL(12,2) DEFAULT 0,
     gst_rate DECIMAL(5,2) DEFAULT 0,
-    total DECIMAL(12,2) DEFAULT 0,
+    total DECIMAL(12,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 10. Settings
+-- 9. Stock Movements (Inventory Log)
+CREATE TABLE IF NOT EXISTS stock_movements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    type TEXT NOT NULL, -- 'IN', 'OUT', 'ADJUSTMENT'
+    quantity INTEGER NOT NULL,
+    reference_id UUID, -- Link to bill_id or purchase_id
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. Settings (Singleton)
 CREATE TABLE IF NOT EXISTS settings (
-    id UUID PRIMARY KEY DEFAULT '00000000-0000-0000-0000-000000000001', -- Single row
+    id UUID PRIMARY KEY DEFAULT '00000000-0000-0000-0000-000000000001',
     company_name TEXT,
     address TEXT,
     phone TEXT,
@@ -179,48 +163,31 @@ CREATE TABLE IF NOT EXISTS settings (
     CONSTRAINT singleton_check CHECK (id = '00000000-0000-0000-0000-000000000001')
 );
 
--- Enable Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE bills;
-ALTER PUBLICATION supabase_realtime ADD TABLE products;
-ALTER PUBLICATION supabase_realtime ADD TABLE stock_movements;
-ALTER PUBLICATION supabase_realtime ADD TABLE categories;
+-- INDEXES FOR PERFORMANCE
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_bills_number ON bills(bill_number);
+CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(date);
+CREATE INDEX IF NOT EXISTS idx_bill_items_bill ON bill_items(bill_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_inv ON purchase_entries(invoice_number);
+CREATE INDEX IF NOT EXISTS idx_stock_product ON stock_movements(product_id);
 
--- RLS Policies (Basic version - can be refined)
-ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE hsn_codes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bill_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+-- ENABLE ROW LEVEL SECURITY (RLS)
+DO $$ 
+DECLARE 
+    t text;
+BEGIN
+    FOR t IN (SELECT table_name FROM information_schema.tables WHERE table_schema = 'public') 
+    LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Allow all for authenticated" ON %I', t);
+        EXECUTE format('CREATE POLICY "Allow all for authenticated" ON %I ALL TO authenticated USING (true) WITH CHECK (true)', t);
+    END LOOP;
+END $$;
 
-CREATE POLICY "Allow authenticated read" ON categories FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read" ON products FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read" ON customers FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read" ON hsn_codes FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read" ON suppliers FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read" ON bills FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read" ON bill_items FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read" ON stock_movements FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated read" ON settings FOR SELECT TO authenticated USING (true);
-
--- Allow all for authenticated users (Simplify for initial sync goal)
-ALTER TABLE purchase_entries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE purchase_items ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow all for authenticated" ON categories ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON products ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON customers ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON hsn_codes ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON suppliers ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON bills ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON bill_items ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON purchase_entries ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON purchase_items ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON stock_movements ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated" ON settings ALL TO authenticated USING (true) WITH CHECK (true);
-
-ALTER PUBLICATION supabase_realtime ADD TABLE purchase_entries;
-ALTER PUBLICATION supabase_realtime ADD TABLE purchase_items;
+-- ENABLE REALTIME
+BEGIN;
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  CREATE PUBLICATION supabase_realtime FOR TABLE 
+    bills, products, stock_movements, categories, purchase_entries, purchase_items, suppliers, customers;
+COMMIT;
