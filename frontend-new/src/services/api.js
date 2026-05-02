@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from './supabase';
 import { ENDPOINTS } from './endpoints';
 
 const API_PREFIX = '/api/v1';
@@ -29,6 +30,118 @@ const resolveApiUrl = () => {
 };
 
 const API_URL = resolveApiUrl();
+
+/**
+ * Data Mapping Utilities
+ * Normalizes Supabase snake_case responses to the camelCase format expected by the UI.
+ */
+const mapProduct = (p) => {
+    if (!p) return null;
+    return {
+        ...p,
+        _id: p.id,
+        sellingPrice: Number(p.selling_price || 0),
+        mrp: Number(p.mrp || 0),
+        lowStockThreshold: p.low_stock_threshold,
+        isActive: p.is_active,
+        category: p.categories ? p.categories : (p.category_id ? { _id: p.category_id, id: p.category_id, name: 'N/A' } : null)
+    };
+};
+
+const mapBillItem = (item) => {
+    if (!item) return null;
+    return {
+        ...item,
+        _id: item.id,
+        billId: item.bill_id,
+        productId: item.product_id,
+        ratePerPiece: Number(item.rate_per_piece || 0),
+        totalPrice: Number(item.total_price || 0),
+    };
+};
+
+const mapBill = (b) => {
+    if (!b) return null;
+    return {
+        ...b,
+        _id: b.id,
+        billNumber: b.bill_number,
+        paymentStatus: b.payment_status,
+        billType: b.bill_type,
+        grandTotal: Number(b.grand_total || 0),
+        subtotal: Number(b.subtotal || 0),
+        totalTax: Number(b.total_tax || 0),
+        taxableAmount: Number(b.taxable_amount || 0),
+        discountAmount: Number(b.discount_amount || 0),
+        roundOff: Number(b.round_off || 0),
+        items: Array.isArray(b.bill_items) ? b.bill_items.map(mapBillItem) : (b.items || [])
+    };
+};
+
+/**
+ * Data Preparation Utilities
+ * Converts camelCase frontend data to snake_case for Supabase.
+ */
+const prepareBillData = (data) => {
+    const { items, customer, ...rest } = data;
+    return {
+        bill_number: data.billNumber || `SRF-${Date.now().toString().slice(-6)}`,
+        date: data.date || new Date().toISOString(),
+        customer_data: customer || {},
+        subtotal: Number(data.subtotal || 0),
+        discount_amount: Number(data.discountAmount || 0),
+        taxable_amount: Number(data.taxableAmount || 0),
+        cgst: Number(data.cgst || 0),
+        sgst: Number(data.sgst || 0),
+        igst: Number(data.igst || 0),
+        total_tax: Number(data.totalTax || 0),
+        round_off: Number(data.roundOff || 0),
+        grand_total: Number(data.grandTotal || 0),
+        payment_status: data.paymentStatus || 'pending',
+        payment_method: data.paymentMethod || 'cash',
+        payment_details: data.paymentDetails || {},
+        bill_type: data.billType || 'SALES',
+        transport: data.transport || '',
+        from_text: data.fromDate || '',
+        to_text: data.toDate || '',
+        total_packs: Number(data.totalPacks || 0)
+    };
+};
+
+const prepareBillItem = (item) => {
+    return {
+        product_id: item.productId,
+        product_name: item.name,
+        quantity: Number(item.quantity || 0),
+        price: Number(item.price || 0),
+        rate_per_piece: Number(item.ratePerPiece || 0),
+        pcs_in_pack: Number(item.pcsInPack || 1),
+        rate_per_pack: Number(item.ratePerPack || 0),
+        no_of_packs: Number(item.noOfPacks || 0),
+        hsn_code: item.hsnCode || '',
+        gst_rate: Number(item.gstRate || 0),
+        total: Number(item.total || 0),
+        sizes_or_pieces: item.sizesOrPieces || ''
+    };
+};
+
+const prepareProductData = (data) => {
+    return {
+        name: data.name,
+        sku: data.sku,
+        description: data.description,
+        category_id: data.categoryId || data.category?._id || data.category?.id,
+        mrp: Number(data.mrp || 0),
+        selling_price: Number(data.sellingPrice || 0),
+        stock: Number(data.stock || 0),
+        low_stock_threshold: Number(data.lowStockThreshold || 5),
+        unit: data.unit || 'pcs',
+        size: data.size,
+        hsn: data.hsn,
+        gst_rate: Number(data.gstRate || 12),
+        is_active: data.isActive !== undefined ? data.isActive : true
+    };
+};
 
 const CACHE_TTL = {
     SEARCH: 15 * 1000,
@@ -288,24 +401,49 @@ api.interceptors.response.use(
 );
 
 export const authAPI = {
-    login: (email, password) => api.post(ENDPOINTS.auth.login, { email, password }),
-    register: (data) => api.post(ENDPOINTS.auth.register, data),
-    sendOTP: (phone) => api.post(ENDPOINTS.auth.sendOtp, { phone }),
-    loginPhone: (phone, otp) => api.post(ENDPOINTS.auth.loginPhone, { phone, otp }),
-    getProfile: () => api.get(ENDPOINTS.auth.profile),
-    googleLogin: (credential) => api.post(ENDPOINTS.auth.google, { credential }),
-    forgotPassword: (email) => api.post(ENDPOINTS.auth.forgotPassword, { email }),
-    resetPassword: (email, code, newPassword) => api.post(ENDPOINTS.auth.resetPassword, { email, code, newPassword }),
+    login: async (email, password) => {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        return { data: { token: data.session.access_token, user: data.user } };
+    },
+    register: async (data) => {
+        const { data: result, error } = await supabase.auth.signUp({
+            email: data.email,
+            password: data.password,
+            options: {
+                data: {
+                    name: data.name,
+                    phone: data.phone,
+                    role: data.role || 'user'
+                }
+            }
+        });
+        if (error) throw error;
+        return { data: { token: result.session?.access_token, user: result.user } };
+    },
+    sendOTP: (phone) => supabase.auth.signInWithOtp({ phone }),
+    loginPhone: (phone, token) => supabase.auth.verifyOtp({ phone, token, type: 'sms' }),
+    getProfile: () => supabase.auth.getUser(),
+    googleLogin: (credential) => supabase.auth.signInWithIdToken({ provider: 'google', token: credential }),
+    forgotPassword: (email) => supabase.auth.resetPasswordForEmail(email),
+    resetPassword: (email, code, newPassword) => supabase.auth.updateUser({ password: newPassword }),
 };
 
 export const appAPI = {
-    warmup: () => {
-        // Non-blocking warmup - fire and forget
-        api.get(ENDPOINTS.health, { timeout: 3000, skipAuth: true }).catch(() => {
-            // Silently ignore warmup errors
-        });
-        // Prefetch endpoints if not already in cache
-        return authAPI.getProfile().catch(() => null);
+    warmup: async () => {
+        try {
+            // Check Supabase connection
+            const { data, error } = await supabase.from('categories').select('count', { count: 'exact', head: true });
+            if (error) {
+                console.error('Supabase connection error:', error.message);
+                return { success: false, error: error.message };
+            }
+            console.log('Supabase connected successfully');
+            return { success: true };
+        } catch (err) {
+            console.error('Warmup failed:', err.message);
+            return { success: false, error: err.message };
+        }
     },
     getEndpoints: () => cachedGet(
         ENDPOINTS.endpoints,
@@ -315,50 +453,276 @@ export const appAPI = {
 };
 
 export const productsAPI = {
-    getAll: (params) => {
-        const hasSearch = Boolean(params?.search);
-        const isFirstPage = !params?.page || Number(params.page) === 1;
-        return cachedGet(
-            ENDPOINTS.products.list,
-            { params, persist: !hasSearch && isFirstPage },
-            hasSearch ? CACHE_TTL.SEARCH : CACHE_TTL.MEDIUM
-        );
+    getAll: async (params) => {
+        let query = supabase.from('products').select('*, categories(*)');
+
+        if (params?.search) {
+            query = query.ilike('name', `%${params.search}%`);
+        }
+
+        if (params?.category) {
+            query = query.eq('category_id', params.category);
+        }
+
+        if (params?.isActive !== undefined) {
+            query = query.eq('is_active', params.isActive);
+        }
+
+        // Pagination
+        const page = params?.page ? parseInt(params.page) : 1;
+        const limit = params?.limit ? parseInt(params.limit) : 20;
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        const { data, error, count } = await query
+            .order('name', { ascending: true })
+            .range(from, to);
+
+        if (error) throw error;
+        return { data: { success: true, data: data.map(mapProduct), pagination: { total: count, page, limit } } };
     },
-    getById: (id) => cachedGet(ENDPOINTS.products.byId(id), {}, CACHE_TTL.SHORT),
-    create: (data) => api.post(ENDPOINTS.products.list, data),
-    update: (id, data) => api.put(ENDPOINTS.products.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.products.byId(id)),
-    updateStock: (id, data) => api.post(ENDPOINTS.products.stock(id), data),
-    getLowStock: () => cachedGet(ENDPOINTS.products.lowStock, {}, CACHE_TTL.SHORT),
+    getById: async (id) => {
+        const { data, error } = await supabase
+            .from('products')
+            .select('*, categories(*)')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return { data: { success: true, data: mapProduct(data) } };
+    },
+    create: async (data) => {
+        const productData = prepareProductData(data);
+        const { data: result, error } = await supabase
+            .from('products')
+            .insert([productData])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return { data: { success: true, data: mapProduct(result) } };
+    },
+    update: async (id, data) => {
+        const productData = prepareProductData(data);
+        const { data: result, error } = await supabase
+            .from('products')
+            .update(productData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return { data: { success: true, data: mapProduct(result) } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase
+            .from('products')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return { data: { success: true } };
+    },
+    updateStock: async (id, { stock, type, reason }) => {
+        const { data: result, error } = await supabase
+            .from('products')
+            .update({ stock })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Also record movement
+        await supabase.from('stock_movements').insert([{
+            product_id: id,
+            type: type || 'ADJUSTMENT',
+            quantity: stock,
+            notes: reason
+        }]);
+
+        return { data: { success: true, data: mapProduct(result) } };
+    },
+    getLowStock: async () => {
+        const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .lte('stock', 'low_stock_threshold');
+
+        if (error) throw error;
+        return { data: { success: true, data: data.map(mapProduct) } };
+    },
 };
 
 export const categoriesAPI = {
-    getAll: () => cachedGet(ENDPOINTS.categories.list, { persist: true }, CACHE_TTL.LONG),
-    create: (data) => api.post(ENDPOINTS.categories.list, data),
-    update: (id, data) => api.put(ENDPOINTS.categories.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.categories.byId(id)),
+    getAll: async () => {
+        const { data, error } = await supabase
+            .from('categories')
+            .select('*')
+            .order('name', { ascending: true });
+
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    create: async (data) => {
+        const { data: result, error } = await supabase
+            .from('categories')
+            .insert([data])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    update: async (id, data) => {
+        const { data: result, error } = await supabase
+            .from('categories')
+            .update(data)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase
+            .from('categories')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return { data: { success: true } };
+    },
 };
 
 export const billsAPI = {
-    getAll: (params) => {
-        const hasSearch = Boolean(params?.search);
-        const isFirstPage = !params?.page || Number(params.page) === 1;
-        return cachedGet(
-            ENDPOINTS.bills.list,
-            { params, persist: !hasSearch && isFirstPage },
-            hasSearch ? CACHE_TTL.SEARCH : CACHE_TTL.SHORT
-        );
+    getAll: async (params) => {
+        let query = supabase.from('bills').select('*');
+
+        if (params?.search) {
+            query = query.ilike('bill_number', `%${params.search}%`);
+        }
+
+        if (params?.status) {
+            query = query.eq('payment_status', params.status);
+        }
+
+        if (params?.type) {
+            query = query.eq('bill_type', params.type);
+        }
+
+        // Pagination
+        const page = params?.page ? parseInt(params.page) : 1;
+        const limit = params?.limit ? parseInt(params.limit) : 20;
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        const { data, error, count } = await query
+            .order('date', { ascending: false })
+            .range(from, to);
+
+        if (error) throw error;
+        return { data: { success: true, data: data.map(mapBill), pagination: { total: count, page, limit } } };
     },
-    getById: (id) => cachedGet(ENDPOINTS.bills.byId(id), {}, CACHE_TTL.SHORT),
-    create: (data) => api.post(ENDPOINTS.bills.list, data),
-    update: (id, data) => api.put(ENDPOINTS.bills.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.bills.byId(id)),
-    getStats: (params) => cachedGet(ENDPOINTS.bills.stats, { params }, CACHE_TTL.SHORT),
+    getById: async (id) => {
+        const { data: bill, error: billError } = await supabase
+            .from('bills')
+            .select('*, bill_items(*)')
+            .eq('id', id)
+            .single();
+
+        if (billError) throw billError;
+
+        return { data: { success: true, data: mapBill(bill) } };
+    },
+    create: async (data) => {
+        const { items, ...rawBillData } = data;
+        const billData = prepareBillData(data);
+        
+        // 1. Create the bill
+        const { data: bill, error: billError } = await supabase
+            .from('bills')
+            .insert([billData])
+            .select()
+            .single();
+
+        if (billError) throw billError;
+
+        // 2. Create the bill items
+        if (items && items.length > 0) {
+            const preparedItems = items.map(item => ({ 
+                ...prepareBillItem(item), 
+                bill_id: bill.id 
+            }));
+            const { error: itemsError } = await supabase
+                .from('bill_items')
+                .insert(preparedItems);
+
+            if (itemsError) throw itemsError;
+        }
+
+        return { data: { success: true, data: mapBill(bill) } };
+    },
+    update: async (id, data) => {
+        const { items, ...rawBillData } = data;
+        const billData = prepareBillData(data);
+
+        // 1. Update the bill
+        const { data: bill, error: billError } = await supabase
+            .from('bills')
+            .update(billData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (billError) throw billError;
+
+        // 2. Update items (Delete and recreate for simplicity in this migration step)
+        if (items) {
+            await supabase.from('bill_items').delete().eq('bill_id', id);
+            const preparedItems = items.map(item => ({ 
+                ...prepareBillItem(item), 
+                bill_id: bill.id 
+            }));
+            const { error: itemsError } = await supabase
+                .from('bill_items')
+                .insert(preparedItems);
+
+            if (itemsError) throw itemsError;
+        }
+
+        return { data: { success: true, data: mapBill(bill) } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase
+            .from('bills')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return { data: { success: true } };
+    },
+    getStats: async (params) => {
+        // This would typically be a Supabase RPC or a more complex query
+        // For now, let's keep it simple or use the existing API if needed
+        return api.get(ENDPOINTS.bills.stats, { params });
+    },
 };
 
 export const inventoryAPI = {
-    getMovements: (params) => api.get(ENDPOINTS.inventory.movements, { params }),
-    addMovement: (data) => api.post(ENDPOINTS.inventory.movements, data),
+    getMovements: async (params) => {
+        let query = supabase.from('stock_movements').select('*, products(*)');
+        if (params?.productId) query = query.eq('product_id', params.productId);
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    addMovement: async (data) => {
+        const { data: result, error } = await supabase.from('stock_movements').insert([data]).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
     getStats: () => api.get(ENDPOINTS.inventory.stats),
 };
 
@@ -377,8 +741,26 @@ export const reportsAPI = {
 };
 
 export const settingsAPI = {
-    get: () => cachedGet(ENDPOINTS.settings.root, { persist: true }, CACHE_TTL.LONG),
-    update: (data) => api.put(ENDPOINTS.settings.root, data),
+    get: async () => {
+        const { data, error } = await supabase
+            .from('settings')
+            .select('*')
+            .eq('id', '00000000-0000-0000-0000-000000000001')
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'no rows'
+        return { data: { success: true, data: data || {} } };
+    },
+    update: async (data) => {
+        const { data: result, error } = await supabase
+            .from('settings')
+            .upsert({ id: '00000000-0000-0000-0000-000000000001', ...data })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
     uploadLogo: (formData) => api.post(ENDPOINTS.settings.logo, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     }),
@@ -395,52 +777,190 @@ export const dashboardAPI = {
 };
 
 export const customersAPI = {
-    getAll: (params) => cachedGet(ENDPOINTS.customers.list, { params }, params?.search ? CACHE_TTL.SEARCH : CACHE_TTL.MEDIUM),
-    getById: (id) => cachedGet(ENDPOINTS.customers.byId(id), {}, CACHE_TTL.MEDIUM),
-    create: (data) => api.post(ENDPOINTS.customers.list, data),
-    update: (id, data) => api.put(ENDPOINTS.customers.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.customers.byId(id)),
+    getAll: async (params) => {
+        let query = supabase.from('customers').select('*');
+        if (params?.search) {
+            query = query.or(`name.ilike.%${params.search}%,phone.ilike.%${params.search}%`);
+        }
+        const { data, error } = await query.order('name', { ascending: true });
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    getById: async (id) => {
+        const { data, error } = await supabase.from('customers').select('*').eq('id', id).single();
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    create: async (data) => {
+        const { data: result, error } = await supabase.from('customers').insert([data]).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    update: async (id, data) => {
+        const { data: result, error } = await supabase.from('customers').update(data).eq('id', id).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase.from('customers').delete().eq('id', id);
+        if (error) throw error;
+        return { data: { success: true } };
+    },
 };
 
 export const hsnAPI = {
-    getAll: (params) => cachedGet(ENDPOINTS.hsn.list, { params }, CACHE_TTL.LONG),
-    getById: (id) => cachedGet(ENDPOINTS.hsn.byId(id), {}, CACHE_TTL.LONG),
-    create: (data) => api.post(ENDPOINTS.hsn.list, data),
-    update: (id, data) => api.put(ENDPOINTS.hsn.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.hsn.byId(id)),
+    getAll: async (params) => {
+        let query = supabase.from('hsn_codes').select('*');
+        if (params?.search) {
+            query = query.ilike('code', `%${params.search}%`);
+        }
+        const { data, error } = await query.order('code', { ascending: true });
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    getById: async (id) => {
+        const { data, error } = await supabase.from('hsn_codes').select('*').eq('id', id).single();
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    create: async (data) => {
+        const { data: result, error } = await supabase.from('hsn_codes').insert([data]).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    update: async (id, data) => {
+        const { data: result, error } = await supabase.from('hsn_codes').update(data).eq('id', id).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase.from('hsn_codes').delete().eq('id', id);
+        if (error) throw error;
+        return { data: { success: true } };
+    },
 };
 
 export const suppliersAPI = {
-    getAll: (params) => cachedGet(ENDPOINTS.suppliers.list, { params }, params?.search ? CACHE_TTL.SEARCH : CACHE_TTL.MEDIUM),
-    getById: (id) => cachedGet(ENDPOINTS.suppliers.byId(id), {}, CACHE_TTL.MEDIUM),
-    create: (data) => api.post(ENDPOINTS.suppliers.list, data),
-    update: (id, data) => api.put(ENDPOINTS.suppliers.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.suppliers.byId(id)),
+    getAll: async (params) => {
+        let query = supabase.from('suppliers').select('*');
+        if (params?.search) {
+            query = query.or(`name.ilike.%${params.search}%,contact_person.ilike.%${params.search}%`);
+        }
+        const { data, error } = await query.order('name', { ascending: true });
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    getById: async (id) => {
+        const { data, error } = await supabase.from('suppliers').select('*').eq('id', id).single();
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    create: async (data) => {
+        const { data: result, error } = await supabase.from('suppliers').insert([data]).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    update: async (id, data) => {
+        const { data: result, error } = await supabase.from('suppliers').update(data).eq('id', id).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase.from('suppliers').delete().eq('id', id);
+        if (error) throw error;
+        return { data: { success: true } };
+    },
 };
 
 export const paymentsAPI = {
-    getAll: (params) => cachedGet(ENDPOINTS.payments.list, { params }, CACHE_TTL.SHORT),
-    getById: (id) => cachedGet(ENDPOINTS.payments.byId(id), {}, CACHE_TTL.SHORT),
-    create: (data) => api.post(ENDPOINTS.payments.list, data),
-    update: (id, data) => api.put(ENDPOINTS.payments.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.payments.byId(id)),
+    getAll: async (params) => {
+        let query = supabase.from('payments').select('*');
+        if (params?.search) {
+            query = query.or(`transaction_id.ilike.%${params.search}%,payer_name.ilike.%${params.search}%`);
+        }
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    getById: async (id) => {
+        const { data, error } = await supabase.from('payments').select('*').eq('id', id).single();
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    create: async (data) => {
+        const { data: result, error } = await supabase.from('payments').insert([data]).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    update: async (id, data) => {
+        const { data: result, error } = await supabase.from('payments').update(data).eq('id', id).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase.from('payments').delete().eq('id', id);
+        if (error) throw error;
+        return { data: { success: true } };
+    },
 };
 
 export const salesEntriesAPI = {
-    getAll: (params) => cachedGet(ENDPOINTS.salesEntries.list, { params }, CACHE_TTL.SHORT),
-    getById: (id) => cachedGet(ENDPOINTS.salesEntries.byId(id), {}, CACHE_TTL.SHORT),
-    create: (data) => api.post(ENDPOINTS.salesEntries.list, data),
-    update: (id, data) => api.put(ENDPOINTS.salesEntries.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.salesEntries.byId(id)),
+    getAll: async (params) => {
+        let query = supabase.from('sales_entries').select('*');
+        const { data, error } = await query.order('date', { ascending: false });
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    getById: async (id) => {
+        const { data, error } = await supabase.from('sales_entries').select('*').eq('id', id).single();
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    create: async (data) => {
+        const { data: result, error } = await supabase.from('sales_entries').insert([data]).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    update: async (id, data) => {
+        const { data: result, error } = await supabase.from('sales_entries').update(data).eq('id', id).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase.from('sales_entries').delete().eq('id', id);
+        if (error) throw error;
+        return { data: { success: true } };
+    },
     generateBill: (id) => api.post(ENDPOINTS.salesEntries.generateBill(id)),
 };
 
 export const purchaseEntriesAPI = {
-    getAll: (params) => cachedGet(ENDPOINTS.purchaseEntries.list, { params }, CACHE_TTL.SHORT),
-    getById: (id) => cachedGet(ENDPOINTS.purchaseEntries.byId(id), {}, CACHE_TTL.SHORT),
-    create: (data) => api.post(ENDPOINTS.purchaseEntries.list, data),
-    update: (id, data) => api.put(ENDPOINTS.purchaseEntries.byId(id), data),
-    delete: (id) => api.delete(ENDPOINTS.purchaseEntries.byId(id)),
+    getAll: async (params) => {
+        let query = supabase.from('purchase_entries').select('*');
+        const { data, error } = await query.order('date', { ascending: false });
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    getById: async (id) => {
+        const { data, error } = await supabase.from('purchase_entries').select('*').eq('id', id).single();
+        if (error) throw error;
+        return { data: { success: true, data } };
+    },
+    create: async (data) => {
+        const { data: result, error } = await supabase.from('purchase_entries').insert([data]).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    update: async (id, data) => {
+        const { data: result, error } = await supabase.from('purchase_entries').update(data).eq('id', id).select().single();
+        if (error) throw error;
+        return { data: { success: true, data: result } };
+    },
+    delete: async (id) => {
+        const { error } = await supabase.from('purchase_entries').delete().eq('id', id);
+        if (error) throw error;
+        return { data: { success: true } };
+    },
 };
 
 export const aiAPI = {

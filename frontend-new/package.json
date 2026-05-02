@@ -2,7 +2,7 @@
     "name": "sri-ram-fashions",
     "version": "1.0.0",
     "private": true,
-    "description": "Sri Ram Fashions Business Management Web Application",
+    "description": "Sri Ram Fashions Business Management Desktop Application",
     "type": "module",
     "author": "Sri Ram Fashions",
     "main": "electron/main.cjs",
@@ -27,6 +27,7 @@
         "@capacitor/ios": "^8.0.0",
         "@react-oauth/google": "^0.12.2",
         "@reduxjs/toolkit": "^2.11.1",
+        "@supabase/supabase-js": "^2.105.1",
         "@tailwindcss/vite": "^4.1.17",
         "@vitejs/plugin-react": "^5.1.1",
         "@vitejs/plugin-react-swc": "^4.2.3",
@@ -68,7 +69,7 @@
     "build": {
         "appId": "com.sriramfashions.app",
         "productName": "Sri Ram Fashions",
-        "artifactName": "${productName} Setup ${version}-${arch}.${ext}",
+        "artifactName": "${productName} Setup ${version}.${ext}",
         "copyright": "Copyright © 2026 Sri Ram Fashions",
         "directories": {
             "output": "electron-dist",
@@ -83,8 +84,7 @@
                 {
                     "target": "nsis",
                     "arch": [
-                        "x64",
-                        "ia32"
+                        "x64"
                     ]
                 }
             ],

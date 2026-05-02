@@ -1,350 +1,70 @@
-const { app, BrowserWindow, Menu, Tray, shell, dialog, session } = require('electron');
+const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
-const { autoUpdater } = require('electron-updater');
 
-// Prevent multiple instances
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-    app.quit();
-}
-
+// Keep a global reference so the window isn't garbage-collected
 let mainWindow = null;
-let tray = null;
 
-// Window state defaults
-const DEFAULT_WIDTH = 1280;
-const DEFAULT_HEIGHT = 850;
-const MIN_WIDTH = 1024;
-const MIN_HEIGHT = 700;
-
-function getIconPath() {
-    // Use logo.jpg from assets or fallback to default Electron icon
-    const devIcon = path.join(__dirname, '..', 'src', 'assets', 'logo.jpg');
-    const prodIcon = path.join(__dirname, '..', 'dist', 'logo.ico');
-    return app.isPackaged ? prodIcon : devIcon;
-}
+const isDev = !app.isPackaged;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: DEFAULT_WIDTH,
-        height: DEFAULT_HEIGHT,
-        minWidth: MIN_WIDTH,
-        minHeight: MIN_HEIGHT,
+        width: 1280,
+        height: 800,
+        minWidth: 900,
+        minHeight: 600,
         title: 'Sri Ram Fashions',
-        icon: getIconPath(),
-        backgroundColor: '#f8fafc',
-        show: false, // Show when ready to prevent flash
+        icon: path.join(__dirname, '..', 'src', 'assets', 'logo.jpg'),
+        autoHideMenuBar: true,
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
-            nodeIntegration: false,
             contextIsolation: true,
-            devTools: !app.isPackaged,
+            nodeIntegration: false,
+            sandbox: true,
         },
+        show: false, // show after ready-to-show for a cleaner launch
     });
 
-    // Show window when content is ready (prevents white flash)
+    // Graceful show
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
         mainWindow.focus();
     });
 
-    // Set Content Security Policy to fix Electron security warning
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-        const isDev = !app.isPackaged;
-        const csp = isDev
-            ? // Dev: allow Vite HMR inline scripts & eval for source maps
-              "default-src 'self' http://localhost:* https://*.mongodb.net; " +
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.gstatic.com; " +
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
-              "font-src 'self' https://fonts.gstatic.com data:; " +
-              "img-src 'self' data: blob: https:; " +
-              "frame-src 'self' https://accounts.google.com; " +
-              "connect-src 'self' http://localhost:* https://*.mongodb.net https://*.googleapis.com https://accounts.google.com ws://localhost:*;"
-            : // Production: strict CSP without unsafe-eval
-              "default-src 'self' https://*.mongodb.net; " +
-              "script-src 'self' 'unsafe-inline' https://accounts.google.com https://*.gstatic.com; " +
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
-              "font-src 'self' https://fonts.gstatic.com data:; " +
-              "img-src 'self' data: blob: https:; " +
-              "frame-src 'self' https://accounts.google.com; " +
-              "connect-src 'self' https://*.mongodb.net https://*.googleapis.com https://accounts.google.com;";
-
-        callback({
-            responseHeaders: {
-                ...details.responseHeaders,
-                'Content-Security-Policy': [csp]
-            }
-        });
-    });
-
-    // Load app
-    const isDev = !app.isPackaged;
-    if (isDev) {
-        mainWindow.loadURL('http://localhost:5173');
-        mainWindow.webContents.openDevTools({ mode: 'detach' });
-    } else {
-        mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
-    }
-
-    // Handle external links — open in system browser
+    // Open external links in the default browser
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        shell.openExternal(url);
+        if (url.startsWith('http')) {
+            shell.openExternal(url);
+        }
         return { action: 'deny' };
     });
 
-    // Handle window close — minimize to tray instead
-    mainWindow.on('close', (event) => {
-        if (!app.isQuitting) {
-            event.preventDefault();
-            mainWindow.hide();
-        }
-    });
+    if (isDev) {
+        // In dev mode, load from Vite dev server
+        mainWindow.loadURL('http://localhost:5173');
+        // Uncomment to auto-open DevTools:
+        // mainWindow.webContents.openDevTools();
+    } else {
+        // In production, load the built index.html from the dist folder
+        mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    }
 
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
 }
 
-function createTray() {
-    try {
-        tray = new Tray(getIconPath());
-    } catch {
-        // If icon fails, skip tray
-        return;
-    }
-
-    const contextMenu = Menu.buildFromTemplate([
-        {
-            label: 'Open Sri Ram Fashions',
-            click: () => {
-                if (mainWindow) {
-                    mainWindow.show();
-                    mainWindow.focus();
-                }
-            },
-        },
-        { type: 'separator' },
-        {
-            label: 'Quit',
-            click: () => {
-                app.isQuitting = true;
-                app.quit();
-            },
-        },
-    ]);
-
-    tray.setToolTip('Sri Ram Fashions');
-    tray.setContextMenu(contextMenu);
-
-    tray.on('double-click', () => {
-        if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
-        }
-    });
-}
-
-function createAppMenu() {
-    const template = [
-        {
-            label: 'File',
-            submenu: [
-                {
-                    label: 'New Bill',
-                    accelerator: 'CmdOrCtrl+N',
-                    click: () => {
-                        if (mainWindow) {
-                            mainWindow.webContents.executeJavaScript(
-                                "window.location.hash = '/dashboard/billing'"
-                            );
-                        }
-                    },
-                },
-                { type: 'separator' },
-                {
-                    label: 'Print',
-                    accelerator: 'CmdOrCtrl+P',
-                    click: () => {
-                        if (mainWindow) {
-                            mainWindow.webContents.print();
-                        }
-                    },
-                },
-                { type: 'separator' },
-                {
-                    label: 'Quit',
-                    accelerator: 'CmdOrCtrl+Q',
-                    click: () => {
-                        app.isQuitting = true;
-                        app.quit();
-                    },
-                },
-            ],
-        },
-        {
-            label: 'View',
-            submenu: [
-                { role: 'reload' },
-                { role: 'forceReload' },
-                { type: 'separator' },
-                { role: 'resetZoom' },
-                { role: 'zoomIn' },
-                { role: 'zoomOut' },
-                { type: 'separator' },
-                { role: 'togglefullscreen' },
-            ],
-        },
-        {
-            label: 'Navigate',
-            submenu: [
-                {
-                    label: 'Dashboard',
-                    accelerator: 'CmdOrCtrl+1',
-                    click: () => mainWindow?.webContents.executeJavaScript("window.location.hash = '/dashboard'"),
-                },
-                {
-                    label: 'Billing',
-                    accelerator: 'CmdOrCtrl+2',
-                    click: () => mainWindow?.webContents.executeJavaScript("window.location.hash = '/dashboard/billing'"),
-                },
-                {
-                    label: 'Inventory',
-                    accelerator: 'CmdOrCtrl+3',
-                    click: () => mainWindow?.webContents.executeJavaScript("window.location.hash = '/dashboard/inventory'"),
-                },
-                {
-                    label: 'Purchase Entry',
-                    accelerator: 'CmdOrCtrl+4',
-                    click: () => mainWindow?.webContents.executeJavaScript("window.location.hash = '/dashboard/purchase/entry'"),
-                },
-            ],
-        },
-        {
-            label: 'Help',
-            submenu: [
-                {
-                    label: 'Check for Updates...',
-                    click: () => {
-                        autoUpdater.checkForUpdates();
-                    },
-                },
-                { type: 'separator' },
-                {
-                    label: 'About Sri Ram Fashions',
-                    click: () => {
-                        dialog.showMessageBox(mainWindow, {
-                            type: 'info',
-                            title: 'About',
-                            message: 'Sri Ram Fashions',
-                            detail: `Business Management Desktop Application\nVersion ${app.getVersion()}\n\n© 2026 Sri Ram Fashions, Tirupur`,
-                        });
-                    },
-                },
-            ],
-        },
-    ];
-
-    const menu = Menu.buildFromTemplate(template);
-    Menu.setApplicationMenu(menu);
-}
-
-// ─── Auto-Updater Setup ─────────────────────────────────────
-function setupAutoUpdater() {
-    // Only check for updates in packaged (production) builds
-    if (!app.isPackaged) return;
-
-    // Configure updater
-    autoUpdater.autoDownload = false;       // Ask user before downloading
-    autoUpdater.autoInstallOnAppQuit = true; // Install update when app quits
-
-    // Update available — ask user if they want to download
-    autoUpdater.on('update-available', (info) => {
-        dialog.showMessageBox(mainWindow, {
-            type: 'info',
-            title: 'Update Available',
-            message: `A new version (v${info.version}) is available!`,
-            detail: 'Would you like to download it now?',
-            buttons: ['Download', 'Later'],
-            defaultId: 0,
-        }).then((result) => {
-            if (result.response === 0) {
-                autoUpdater.downloadUpdate();
-            }
-        });
-    });
-
-    // No update available
-    autoUpdater.on('update-not-available', () => {
-        // Silent on auto-check; only show dialog on manual check
-    });
-
-    // Download progress
-    autoUpdater.on('download-progress', (progress) => {
-        if (mainWindow) {
-            mainWindow.setProgressBar(progress.percent / 100);
-            mainWindow.setTitle(`Sri Ram Fashions — Downloading update ${Math.round(progress.percent)}%`);
-        }
-    });
-
-    // Download complete — prompt to restart
-    autoUpdater.on('update-downloaded', () => {
-        if (mainWindow) {
-            mainWindow.setProgressBar(-1); // Remove progress bar
-            mainWindow.setTitle('Sri Ram Fashions');
-        }
-        dialog.showMessageBox(mainWindow, {
-            type: 'info',
-            title: 'Update Ready',
-            message: 'Update downloaded successfully!',
-            detail: 'The application will restart to install the update.',
-            buttons: ['Restart Now', 'Later'],
-            defaultId: 0,
-        }).then((result) => {
-            if (result.response === 0) {
-                app.isQuitting = true;
-                autoUpdater.quitAndInstall();
-            }
-        });
-    });
-
-    // Error handling
-    autoUpdater.on('error', (err) => {
-        console.error('Auto-updater error:', err);
-    });
-
-    // Check for updates after a short delay (give the app time to fully load)
-    setTimeout(() => {
-        autoUpdater.checkForUpdates();
-    }, 5000);
-}
-
-// App lifecycle
-app.whenReady().then(() => {
-    createAppMenu();
-    createWindow();
-    createTray();
-    setupAutoUpdater();
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
-        } else if (mainWindow) {
-            mainWindow.show();
-        }
-    });
-});
-
-// Focus existing window when second instance is launched
-app.on('second-instance', () => {
-    if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.show();
-        mainWindow.focus();
+// macOS: re-create window when dock icon is clicked and no windows are open
+app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
     }
 });
 
+// Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
     }
 });
+
+app.whenReady().then(createWindow);

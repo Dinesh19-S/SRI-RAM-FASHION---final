@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logout } from '../../store/slices/authSlice';
-import { dashboardAPI } from '../../services/api';
+import { appAPI, dashboardAPI } from '../../services/api';
 import { formatDate } from '../../utils/dateUtils';
 import {
     LayoutDashboard,
@@ -124,6 +124,7 @@ const MainLayout = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
+    const { syncStatus } = useSelector((state) => state.app);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -141,8 +142,6 @@ const MainLayout = () => {
         () => notifications.filter((notification) => !notification.read).length,
         [notifications]
     );
-
-    // Page transition animation variants are now defined outside the component for performance
 
     const filteredSuggestions = searchQuery.trim()
         ? searchSuggestions.filter(s =>
@@ -423,6 +422,14 @@ const MainLayout = () => {
                         >
                             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
                         </button>
+
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-white/50 border rounded-full text-[10px] font-bold uppercase tracking-wider"
+                            style={{ borderColor: 'var(--border-soft)' }}>
+                            <div className={`w-2 h-2 rounded-full ${syncStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : syncStatus === 'error' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-amber-500 animate-pulse'}`} />
+                            <span className={syncStatus === 'connected' ? 'text-green-700' : syncStatus === 'error' ? 'text-red-700' : 'text-amber-700'}>
+                                {syncStatus === 'connected' ? 'Supabase Sync Active' : syncStatus === 'error' ? 'Sync Error' : 'Connecting Sync...'}
+                            </span>
+                        </div>
 
                         <div className="hidden md:block relative w-full max-w-md" ref={searchRef}>
                             <div className="flex items-center gap-3 px-4 py-2 bg-white/80 border rounded-lg focus-within:bg-white focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-200 transition-all"

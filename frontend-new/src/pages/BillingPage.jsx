@@ -10,7 +10,7 @@ import { EmailActionModal, useToast } from '../components/common';
 import { getEmailRecipientValidation, pickDefaultRecipient } from '../utils/emailUtils';
 import { downloadInvoicePDF } from '../utils/invoiceGenerator';
 
-const BILL_REFRESH_INTERVAL = 30 * 1000;
+const BILL_REFRESH_INTERVAL = 5 * 60 * 1000;
 
 const toAmount = (value, fallback = 0) => {
     const parsed = Number(value);

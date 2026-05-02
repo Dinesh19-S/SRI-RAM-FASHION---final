@@ -4,6 +4,12 @@ import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from './components/layout/MainLayout';
 import { appAPI } from './services/api';
+import { supabase } from './services/supabase';
+import { upsertBill, removeBill } from './store/slices/billsSlice';
+import { upsertProduct, removeProduct, upsertCategory } from './store/slices/productsSlice';
+import { useDispatch } from 'react-redux';
+import { logout as logoutAction } from './store/slices/authSlice';
+import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
 
 // Lazy-loaded pages for code splitting
 const loadHomePage = () => import('./pages/HomePage');
@@ -177,12 +183,25 @@ const AnimatedRoutes = () => {
 
 function App() {
   const { isAuthenticated } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    appAPI.warmup().catch(() => {
-      // Ignore warm-up failures; real requests will handle connectivity errors.
+    // 1. Listen for Supabase Auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        dispatch(logoutAction());
+      }
     });
-  }, []);
+
+    appAPI.warmup().catch(() => {});
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [dispatch]);
+
+  // 2. Real-time data synchronization
+  useSupabaseRealtime();
 
   useEffect(() => {
     if (!isAuthenticated) {

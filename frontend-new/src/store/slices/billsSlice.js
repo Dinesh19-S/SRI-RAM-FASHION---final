@@ -83,6 +83,20 @@ const billsSlice = createSlice({
         clearCurrentBill: (state) => {
             state.currentBill = null;
         },
+        upsertBill: (state, action) => {
+            const bill = action.payload;
+            const id = bill.id || bill._id;
+            const index = state.items.findIndex(b => (b.id || b._id) === id);
+            if (index !== -1) {
+                state.items[index] = { ...state.items[index], ...bill, _id: id, id };
+            } else {
+                state.items.unshift({ ...bill, _id: id, id });
+            }
+        },
+        removeBill: (state, action) => {
+            const id = action.payload;
+            state.items = state.items.filter(b => (b.id || b._id) !== id);
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -132,5 +146,5 @@ const billsSlice = createSlice({
     },
 });
 
-export const { clearError, clearCurrentBill } = billsSlice.actions;
+export const { clearError, clearCurrentBill, upsertBill, removeBill } = billsSlice.actions;
 export default billsSlice.reducer;

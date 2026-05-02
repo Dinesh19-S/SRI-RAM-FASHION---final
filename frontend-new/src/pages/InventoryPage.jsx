@@ -107,22 +107,35 @@ const InventoryPage = () => {
         }
     };
 
-    const stats = useMemo(() => ({
-        totalProducts: pagination?.total || products.length,
-        totalStock: products.reduce((s, p) => s + (p.stock || 0), 0),
-        lowStock: products.filter(p => p.stock <= (p.lowStockThreshold || 5)).length,
-        inventoryValue: products.reduce((s, p) => s + ((p.stock || 0) * (p.sellingPrice || 0)), 0)
-    }), [pagination?.total, products]);
+    const stats = useMemo(() => {
+        const items = Array.isArray(products) ? products : [];
+        return {
+            totalProducts: pagination?.total || items.length,
+            totalStock: items.reduce((s, p) => s + (Number(p.stock) || 0), 0),
+            lowStock: items.filter(p => (Number(p.stock) || 0) <= (Number(p.lowStockThreshold) || 5)).length,
+            inventoryValue: items.reduce((s, p) => s + ((Number(p.stock) || 0) * (Number(p.sellingPrice) || 0)), 0)
+        };
+    }, [pagination?.total, products]);
 
-    const categoryData = useMemo(() => categories.slice(0, 5).map(c => ({
-        name: c.name,
-        value: products
-            .filter(p => p.category?._id === c._id || p.category === c._id)
-            .reduce((s, p) => s + (p.stock || 0), 0)
-    })), [categories, products]);
+    const categoryData = useMemo(() => {
+        const items = Array.isArray(products) ? products : [];
+        const cats = Array.isArray(categories) ? categories : [];
+        return cats.slice(0, 5).map(c => ({
+            name: c.name,
+            value: items
+                .filter(p => {
+                    const pCatId = p.category?._id || p.category?.id || p.category_id || p.category;
+                    return pCatId === c._id || pCatId === c.id;
+                })
+                .reduce((s, p) => s + (Number(p.stock) || 0), 0)
+        }));
+    }, [categories, products]);
     
     const COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
-    const formatCurrency = (a) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(a);
+    const formatCurrency = (a) => {
+        const val = Number(a) || 0;
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+    };
 
     const filteredProducts = products;
 

@@ -103,6 +103,30 @@ const productsSlice = createSlice({
         clearError: (state) => {
             state.error = null;
         },
+        upsertProduct: (state, action) => {
+            const product = action.payload;
+            const id = product.id || product._id;
+            const index = state.items.findIndex(p => (p.id || p._id) === id);
+            if (index !== -1) {
+                state.items[index] = { ...state.items[index], ...product, _id: id, id };
+            } else {
+                state.items.unshift({ ...product, _id: id, id });
+            }
+        },
+        removeProduct: (state, action) => {
+            const id = action.payload;
+            state.items = state.items.filter(p => (p.id || p._id) !== id);
+        },
+        upsertCategory: (state, action) => {
+            const category = action.payload;
+            const id = category.id || category._id;
+            const index = state.categories.findIndex(c => (c.id || c._id) === id);
+            if (index !== -1) {
+                state.categories[index] = { ...state.categories[index], ...category, _id: id, id };
+            } else {
+                state.categories.push({ ...category, _id: id, id });
+            }
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -153,6 +177,6 @@ const productsSlice = createSlice({
     },
 });
 
-export const { clearError } = productsSlice.actions;
+export const { clearError, upsertProduct, removeProduct, upsertCategory } = productsSlice.actions;
 export default productsSlice.reducer;
 
