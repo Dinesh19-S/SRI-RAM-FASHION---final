@@ -1,6 +1,13 @@
 // Skeleton Loading Components for Sri Ram Fashions
 // 3D Glassmorphism themed skeleton loaders
 
+// Helper function to generate deterministic widths based on index
+const getSkeletonWidth = (index, min, max) => {
+    const range = max - min;
+    const seed = (index * 13) % 100; // Deterministic pseudo-random based on index
+    return min + (seed / 100) * range;
+};
+
 // Base Skeleton with shimmer animation
 export const Skeleton = ({ className = '', style = {} }) => {
     return (
@@ -41,7 +48,7 @@ export const TableRowSkeleton = ({ columns = 5 }) => {
         <tr>
             {Array.from({ length: columns }).map((_, index) => (
                 <td key={index} className="p-4">
-                    <div className="skeleton skeleton-text" style={{ width: `${60 + Math.random() * 30}%` }} />
+                    <div className="skeleton skeleton-text" style={{ width: `${getSkeletonWidth(index, 60, 90)}%` }} />
                 </td>
             ))}
         </tr>
@@ -87,7 +94,7 @@ export const CardSkeleton = ({ lines = 3 }) => {
                     key={index}
                     className="skeleton skeleton-text"
                     style={{
-                        width: `${70 + Math.random() * 25}%`,
+                        width: `${getSkeletonWidth(index, 70, 95)}%`,
                         marginBottom: index < lines - 1 ? '0.5rem' : 0
                     }}
                 />

@@ -83,6 +83,7 @@ const ToastItem = ({ toast, onRemove }) => {
         setTimeout(onRemove, 300);
     };
 
+    // Icon mapping
     const icons = {
         success: <CheckCircle size={20} />,
         error: <XCircle size={20} />,
@@ -91,6 +92,7 @@ const ToastItem = ({ toast, onRemove }) => {
         loading: <Loader2 size={20} className="animate-spin" />,
     };
 
+    // Style mapping
     const styles = {
         success: {
             background: 'rgba(16, 185, 129, 0.95)',

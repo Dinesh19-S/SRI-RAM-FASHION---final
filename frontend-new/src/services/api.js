@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { supabase } from './supabase';
 import { ENDPOINTS } from './endpoints';
 
 const API_PREFIX = '/api/v1';
@@ -37,19 +36,16 @@ const API_URL = resolveApiUrl();
  */
 const mapProduct = (p) => {
     if (!p) return null;
-    const id = p.id || p._id;
-    const categoryFromJoin = p.categories
-        ? { ...p.categories, _id: p.categories.id || p.categories._id, id: p.categories.id || p.categories._id }
-        : null;
+    const id = p._id || p.id;
     return {
         ...p,
         _id: id,
         id: id,
-        sellingPrice: Number(p.selling_price || 0),
+        sellingPrice: Number(p.sellingPrice || p.mrp || 0),
         mrp: Number(p.mrp || 0),
-        lowStockThreshold: p.low_stock_threshold || 5,
-        isActive: p.is_active !== false,
-        category: categoryFromJoin || (p.category_id ? { _id: p.category_id, id: p.category_id, name: 'N/A' } : null)
+        lowStockThreshold: p.lowStockThreshold || 5,
+        isActive: p.isActive !== false,
+        category: p.category || null
     };
 };
 
@@ -79,46 +75,35 @@ const mapBillItem = (item) => {
 
 const mapBill = (b) => {
     if (!b) return null;
-    const id = b.id || b._id;
-    const pd = b.payment_details || {};
-    const cust = pd.customer || {};
+    const id = b._id || b.id;
     
     return {
         ...b,
         _id: id,
         id: id,
-        billNumber: b.bill_number,
-        paymentStatus: b.payment_status || 'pending',
-        paymentMethod: b.payment_method || 'cash',
-        paymentDetails: pd,
-        billType: (b.bill_type || 'SALES').toUpperCase(),
-        grandTotal: Number(b.grand_total || 0),
+        billNumber: b.billNumber,
+        paymentStatus: b.paymentStatus || 'pending',
+        paymentMethod: b.paymentMethod || 'cash',
+        paymentDetails: b.paymentDetails || {},
+        billType: (b.billType || 'SALES').toUpperCase(),
+        grandTotal: Number(b.grandTotal || 0),
         subtotal: Number(b.subtotal || 0),
-        totalTax: Number(b.tax_total || 0),
-        taxableAmount: Number(b.taxable_amount || 0),
-        discountAmount: Number(b.discount_amount || 0),
-        roundOff: Number(b.round_off || 0),
-        cgst: Number(b.cgst_total || 0),
-        sgst: Number(b.sgst_total || 0),
-        igst: Number(b.igst_total || 0),
-        partyName: b.party_name || '',
-        transport: b.transport_name || '',
-        fromText: pd.fromDate || '',
-        toText: pd.toDate || '',
-        totalPacks: pd.totalPacks || 0,
-        numOfBundles: pd.numOfBundles || 1,
-        amountInWords: pd.amountInWords || '',
-        referenceInvoiceNumber: pd.referenceInvoiceNumber || '',
-        customer: {
-            name: b.party_name || cust.name || '',
-            phone: b.party_phone || cust.phone || '',
-            email: cust.email || '',
-            address: b.party_address || cust.address || '',
-            gstin: b.party_gstin || cust.gstin || '',
-            state: b.party_state || cust.state || 'Tamilnadu',
-            stateCode: b.party_state_code || cust.stateCode || '33',
-        },
-        items: Array.isArray(b.bill_items) ? b.bill_items.map(mapBillItem) : (Array.isArray(b.items) ? b.items.map(mapBillItem) : [])
+        totalTax: Number(b.totalTax || 0),
+        taxableAmount: Number(b.taxableAmount || 0),
+        discountAmount: Number(b.discountAmount || 0),
+        roundOff: Number(b.roundOff || 0),
+        cgst: Number(b.cgst || 0),
+        sgst: Number(b.sgst || 0),
+        igst: Number(b.igst || 0),
+        partyName: b.customer?.name || '',
+        transport: b.transport || '',
+        fromText: b.fromText || '',
+        toText: b.toText || '',
+        totalPacks: b.totalPacks || 0,
+        numOfBundles: b.numOfBundles || 1,
+        amountInWords: b.amountInWords || '',
+        customer: b.customer || {},
+        items: Array.isArray(b.items) ? b.items : []
     };
 };
 
@@ -148,136 +133,8 @@ const flattenBillItems = (bills) => {
 
 /**
  * Data Preparation Utilities
- * Converts camelCase frontend data to snake_case for Supabase.
+ * MongoDB uses camelCase, so no conversion needed
  */
-const prepareBillData = (data) => {
-    const { items, customer, ...rest } = data;
-    const cust = customer || {};
-
-    // Store extended data (customer info, extra fields) in payment_details JSONB
-    const existingDetails = data.paymentDetails || {};
-    const extendedDetails = {
-        ...existingDetails,
-        customer: cust,
-        fromDate: data.fromDate || data.from_text || '',
-        toDate: data.toDate || data.to_text || '',
-        totalPacks: Number(data.totalPacks || 0),
-        numOfBundles: Number(data.numOfBundles || 1),
-        amountInWords: data.amountInWords || '',
-        referenceInvoiceNumber: data.referenceInvoiceNumber || '',
-    };
-
-    return {
-        bill_number: data.billNumber || data.bill_number || `SRF-${Date.now().toString().slice(-6)}`,
-        date: data.date || new Date().toISOString(),
-        bill_type: (data.billType || data.bill_type || 'SALES').toUpperCase(),
-        party_name: data.partyName || data.party_name || cust.name || '',
-        party_gstin: data.partyGstin || data.party_gstin || cust.gstin || '',
-        party_phone: data.partyPhone || data.party_phone || cust.phone || '',
-        party_address: data.partyAddress || data.party_address || cust.address || '',
-        party_state: data.partyState || data.party_state || cust.state || 'Tamilnadu',
-        party_state_code: data.partyStateCode || data.party_state_code || cust.stateCode || '33',
-        subtotal: Number(data.subtotal || 0),
-        discount_amount: Number(data.discountAmount || data.discount_amount || 0),
-        taxable_amount: Number(data.taxableAmount || data.taxable_amount || 0),
-        cgst_total: Number(data.cgst || data.cgst_total || 0),
-        sgst_total: Number(data.sgst || data.sgst_total || 0),
-        igst_total: Number(data.igst || data.igst_total || 0),
-        tax_total: Number(data.totalTax || data.tax_total || 0),
-        round_off: Number(data.roundOff || data.round_off || 0),
-        grand_total: Number(data.grandTotal || data.grand_total || 0),
-        payment_status: data.paymentStatus || data.payment_status || 'pending',
-        payment_method: data.paymentMethod || data.payment_method || 'cash',
-        payment_details: extendedDetails,
-        notes: data.notes || '',
-        transport_name: data.transport || data.transport_name || '',
-    };
-};
-
-const prepareBillItem = (item) => {
-    const qty = Number(item.quantity || item.noOfPacks || 0);
-    const rate = Number(item.ratePerPack || item.ratePerPiece || item.price || item.rate || 0);
-    const amount = qty * rate;
-    const gstRate = Number(item.gstRate || item.gst_rate || 0);
-    const taxableAmount = amount;
-    const gstAmount = (taxableAmount * gstRate) / 100;
-    const cgstAmount = gstAmount / 2;
-    const sgstAmount = gstAmount / 2;
-    const total = Number(item.total || (taxableAmount + gstAmount));
-    
-    return {
-        product_id: item.productId || item.product_id || null,
-        product_name: item.name || item.productName || item.product_name || '',
-        hsn_code: item.hsnCode || item.hsn || item.hsn_code || '',
-        quantity: qty,
-        rate: rate,
-        amount: amount,
-        taxable_amount: taxableAmount,
-        gst_rate: gstRate,
-        cgst_amount: cgstAmount,
-        sgst_amount: sgstAmount,
-        igst_amount: 0,
-        total: total,
-    };
-};
-
-const mapPurchaseItem = (i) => {
-    if (!i) return null;
-    return {
-        ...i,
-        _id: i.id,
-        id: i.id,
-        hsnCode: i.hsn_code,
-        designColor: i.design_color,
-        weightKg: Number(i.weight_kg || 0),
-        ratePerKg: Number(i.rate_per_kg || 0),
-        gstRate: Number(i.gst_rate || 0),
-        total: Number(i.total || 0)
-    };
-};
-
-const mapPurchase = (p) => {
-    if (!p) return null;
-    const id = p.id || p._id;
-    return {
-        ...p,
-        _id: id,
-        id: id,
-        invoiceNumber: p.invoice_number,
-        supplier: p.supplier,
-        grandTotal: Number(p.grand_total || 0),
-        subtotal: Number(p.subtotal || 0),
-        totalTax: Number(p.tax_total || 0),
-        items: Array.isArray(p.purchase_items) ? p.purchase_items.map(mapPurchaseItem) : (Array.isArray(p.items) ? p.items.map(mapPurchaseItem) : [])
-    };
-};
-
-const preparePurchaseData = (data) => {
-    return {
-        invoice_number: data.invoiceNumber || data.invNo || '',
-        date: data.date || new Date().toISOString(),
-        supplier: data.supplier || {},
-        subtotal: Number(data.subtotal || 0),
-        tax_total: Number(data.totalTax || data.tax_total || 0),
-        grand_total: Number(data.grandTotal || 0),
-        notes: data.notes || ''
-    };
-};
-
-const preparePurchaseItem = (item) => {
-    const qty = Number(item.weightKg || item.quantity || 0);
-    const rate = Number(item.ratePerKg || item.rate || 0);
-    return {
-        product_name: item.particular || item.productName || item.name || '',
-        hsn_code: item.hsnCode || '',
-        quantity: qty,
-        rate: rate,
-        amount: qty * rate,
-        gst_rate: Number(item.gstRate || 0),
-        total: Number(item.total || (qty * rate))
-    };
-};
-
 const prepareProductData = (data) => {
     const categoryId =
         data.categoryId ||
@@ -289,95 +146,29 @@ const prepareProductData = (data) => {
         name: data.name,
         sku: data.sku || (data.hsn || '') + Date.now().toString().slice(-4),
         description: data.description || '',
-        category_id: categoryId,
+        categoryId: categoryId,
         mrp: Number(data.mrp || data.sellingPrice || 0),
-        selling_price: Number(data.sellingPrice || 0),
+        sellingPrice: Number(data.sellingPrice || 0),
         stock: Number(data.stock || 0),
-        low_stock_threshold: Number(data.lowStockThreshold || 5),
+        lowStockThreshold: Number(data.lowStockThreshold || 5),
         unit: data.unit || 'pcs',
         size: data.size || '',
         hsn: data.hsn || '',
-        gst_rate: Number(data.gstRate || 12),
-        is_active: data.isActive !== false
+        gstRate: Number(data.gstRate || 12),
+        isActive: data.isActive !== false
     };
 };
 
-const mapCustomer = (c) => {
-    if (!c) return null;
-    const id = c.id || c._id;
-    return {
-        ...c,
-        _id: id,
-        id,
-        companyName: c.company_name || c.name,
-        mobile: c.mobile || c.phone,
-        alternateNo: c.alternate_no,
-        placeOfSupply: c.place_of_supply
-    };
-};
+const handleError = async (error) => {
+    const status = error?.response?.status;
+    const message = String(error?.response?.data?.message || error?.message || '');
 
-const prepareCustomerData = (data) => {
-    return {
-        name: data.companyName || data.name,
-        company_name: data.companyName || data.name,
-        gstin: data.gstin || '',
-        state: data.state || 'Tamilnadu',
-        phone: data.mobile || data.phone || '',
-        mobile: data.mobile || data.phone || '',
-        alternate_no: data.alternateNo || '',
-        email: data.email || '',
-        address: data.address || '',
-        place_of_supply: data.placeOfSupply || ''
-    };
-};
-
-const mapSupplier = (s) => {
-    if (!s) return null;
-    const id = s.id || s._id;
-    return {
-        ...s,
-        _id: id,
-        id,
-        contactPerson: s.contact_person
-    };
-};
-
-const mapCategory = (cat) => {
-    if (!cat) return null;
-    const id = cat.id || cat._id;
-    return {
-        ...cat,
-        _id: id,
-        id
-    };
-};
-
-const prepareSupplierData = (data) => {
-    return {
-        name: data.name,
-        phone: data.phone || '',
-        email: data.email || '',
-        address: data.address || '',
-        gstin: data.gstin || ''
-    };
-};
-
-const handleSupabaseError = async (error) => {
-    const status = error?.status || error?.code;
-    const message = String(error?.message || '');
-
-    const isAuthFailure =
-        status === 401 ||
-        message.toLowerCase().includes('jwt') ||
+    const isAuthFailure = status === 401 || 
+        message.toLowerCase().includes('unauthorized') ||
         message.toLowerCase().includes('invalid token') ||
         message.toLowerCase().includes('expired');
 
     if (isAuthFailure) {
-        try {
-            await supabase.auth.signOut();
-        } catch {
-            // no-op
-        }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
@@ -654,71 +445,71 @@ api.interceptors.response.use(
 
 export const authAPI = {
     login: async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        return { data: { token: data.session?.access_token || null, user: data.user || null } };
-    },
-    signInWithGoogle: async () => {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: window.location.origin,
-            },
-        });
-        if (error) throw error;
-        return data;
+        try {
+            const response = await api.post('/auth/login', { email, password }, { skipAuth: true });
+            return { data: response.data };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
     register: async (data) => {
-        const { data: result, error } = await supabase.auth.signUp({
-            email: data.email,
-            password: data.password,
-            options: {
-                data: {
-                    name: data.name,
-                    phone: data.phone,
-                    role: data.role || 'user'
-                }
-            }
-        });
-        if (error) throw error;
-        return { data: { token: result.session?.access_token || null, user: result.user || null } };
+        try {
+            const response = await api.post('/auth/register', data, { skipAuth: true });
+            return { data: response.data };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
-    sendOTP: (phone) => supabase.auth.signInWithOtp({ phone }),
+    sendOTP: async (phone) => {
+        try {
+            const response = await api.post('/auth/send-otp', { phone }, { skipAuth: true });
+            return { data: response.data };
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
     loginPhone: async (phone, token) => {
-        const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
-        if (error) throw error;
-        return { data: { token: data.session?.access_token || null, user: data.user || null } };
+        try {
+            const response = await api.post('/auth/login-phone', { phone, token }, { skipAuth: true });
+            return { data: response.data };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
-    getProfile: () => supabase.auth.getUser(),
-    forgotPassword: (email) => supabase.auth.resetPasswordForEmail(email),
-    resetPassword: (email, code, newPassword) => supabase.auth.updateUser({ password: newPassword }),
+    getProfile: async () => {
+        try {
+            const response = await api.get('/auth/profile');
+            return { data: response.data };
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    forgotPassword: async (email) => {
+        try {
+            const response = await api.post('/auth/forgot-password', { email }, { skipAuth: true });
+            return { data: response.data };
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    resetPassword: async (email, code, newPassword) => {
+        try {
+            const response = await api.post('/auth/reset-password', { email, code, newPassword }, { skipAuth: true });
+            return { data: response.data };
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
 };
 
 export const appAPI = {
     warmup: async () => {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-            return { success: false, error: sessionError.message };
+        try {
+            const response = await cachedGet(ENDPOINTS.health, {}, CACHE_TTL.SHORT);
+            return { success: true, data: response.data };
+        } catch (error) {
+            return { success: false, error: error.message };
         }
-
-        // Avoid auth-protected table calls for signed-out users.
-        if (!sessionData?.session) {
-            return { success: false, skipped: true, reason: 'NO_SESSION' };
-        }
-
-        const { error } = await supabase
-            .from('categories')
-            .select('*', { count: 'exact', head: true });
-
-        if (error) {
-            await handleSupabaseError(error);
-        }
-
-        if (import.meta.env.DEV) {
-            console.log('Supabase connected successfully');
-        }
-
-        return { success: true };
     },
     getEndpoints: () => cachedGet(
         ENDPOINTS.endpoints,
@@ -730,106 +521,59 @@ export const appAPI = {
 export const productsAPI = {
     getAll: async (params) => {
         try {
-            let query = supabase.from('products').select('*, categories(*)', { count: 'exact' });
-
-            if (params?.search) {
-                query = query.ilike('name', `%${params.search}%`);
-            }
-
-            if (params?.category) {
-                query = query.eq('category_id', params.category);
-            }
-
-            if (params?.isActive !== undefined) {
-                query = query.eq('is_active', params.isActive);
-            }
-
-            // Pagination
-            const page = params?.page ? parseInt(params.page) : 1;
-            const limit = params?.limit ? parseInt(params.limit) : 20;
-            const from = (page - 1) * limit;
-            const to = from + limit - 1;
-
-            const { data, error, count } = await query
-                .order('name', { ascending: true })
-                .range(from, to);
-
-            if (error) throw error;
-            return { data: { success: true, data: data.map(mapProduct), pagination: { total: count, page, limit } } };
+            const response = await cachedGet(ENDPOINTS.products.list, { params }, CACHE_TTL.SHORT);
+            return { data: { success: true, data: response.data?.data?.map(mapProduct) || [], pagination: response.data?.pagination } };
         } catch (error) {
-            return handleSupabaseError(error);
+            throw handleError(error);
         }
     },
     getById: async (id) => {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*, categories(*)')
-            .eq('id', id)
-            .single();
-
-        if (error) throw error;
-        return { data: { success: true, data: mapProduct(data) } };
+        try {
+            const response = await cachedGet(ENDPOINTS.products.byId(id), {}, CACHE_TTL.MEDIUM);
+            return { data: { success: true, data: mapProduct(response.data?.data) } };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
     create: async (data) => {
-        const productData = prepareProductData(data);
-        const { data: result, error } = await supabase
-            .from('products')
-            .insert([productData])
-            .select()
-            .single();
-
-        if (error) return handleSupabaseError(error);
-        return { data: { success: true, data: mapProduct(result) } };
+        try {
+            const response = await api.post(ENDPOINTS.products.list, prepareProductData(data));
+            return { data: { success: true, data: mapProduct(response.data?.data) } };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
     update: async (id, data) => {
-        const productData = prepareProductData(data);
-        const { data: result, error } = await supabase
-            .from('products')
-            .update(productData)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) return handleSupabaseError(error);
-        return { data: { success: true, data: mapProduct(result) } };
+        try {
+            const response = await api.put(ENDPOINTS.products.byId(id), prepareProductData(data));
+            return { data: { success: true, data: mapProduct(response.data?.data) } };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
     delete: async (id) => {
-        const { error } = await supabase
-            .from('products')
-            .delete()
-            .eq('id', id);
-
-        if (error) return handleSupabaseError(error);
-        return { data: { success: true } };
+        try {
+            await api.delete(ENDPOINTS.products.byId(id));
+            return { data: { success: true } };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
     updateStock: async (id, { stock, type, reason }) => {
-        const { data: result, error } = await supabase
-            .from('products')
-            .update({ stock })
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) return handleSupabaseError(error);
-
-        // Also record movement
-        await supabase.from('stock_movements').insert([{
-            product_id: id,
-            type: type || 'ADJUSTMENT',
-            quantity: stock,
-            notes: reason
-        }]);
-
-        return { data: { success: true, data: mapProduct(result) } };
+        try {
+            const response = await api.put(ENDPOINTS.products.stock(id), { stock });
+            return { data: { success: true, data: mapProduct(response.data?.data) } };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
     getLowStock: async () => {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .lte('stock', 'low_stock_threshold');
-
-        if (error) return handleSupabaseError(error);
-        return { data: { success: true, data: data.map(mapProduct) } };
+        try {
+            const response = await cachedGet(ENDPOINTS.products.lowStock, {}, CACHE_TTL.SHORT);
+            return { data: { success: true, data: response.data?.data?.map(mapProduct) || [] } };
+        } catch (error) {
+            throw handleError(error);
+        }
     },
 };
 
@@ -891,130 +635,119 @@ export const categoriesAPI = {
     },
 };
 
+// Helper function to get auth token
+const getAuthToken = () => {
+    if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+        return localStorage.getItem('token') || '';
+    }
+    return '';
+};
+
 export const billsAPI = {
     getAll: async (params) => {
-        let query = supabase.from('bills').select('*', { count: 'exact' });
+        try {
+            const queryString = new URLSearchParams();
+            if (params?.search) queryString.append('search', params.search);
+            if (params?.status) queryString.append('status', params.status);
+            if (params?.billType) queryString.append('billType', params.billType);
+            if (params?.page) queryString.append('page', params.page);
+            if (params?.limit) queryString.append('limit', params.limit);
 
-        if (params?.search) {
-            query = query.ilike('bill_number', `%${params.search}%`);
-        }
+            const response = await axios.get(`${API_URL}/bills?${queryString}`, {
+                headers: { Authorization: `Bearer ${getAuthToken()}` }
+            });
 
-        if (params?.status) {
-            query = query.eq('payment_status', params.status);
-        }
-
-        if (params?.type) {
-            query = query.eq('bill_type', params.type);
-        }
-
-        // Pagination
-        const page = params?.page ? parseInt(params.page) : 1;
-        const limit = params?.limit ? parseInt(params.limit) : 20;
-        const from = (page - 1) * limit;
-        const to = from + limit - 1;
-
-        const { data, error, count } = await query
-            .order('date', { ascending: false })
-            .range(from, to);
-
-        if (error) throw error;
-        return { data: { success: true, data: data.map(mapBill), pagination: { total: count, page, limit } } };
-    },
-    getById: async (id) => {
-        const { data: bill, error: billError } = await supabase
-            .from('bills')
-            .select('*, bill_items(*)')
-            .eq('id', id)
-            .single();
-
-        if (billError) throw billError;
-
-        return { data: { success: true, data: mapBill(bill) } };
-    },
-    create: async (data) => {
-        const { items, ...rawBillData } = data;
-        const billData = prepareBillData(data);
-        
-        // 1. Create the bill
-        const { data: bill, error: billError } = await supabase
-            .from('bills')
-            .insert([billData])
-            .select()
-            .single();
-
-        if (billError) throw billError;
-
-        // 2. Create the bill items
-        if (items && items.length > 0) {
-            const preparedItems = items.map(item => ({ 
-                ...prepareBillItem(item), 
-                bill_id: bill.id 
-            }));
-            const { error: itemsError } = await supabase
-                .from('bill_items')
-                .insert(preparedItems);
-
-            if (itemsError) throw itemsError;
-        }
-
-        return { data: { success: true, data: mapBill(bill) } };
-    },
-    update: async (id, data) => {
-        const { items, ...rest } = data;
-
-        // For partial updates (status changes), only update provided fields
-        const isPartialUpdate = data.paymentStatus && !data.billNumber && !data.items;
-        let updatePayload;
-
-        if (isPartialUpdate) {
-            updatePayload = {
-                payment_status: data.paymentStatus,
+            return {
+                data: {
+                    success: true,
+                    data: response.data?.data?.map(mapBill) || [],
+                    pagination: response.data?.pagination || {}
+                }
             };
-            if (data.paymentMethod) updatePayload.payment_method = data.paymentMethod;
-            if (data.paymentDetails) updatePayload.payment_details = data.paymentDetails;
-        } else {
-            updatePayload = prepareBillData(data);
+        } catch (error) {
+            throw new Error(error.response?.data?.message || error.message || 'Failed to fetch bills');
         }
-
-        // 1. Update the bill
-        const { data: bill, error: billError } = await supabase
-            .from('bills')
-            .update(updatePayload)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (billError) throw billError;
-
-        // 2. Update items (Delete and recreate for simplicity in this migration step)
-        if (items) {
-            await supabase.from('bill_items').delete().eq('bill_id', id);
-            const preparedItems = items.map(item => ({ 
-                ...prepareBillItem(item), 
-                bill_id: bill.id 
-            }));
-            const { error: itemsError } = await supabase
-                .from('bill_items')
-                .insert(preparedItems);
-
-            if (itemsError) throw itemsError;
-        }
-
-        return { data: { success: true, data: mapBill(bill) } };
     },
+
+    getById: async (id) => {
+        try {
+            const response = await axios.get(`${API_URL}/bills/${id}`, {
+                headers: { Authorization: `Bearer ${getAuthToken()}` }
+            });
+
+            return {
+                data: {
+                    success: true,
+                    data: mapBill(response.data?.data)
+                }
+            };
+        } catch (error) {
+            throw new Error(error.response?.data?.message || error.message || 'Failed to fetch bill');
+        }
+    },
+
+    create: async (data) => {
+        try {
+            const response = await axios.post(`${API_URL}/bills`, data, {
+                headers: { Authorization: `Bearer ${getAuthToken()}` }
+            });
+
+            return {
+                data: {
+                    success: true,
+                    data: mapBill(response.data?.data)
+                }
+            };
+        } catch (error) {
+            throw new Error(error.response?.data?.message || error.message || 'Failed to create bill');
+        }
+    },
+
+    update: async (id, data) => {
+        try {
+            const response = await axios.put(`${API_URL}/bills/${id}`, data, {
+                headers: { Authorization: `Bearer ${getAuthToken()}` }
+            });
+
+            return {
+                data: {
+                    success: true,
+                    data: mapBill(response.data?.data)
+                }
+            };
+        } catch (error) {
+            throw new Error(error.response?.data?.message || error.message || 'Failed to update bill');
+        }
+    },
+
     delete: async (id) => {
-        const { error } = await supabase
-            .from('bills')
-            .delete()
-            .eq('id', id);
+        try {
+            await axios.delete(`${API_URL}/bills/${id}`, {
+                headers: { Authorization: `Bearer ${getAuthToken()}` }
+            });
 
-        if (error) throw error;
-        return { data: { success: true } };
+            return { data: { success: true } };
+        } catch (error) {
+            throw new Error(error.response?.data?.message || error.message || 'Failed to delete bill');
+        }
     },
+
     getStats: async (params) => {
-        // Return mock success to prevent UI errors during migration
-        return { data: { success: true, data: { totalSales: 0, totalOrders: 0, averageOrderValue: 0 } } };
-    },
+        try {
+            const queryString = new URLSearchParams();
+            if (params?.startDate) queryString.append('startDate', params.startDate);
+            if (params?.endDate) queryString.append('endDate', params.endDate);
+
+            const response = await axios.get(`${API_URL}/bills/stats?${queryString}`, {
+                headers: { Authorization: `Bearer ${getAuthToken()}` }
+            });
+
+            return { data: { success: true, data: response.data?.data || {} } };
+        } catch (error) {
+            // Return mock data on error to prevent UI crashes
+            return { data: { success: true, data: { totalSales: 0, totalOrders: 0, averageOrderValue: 0 } } };
+        }
+    }
 };
 
 export const inventoryAPI = {
