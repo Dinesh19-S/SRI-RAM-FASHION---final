@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Package, Plus, Search, Edit, Trash2, X, Save, FolderPlus } from 'lucide-react';
+import { Package, Plus, Search, Edit, Trash2, X, Save, FolderPlus, Tag, Layers, IndianRupee, Info } from 'lucide-react';
 import { productsAPI, categoriesAPI, clearAPICache } from '../services/api';
 import { useToast } from '../components/common';
+
+const categoryColors = ['bg-blue-100 text-blue-700', 'bg-purple-100 text-purple-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700', 'bg-rose-100 text-rose-700', 'bg-indigo-100 text-indigo-700'];
 
 const ItemsPage = () => {
     const toast = useToast();
@@ -18,10 +20,8 @@ const ItemsPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
     const [newCategory, setNewCategory] = useState({ name: '', description: '' });
-    // Counter to force a refetch after data mutations (save/delete/search)
     const [refreshKey, setRefreshKey] = useState(0);
 
-    // Full product form data (without SKU)
     const [formData, setFormData] = useState({
         name: '',
         category: '',
@@ -35,7 +35,6 @@ const ItemsPage = () => {
         description: ''
     });
 
-    // Fetch items whenever page, limit, or refreshKey changes
     useEffect(() => {
         fetchItems();
         fetchCategories();
@@ -58,6 +57,7 @@ const ItemsPage = () => {
             }));
         } catch (error) {
             console.error('Error fetching items:', error);
+            toast.error('Failed to load items');
         } finally {
             setIsLoading(false);
         }
@@ -73,7 +73,6 @@ const ItemsPage = () => {
     };
 
     const handleSearch = () => {
-        // Clear stale cache and trigger a fresh fetch via refreshKey
         clearAPICache();
         setPagination(prev => ({ ...prev, page: 1 }));
         setRefreshKey(prev => prev + 1);
@@ -158,20 +157,18 @@ const ItemsPage = () => {
     };
 
     const handleSave = async () => {
-        // Validation - removed SKU requirement
         if (!formData.name || !formData.category || !formData.sellingPrice || !formData.stock) {
-            toast.warning('Please fill in all required fields (Name, Category, Selling Price, Stock)');
+            toast.warning('Please fill in Name, Category, Price, and Stock');
             return;
         }
 
-        // Always resolve to category UUID before save.
         const selectedCategory =
             categories.find((c) => (c._id || c.id) === formData.category) ||
             categories.find((c) => c.name?.toLowerCase() === String(formData.category).toLowerCase());
         const resolvedCategoryId = selectedCategory?._id || selectedCategory?.id || '';
 
         if (!resolvedCategoryId) {
-            toast.error('Please select a valid category from the dropdown');
+            toast.error('Please select a valid category');
             return;
         }
 
@@ -179,12 +176,11 @@ const ItemsPage = () => {
         try {
             const productData = {
                 name: formData.name,
-                // Auto-generate SKU from HSN or name for backend compatibility
                 sku: formData.hsn || formData.name.substring(0, 3).toUpperCase() + Date.now().toString().slice(-4),
                 category: resolvedCategoryId,
                 size: formData.size,
                 costPrice: Number(formData.costPrice) || 0,
-                mrp: Number(formData.sellingPrice),  // MRP is required by backend
+                mrp: Number(formData.sellingPrice),
                 sellingPrice: Number(formData.sellingPrice),
                 stock: Number(formData.stock),
                 lowStockThreshold: Number(formData.lowStockThreshold) || 5,
@@ -202,7 +198,6 @@ const ItemsPage = () => {
             }
             setShowModal(false);
             resetForm();
-            // Force fresh data fetch after mutation
             clearAPICache();
             setRefreshKey(prev => prev + 1);
         } catch (error) {
@@ -223,7 +218,6 @@ const ItemsPage = () => {
             toast.success('Product deleted successfully');
             setShowDeleteConfirm(false);
             setSelectedItem(null);
-            // Force fresh data fetch after mutation
             clearAPICache();
             setRefreshKey(prev => prev + 1);
         } catch (error) {
@@ -243,16 +237,23 @@ const ItemsPage = () => {
 
     const formatCurrency = (a) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(a);
 
+    const getStockStatus = (item) => {
+        if (item.stock <= 0) return { label: 'Out of Stock', class: 'bg-red-100 text-red-700' };
+        if (item.stock <= (item.lowStockThreshold || 5)) return { label: 'Low Stock', class: 'bg-amber-100 text-amber-700' };
+        return { label: 'In Stock', class: 'bg-emerald-100 text-emerald-700' };
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
+            {/* Page Header */}
             <div className="page-header-shell">
                 <div className="flex items-start gap-4">
                     <div className="page-icon-badge">
                         <Package size={20} />
                     </div>
                     <div className="page-header-copy">
-                        <p className="page-header-kicker">Manage your product catalog</p>
-                        <h1 className="page-header-title">Items / Products</h1>
+                        <p className="page-header-kicker">Manage your product catalog and inventory</p>
+                        <h1 className="page-header-title">Items & Products</h1>
                     </div>
                 </div>
                 <button
@@ -264,24 +265,28 @@ const ItemsPage = () => {
                 </button>
             </div>
 
+            {/* Filter Area */}
             <div className="page-filter-card">
                 <div className="flex flex-wrap items-end gap-3">
-                    <div className="shrink-0 w-48">
-                        <label className="form-label">Name</label>
-                        <input
-                            type="text"
-                            placeholder="Enter item name"
-                            value={searchName}
-                            onChange={(e) => setSearchName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="form-input"
-                        />
+                    <div className="shrink-0 w-64">
+                        <label className="form-label">Product Name</label>
+                        <div className="relative">
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Enter item name..."
+                                value={searchName}
+                                onChange={(e) => setSearchName(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                className="form-input pl-9"
+                            />
+                        </div>
                     </div>
-                    <div className="shrink-0 w-32">
+                    <div className="shrink-0 w-40">
                         <label className="form-label">HSN Code</label>
                         <input
                             type="text"
-                            placeholder="Enter HSN code"
+                            placeholder="e.g. 6106"
                             value={searchHSN}
                             onChange={(e) => setSearchHSN(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -313,61 +318,89 @@ const ItemsPage = () => {
                     <table className="page-table">
                         <thead>
                             <tr>
-                                <th>S No</th>
-                                <th>Name</th>
-                                <th>HSN Code</th>
+                                <th>Product Details</th>
                                 <th>Category</th>
-                                <th>Size</th>
-                                <th>Stock</th>
-                                <th>Price</th>
-                                <th>GST</th>
+                                <th>HSN / GST</th>
+                                <th>Stock Info</th>
+                                <th>Pricing</th>
                                 <th className="text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="9" className="page-empty-state">
-                                        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                    <td colSpan="6" className="page-empty-state">
+                                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                                     </td>
                                 </tr>
                             ) : items.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="page-empty-state">
-                                        No products found. Click "ADD PRODUCT" to add one.
+                                    <td colSpan="6" className="page-empty-state">
+                                        No products found. Start by adding your first product.
                                     </td>
                                 </tr>
                             ) : (
-                                items.map((item, index) => (
-                                    <tr key={item._id}>
-                                        <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
-                                        <td className="font-medium">{item.name}</td>
-                                        <td className="text-blue-600 font-mono">{item.hsn || '-'}</td>
-                                        <td>{item.category?.name || '-'}</td>
-                                        <td>{item.size || '-'}</td>
-                                        <td className="font-semibold">{item.stock || 0}</td>
-                                        <td>{formatCurrency(item.sellingPrice || 0)}</td>
-                                        <td>{item.gstRate || 5}%</td>
-                                        <td>
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    className="action-btn action-btn-blue"
-                                                    onClick={() => handleOpenModal(item)}
-                                                    title="Edit"
-                                                >
-                                                    <Edit size={16} />
-                                                </button>
-                                                <button
-                                                    className="action-btn action-btn-red"
-                                                    onClick={() => handleDeleteClick(item)}
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                items.map((item, index) => {
+                                    const status = getStockStatus(item);
+                                    return (
+                                        <tr key={item._id}>
+                                            <td>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shadow-inner">
+                                                        <Package size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-gray-900">{item.name}</p>
+                                                        <p className="text-xs text-gray-500 font-medium">Size: {item.size || 'N/A'}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${categoryColors[index % categoryColors.length]}`}>
+                                                    {item.category?.name || 'Uncategorized'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-xs font-mono font-bold text-blue-700">{item.hsn || '-'}</span>
+                                                    <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">{item.gstRate}% GST</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-sm font-bold text-gray-800">{item.stock} <span className="text-[10px] text-gray-400 font-medium uppercase">{item.unit || 'pcs'}</span></span>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter inline-block w-fit ${status.class}`}>
+                                                        {status.label}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-gray-900">{formatCurrency(item.sellingPrice || 0)}</span>
+                                                    {item.costPrice > 0 && <span className="text-[10px] text-gray-400 line-through">Cost: {formatCurrency(item.costPrice)}</span>}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        className="action-btn action-btn-blue"
+                                                        onClick={() => handleOpenModal(item)}
+                                                        title="Edit"
+                                                    >
+                                                        <Edit size={16} />
+                                                    </button>
+                                                    <button
+                                                        className="action-btn action-btn-red"
+                                                        onClick={() => handleDeleteClick(item)}
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -422,155 +455,192 @@ const ItemsPage = () => {
 
             {/* Add/Edit Product Modal */}
             {showModal && (
-                <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                        <div className="px-6 py-4" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' }}>
-                            <h3 className="text-lg font-semibold text-white">
-                                {isEditing ? 'Edit Product' : 'Add New Product'}
-                            </h3>
-                        </div>
-                        <div className="p-6 overflow-y-auto max-h-[70vh] space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="modal-overlay" onClick={() => !isSubmitting && setShowModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-8 py-6" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #312e81 100%)' }}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                    <Package size={24} className="text-white" />
+                                </div>
                                 <div>
-                                    <label className="form-label">Product Name *</label>
+                                    <h3 className="text-xl font-bold text-white">
+                                        {isEditing ? 'Update Product Details' : 'Register New Product'}
+                                    </h3>
+                                    <p className="text-indigo-100 text-sm">Fill in the technical and commercial specifications</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                            {/* Primary Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">Product Name *</label>
                                     <input
                                         type="text"
                                         name="name"
-                                        className="form-input"
+                                        className="form-input text-lg"
                                         placeholder="Enter product name"
                                         value={formData.name}
                                         onChange={handleInputChange}
                                     />
                                 </div>
-                                <div>
-                                    <label className="form-label">HSN Code</label>
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">HSN Code</label>
                                     <input
                                         type="text"
                                         name="hsn"
-                                        className="form-input"
-                                        placeholder="e.g., 6106"
+                                        className="form-input font-mono"
+                                        placeholder="e.g. 6106"
                                         value={formData.hsn}
                                         onChange={handleInputChange}
                                     />
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="form-label">Category *</label>
+                            {/* Classification */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">Category *</label>
                                     <select
                                         name="category"
-                                        className="form-input"
+                                        className="form-input font-bold"
                                         value={formData.category}
                                         onChange={handleCategoryChange}
                                     >
                                         <option value="">Select category</option>
                                         {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                        <option value="__add_new__" style={{ color: '#8b5cf6', fontWeight: 'bold' }}>+ Add New Category</option>
+                                        <option value="__add_new__" className="text-indigo-600 font-black">+ Create New</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label className="form-label">Size</label>
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">Size</label>
                                     <input
                                         type="text"
                                         name="size"
-                                        className="form-input"
-                                        placeholder="e.g., S, M, L, XL or 32, 34"
+                                        className="form-input uppercase"
+                                        placeholder="S, M, L, XL"
                                         value={formData.size}
                                         onChange={handleInputChange}
                                     />
                                 </div>
-                                <div>
-                                    <label className="form-label">GST Rate (%)</label>
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">GST Rate (%)</label>
                                     <select
                                         name="gstRate"
                                         className="form-input"
                                         value={formData.gstRate}
                                         onChange={handleInputChange}
                                     >
-                                        <option value="0">0%</option>
-                                        <option value="5">5%</option>
-                                        <option value="12">12%</option>
-                                        <option value="18">18%</option>
-                                        <option value="28">28%</option>
+                                        <option value="0">0% (Exempt)</option>
+                                        <option value="5">5% (Essential)</option>
+                                        <option value="12">12% (Standard)</option>
+                                        <option value="18">18% (Service)</option>
+                                        <option value="28">28% (Luxury)</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="form-label">Cost Price (₹)</label>
-                                    <input
-                                        type="number"
-                                        name="costPrice"
-                                        className="form-input"
-                                        placeholder="0"
-                                        value={formData.costPrice}
-                                        onChange={handleInputChange}
-                                    />
+                            <hr className="border-gray-100" />
+
+                            {/* Commercials */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 space-y-4">
+                                    <h4 className="text-sm font-black text-indigo-900 uppercase tracking-widest flex items-center gap-2">
+                                        <IndianRupee size={14} /> Pricing & Costing
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Cost Price</label>
+                                            <input
+                                                type="number"
+                                                name="costPrice"
+                                                className="form-input bg-white border-indigo-200"
+                                                placeholder="0"
+                                                value={formData.costPrice}
+                                                onChange={handleInputChange}
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Selling Price *</label>
+                                            <input
+                                                type="number"
+                                                name="sellingPrice"
+                                                className="form-input bg-white border-indigo-400 ring-indigo-100 ring-2"
+                                                placeholder="0"
+                                                value={formData.sellingPrice}
+                                                onChange={handleInputChange}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="form-label">Selling Price (₹) *</label>
-                                    <input
-                                        type="number"
-                                        name="sellingPrice"
-                                        className="form-input"
-                                        placeholder="0"
-                                        value={formData.sellingPrice}
-                                        onChange={handleInputChange}
-                                    />
+
+                                <div className="bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100 space-y-4">
+                                    <h4 className="text-sm font-black text-emerald-900 uppercase tracking-widest flex items-center gap-2">
+                                        <Layers size={14} /> Stock Management
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">{isEditing ? 'Current Stock' : 'Initial Stock *'}</label>
+                                            <input
+                                                type="number"
+                                                name="stock"
+                                                className="form-input bg-white border-emerald-200"
+                                                placeholder="0"
+                                                value={formData.stock}
+                                                onChange={handleInputChange}
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Low Alert at</label>
+                                            <input
+                                                type="number"
+                                                name="lowStockThreshold"
+                                                className="form-input bg-white border-emerald-200"
+                                                placeholder="5"
+                                                value={formData.lowStockThreshold}
+                                                onChange={handleInputChange}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="form-label">{isEditing ? 'Stock' : 'Initial Stock *'}</label>
-                                    <input
-                                        type="number"
-                                        name="stock"
-                                        className="form-input"
-                                        placeholder="0"
-                                        min="0"
-                                        value={formData.stock}
-                                        onChange={handleInputChange}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="form-label">Low Stock Threshold</label>
-                                    <input
-                                        type="number"
-                                        name="lowStockThreshold"
-                                        className="form-input"
-                                        placeholder="5"
-                                        min="0"
-                                        value={formData.lowStockThreshold}
-                                        onChange={handleInputChange}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="form-label">Description (optional)</label>
+                            <div className="space-y-1.5">
+                                <label className="form-label font-bold text-gray-700 flex items-center gap-2">
+                                    <Info size={14} /> Product Description
+                                </label>
                                 <textarea
                                     name="description"
-                                    className="form-input"
-                                    rows="3"
-                                    placeholder="Product description (optional)"
+                                    className="form-input py-3 min-h-[80px]"
+                                    placeholder="Enter additional details, material info, etc."
                                     value={formData.description}
                                     onChange={handleInputChange}
                                 />
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 rounded-b-2xl">
-                            <button className="btn btn-secondary" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
-                            <button
-                                className="btn btn-primary flex items-center gap-2"
-                                onClick={handleSave}
-                                disabled={isSubmitting}
-                            >
-                                <Save size={18} />
-                                {isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Add Product')}
-                            </button>
+
+                        <div className="px-8 py-6 bg-gray-50 flex items-center justify-between border-t border-gray-100">
+                            <p className="text-xs text-gray-400 italic">Press Save to commit changes to the catalog</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowModal(false)}
+                                    className="btn btn-secondary px-6"
+                                    disabled={isSubmitting}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="btn btn-primary px-8 flex items-center gap-2"
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? (
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    ) : <Save size={18} />}
+                                    {isSubmitting ? 'Saving...' : 'Save Product'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -579,27 +649,27 @@ const ItemsPage = () => {
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && selectedItem && (
                 <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-scale-up" onClick={(e) => e.stopPropagation()}>
                         <div className="text-center">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Trash2 size={32} className="text-red-600" />
+                            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Trash2 size={40} className="text-red-500" />
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Product</h3>
-                            <p className="text-gray-600 mb-6">
-                                Are you sure you want to delete <strong>{selectedItem.name}</strong>? This action cannot be undone.
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Delete Product?</h3>
+                            <p className="text-gray-600 mb-8 leading-relaxed text-center">
+                                You are removing <strong>{selectedItem.name}</strong> from the catalog. This will archive the product but historical data remains.
                             </p>
-                            <div className="flex gap-3 justify-center">
+                            <div className="flex gap-4">
                                 <button
                                     onClick={() => setShowDeleteConfirm(false)}
-                                    className="btn btn-secondary"
+                                    className="flex-1 btn btn-secondary py-3"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleDelete}
-                                    className="btn btn-danger"
+                                    className="flex-1 btn btn-danger py-3"
                                 >
-                                    Delete
+                                    Confirm Delete
                                 </button>
                             </div>
                         </div>
@@ -609,48 +679,47 @@ const ItemsPage = () => {
 
             {/* Add Category Modal */}
             {showCategoryModal && (
-                <div className="modal-overlay" onClick={() => { setShowCategoryModal(false); setNewCategory({ name: '', description: '' }); }}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="px-6 py-4 flex items-center gap-2" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' }}>
+                <div className="modal-overlay" onClick={() => !isSubmitting && setShowCategoryModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-up" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-6 py-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #312e81 100%)' }}>
                             <FolderPlus size={20} className="text-white" />
-                            <h3 className="text-lg font-semibold text-white">Add New Category</h3>
+                            <h3 className="text-lg font-bold text-white">Create Category</h3>
                         </div>
                         <div className="p-6 space-y-4">
-                            <div>
-                                <label className="form-label">Category Name *</label>
+                            <div className="space-y-1.5">
+                                <label className="form-label font-bold">Category Name *</label>
                                 <input
                                     type="text"
-                                    className="form-input"
-                                    placeholder="Enter category name"
+                                    className="form-input focus:ring-4"
+                                    placeholder="e.g. Menswear, Fabric, etc."
                                     value={newCategory.name}
                                     onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
                                     autoFocus
                                 />
                             </div>
-                            <div>
-                                <label className="form-label">Description (optional)</label>
+                            <div className="space-y-1.5">
+                                <label className="form-label font-bold">Description (Optional)</label>
                                 <textarea
-                                    className="form-input"
-                                    rows="3"
-                                    placeholder="Category description (optional)"
+                                    className="form-input py-2"
+                                    rows="2"
+                                    placeholder="Brief category description..."
                                     value={newCategory.description}
                                     onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
                                 />
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 rounded-b-2xl">
+                        <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100 rounded-b-3xl">
                             <button
-                                className="btn btn-secondary"
+                                className="btn btn-secondary px-5"
                                 onClick={() => { setShowCategoryModal(false); setNewCategory({ name: '', description: '' }); }}
                             >
                                 Cancel
                             </button>
                             <button
-                                className="btn btn-primary flex items-center gap-2"
+                                className="btn btn-primary px-6"
                                 onClick={handleAddCategory}
                             >
-                                <Plus size={18} />
-                                Add Category
+                                Create
                             </button>
                         </div>
                     </div>

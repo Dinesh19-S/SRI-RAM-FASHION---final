@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Mail, Phone, Plus, Search, Pencil, Trash2, X, Save, Building2 } from 'lucide-react';
+import { Mail, Phone, Plus, Search, Pencil, Trash2, X, Save, Building2, MapPin, Globe } from 'lucide-react';
 import { suppliersAPI } from '../services/api';
 import { useToast } from '../components/common';
 
-const avatarBg = ['bg-emerald-500', 'bg-amber-500', 'bg-slate-500', 'bg-blue-500', 'bg-rose-500', 'bg-indigo-500', 'bg-cyan-500', 'bg-violet-500'];
+const avatarBg = ['bg-blue-500', 'bg-indigo-500', 'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500', 'bg-rose-500'];
 
 const SupplierEntryPage = () => {
     const toast = useToast();
@@ -14,6 +14,7 @@ const SupplierEntryPage = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [selectedSupplier, setSelectedSupplier] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
     const [formData, setFormData] = useState({
         companyName: '',
@@ -22,7 +23,8 @@ const SupplierEntryPage = () => {
         mobile: '',
         alternateNo: '',
         email: '',
-        address: ''
+        address: '',
+        placeOfSupply: ''
     });
 
     useEffect(() => {
@@ -45,6 +47,7 @@ const SupplierEntryPage = () => {
             }));
         } catch (error) {
             console.error('Error fetching suppliers:', error);
+            toast.error('Failed to load suppliers');
         } finally {
             setIsLoading(false);
         }
@@ -68,7 +71,8 @@ const SupplierEntryPage = () => {
             mobile: '',
             alternateNo: '',
             email: '',
-            address: ''
+            address: '',
+            placeOfSupply: ''
         });
         setIsEditing(false);
         setSelectedSupplier(null);
@@ -83,7 +87,8 @@ const SupplierEntryPage = () => {
                 mobile: supplier.mobile || '',
                 alternateNo: supplier.alternateNo || '',
                 email: supplier.email || '',
-                address: supplier.address || ''
+                address: supplier.address || '',
+                placeOfSupply: supplier.placeOfSupply || ''
             });
             setSelectedSupplier(supplier);
             setIsEditing(true);
@@ -95,9 +100,11 @@ const SupplierEntryPage = () => {
 
     const handleSave = async () => {
         if (!formData.companyName || !formData.mobile) {
-            toast.warning('Please fill Company Name and Mobile');
+            toast.warning('Company Name and Mobile are required');
             return;
         }
+
+        setIsSubmitting(true);
         try {
             if (isEditing && selectedSupplier) {
                 await suppliersAPI.update(selectedSupplier._id, formData);
@@ -111,6 +118,8 @@ const SupplierEntryPage = () => {
             fetchSuppliers();
         } catch (error) {
             toast.error('Error saving supplier: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -144,103 +153,138 @@ const SupplierEntryPage = () => {
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Page Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                    <p className="text-sm text-gray-600">Manage your supplier database</p>
-                    <h1 className="text-2xl font-bold text-gray-900">Suppliers</h1>
+            <div className="page-header-shell">
+                <div className="flex items-start gap-4">
+                    <div className="page-icon-badge">
+                        <Building2 size={20} />
+                    </div>
+                    <div className="page-header-copy">
+                        <p className="page-header-kicker">Manage your vendor relationships</p>
+                        <h1 className="page-header-title">Suppliers</h1>
+                    </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search suppliers..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
-                        />
+                <button
+                    className="btn btn-primary"
+                    onClick={() => handleOpenModal()}
+                >
+                    <Plus size={16} />
+                    New Supplier
+                </button>
+            </div>
+
+            {/* Filter Area */}
+            <div className="page-filter-card">
+                <div className="flex flex-wrap items-end gap-3">
+                    <div className="shrink-0 w-64">
+                        <label className="form-label">Search</label>
+                        <div className="relative">
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Name, Mobile, or GSTIN"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                className="form-input pl-9"
+                            />
+                        </div>
                     </div>
                     <button
+                        onClick={handleSearch}
+                        disabled={isLoading}
                         className="btn btn-primary"
-                        onClick={() => handleOpenModal()}
                     >
-                        <Plus size={16} />
-                        New Supplier
+                        <Search size={16} />
+                        Search
+                    </button>
+                    <button
+                        onClick={() => { setSearchQuery(''); setPagination(p => ({ ...p, page: 1 })); fetchSuppliers(); }}
+                        className="btn btn-ghost"
+                    >
+                        <X size={16} />
+                        Clear
                     </button>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="bg-white border rounded-2xl shadow-sm overflow-hidden" style={{ borderColor: 'var(--border-soft)' }}>
+            <div className="page-table-card">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead style={{ backgroundColor: '#dbeafe' }} className="text-left">
-                            <tr className="text-xs uppercase tracking-wide text-blue-900">
-                                <th className="px-6 py-3">Supplier</th>
-                                <th className="px-6 py-3">Contact Info</th>
-                                <th className="px-6 py-3">GSTIN</th>
-                                <th className="px-6 py-3">State</th>
-                                <th className="px-6 py-3 text-right">Actions</th>
+                    <table className="page-table">
+                        <thead>
+                            <tr>
+                                <th>Supplier</th>
+                                <th>Contact Info</th>
+                                <th>GSTIN</th>
+                                <th>State / Place</th>
+                                <th className="text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="5" className="py-8 text-center">
-                                        <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#3b82f6', borderTopColor: 'transparent' }}></div>
+                                    <td colSpan="5" className="page-empty-state">
+                                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                                     </td>
                                 </tr>
                             ) : suppliers.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="py-8 text-center text-gray-500">
-                                        No suppliers found. Click &quot;New Supplier&quot; to add one.
+                                    <td colSpan="5" className="page-empty-state">
+                                        No suppliers found. Click "NEW SUPPLIER" to add one.
                                     </td>
                                 </tr>
                             ) : (
                                 suppliers.map((supplier, index) => (
-                                    <tr key={supplier._id} className="border-b last:border-b-0 hover:bg-[#eff6ff]" style={{ borderColor: 'var(--border-soft)' }}>
-                                        <td className="px-6 py-4">
+                                    <tr key={supplier._id}>
+                                        <td>
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold ${avatarBg[index % avatarBg.length]}`}>
+                                                <div className={`w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-lg shadow-sm ${avatarBg[index % avatarBg.length]}`}>
                                                     {(supplier.companyName || '?').charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-semibold text-gray-900">{supplier.companyName}</p>
-                                                    <p className="text-xs text-gray-500">{supplier.address || supplier.state || 'Tamilnadu'}</p>
+                                                    <p className="font-bold text-gray-900">{supplier.companyName}</p>
+                                                    <p className="text-xs text-gray-500 font-medium">{supplier.address ? (supplier.address.substring(0, 30) + '...') : (supplier.placeOfSupply || 'Tamilnadu')}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col text-sm text-gray-700 gap-1">
+                                        <td>
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2 text-sm text-gray-700">
+                                                    <Phone size={12} className="text-blue-500" />
+                                                    <span className="font-medium">{supplier.mobile}</span>
+                                                </div>
                                                 {supplier.email && (
-                                                    <span className="flex items-center gap-2 text-gray-800"><Mail size={14} /> {supplier.email}</span>
+                                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                        <Mail size={12} className="text-gray-400" />
+                                                        {supplier.email}
+                                                    </div>
                                                 )}
-                                                <span className="flex items-center gap-2 text-gray-800"><Phone size={14} /> {supplier.mobile}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-sm font-mono text-gray-800">{supplier.gstin || '-'}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-800">
-                                                <Building2 size={16} className="text-gray-500" />
-                                                {supplier.state || 'Tamilnadu'}
+                                        <td>
+                                            <span className="text-sm font-mono font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
+                                                {supplier.gstin || '-'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-end gap-2">
+                                        <td>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-semibold text-gray-800">{supplier.state || 'Tamilnadu'}</span>
+                                                <span className="text-xs text-gray-500">{supplier.placeOfSupply || ''}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div className="flex justify-end gap-2">
                                                 <button
                                                     className="action-btn action-btn-blue"
                                                     onClick={() => handleOpenModal(supplier)}
-                                                    aria-label="Edit supplier"
+                                                    title="Edit Supplier"
                                                 >
                                                     <Pencil size={16} />
                                                 </button>
                                                 <button
                                                     className="action-btn action-btn-red"
                                                     onClick={() => handleDeleteClick(supplier)}
-                                                    aria-label="Delete supplier"
+                                                    title="Delete Supplier"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
@@ -255,12 +299,12 @@ const SupplierEntryPage = () => {
 
                 {/* Pagination */}
                 {pagination.pages > 0 && (
-                    <div className="flex items-center justify-between px-6 py-3 border-t bg-gray-50" style={{ borderColor: 'var(--border-soft)' }}>
-                        <div className="flex items-center gap-2">
+                    <div className="page-pagination">
+                        <div className="page-pagination-group">
                             <button
                                 onClick={() => handlePageChange(pagination.page - 1)}
                                 disabled={pagination.page <= 1}
-                                className="px-2 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded disabled:opacity-50"
+                                className="page-pagination-btn"
                             >
                                 &lt;
                             </button>
@@ -271,7 +315,7 @@ const SupplierEntryPage = () => {
                                     <button
                                         key={pageNum}
                                         onClick={() => handlePageChange(pageNum)}
-                                        className={`px-3 py-1 text-sm rounded font-medium ${pagination.page === pageNum ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
+                                        className={`page-pagination-btn ${pagination.page === pageNum ? 'is-active' : ''}`}
                                     >
                                         {pageNum}
                                     </button>
@@ -280,17 +324,17 @@ const SupplierEntryPage = () => {
                             <button
                                 onClick={() => handlePageChange(pagination.page + 1)}
                                 disabled={pagination.page >= pagination.pages}
-                                className="px-2 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded disabled:opacity-50"
+                                className="page-pagination-btn"
                             >
                                 &gt;
                             </button>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="page-pagination-group">
                             {[10, 25, 50, 100].map(limit => (
                                 <button
                                     key={limit}
                                     onClick={() => handleLimitChange(limit)}
-                                    className={`px-3 py-1 text-sm rounded font-medium ${pagination.limit === limit ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
+                                    className={`page-pagination-btn ${pagination.limit === limit ? 'is-active' : ''}`}
                                 >
                                     {limit}
                                 </button>
@@ -302,110 +346,156 @@ const SupplierEntryPage = () => {
 
             {/* New/Edit Supplier Modal */}
             {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                        <div className="px-6 py-4" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' }}>
-                            <h3 className="text-lg font-semibold text-white">
-                                {isEditing ? 'Edit Supplier' : 'New Supplier'}
-                            </h3>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Company Name *</label>
-                                <input
-                                    type="text"
-                                    name="companyName"
-                                    value={formData.companyName}
-                                    onChange={handleInputChange}
-                                    className="form-input w-full"
-                                    placeholder="Enter company name"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                <div className="modal-overlay" onClick={() => !isSubmitting && setShowModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-8 py-6" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)' }}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                    <Building2 size={24} className="text-white" />
+                                </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">GSTIN</label>
+                                    <h3 className="text-xl font-bold text-white">
+                                        {isEditing ? 'Update Supplier Profile' : 'Register New Supplier'}
+                                    </h3>
+                                    <p className="text-blue-100 text-sm">Enter the company details below</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                            {/* Primary Info */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">Company Name *</label>
+                                    <input
+                                        type="text"
+                                        name="companyName"
+                                        value={formData.companyName}
+                                        onChange={handleInputChange}
+                                        className="form-input text-lg focus:ring-4"
+                                        placeholder="Enter legal entity name"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">GST Number</label>
                                     <input
                                         type="text"
                                         name="gstin"
                                         value={formData.gstin}
                                         onChange={handleInputChange}
-                                        className="form-input w-full"
-                                        placeholder="Enter GSTIN"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                                    <input
-                                        type="text"
-                                        name="state"
-                                        value={formData.state}
-                                        onChange={handleInputChange}
-                                        className="form-input w-full"
-                                        placeholder="State"
+                                        className="form-input font-mono uppercase tracking-wider"
+                                        placeholder="e.g. 33AAAAA0000A1Z5"
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone No *</label>
-                                    <input
-                                        type="text"
-                                        name="mobile"
-                                        value={formData.mobile}
-                                        onChange={handleInputChange}
-                                        className="form-input w-full"
-                                        placeholder="Phone"
-                                    />
+
+                            {/* Contact Info */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">Primary Mobile *</label>
+                                    <div className="relative">
+                                        <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            name="mobile"
+                                            value={formData.mobile}
+                                            onChange={handleInputChange}
+                                            className="form-input pl-10"
+                                            placeholder="Contact number"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Alternate No</label>
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">Alternate No</label>
                                     <input
                                         type="text"
                                         name="alternateNo"
                                         value={formData.alternateNo}
                                         onChange={handleInputChange}
-                                        className="form-input w-full"
-                                        placeholder="Alternate"
+                                        className="form-input"
+                                        placeholder="Secondary contact"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                    <input
-                                        type="email"
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleInputChange}
-                                        className="form-input w-full"
-                                        placeholder="Email"
-                                    />
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">Email Address</label>
+                                    <div className="relative">
+                                        <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleInputChange}
+                                            className="form-input pl-10"
+                                            placeholder="vendor@email.com"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+
+                            <hr className="border-gray-100" />
+
+                            {/* Location Info */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-1.5">
+                                    <label className="form-label font-bold text-gray-700">State</label>
+                                    <input
+                                        type="text"
+                                        name="state"
+                                        value={formData.state}
+                                        onChange={handleInputChange}
+                                        className="form-input"
+                                        placeholder="Tamilnadu"
+                                    />
+                                </div>
+                                <div className="space-y-1.5 md:col-span-2">
+                                    <label className="form-label font-bold text-gray-700">Place of Supply / City</label>
+                                    <div className="relative">
+                                        <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            name="placeOfSupply"
+                                            value={formData.placeOfSupply}
+                                            onChange={handleInputChange}
+                                            className="form-input pl-10"
+                                            placeholder="City or Area"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="form-label font-bold text-gray-700">Detailed Address</label>
                                 <textarea
                                     name="address"
                                     value={formData.address}
                                     onChange={handleInputChange}
-                                    className="form-input w-full resize-none"
-                                    rows="2"
-                                    placeholder="Enter address"
+                                    className="form-input min-h-[100px] py-3"
+                                    placeholder="Complete office or warehouse address"
                                 />
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50">
-                            <button
-                                onClick={() => setShowModal(false)}
-                                className="btn btn-secondary"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                className="btn btn-primary"
-                            >
-                                <Save size={16} />
-                                Save
-                            </button>
+
+                        <div className="px-8 py-6 bg-gray-50 flex items-center justify-between border-t border-gray-100">
+                            <p className="text-xs text-gray-400 italic">* Required fields must be filled</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowModal(false)}
+                                    className="btn btn-secondary px-6"
+                                    disabled={isSubmitting}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="btn btn-primary px-8 flex items-center gap-2"
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? (
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    ) : <Save size={18} />}
+                                    {isSubmitting ? 'Processing...' : 'Save Supplier'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -414,27 +504,27 @@ const SupplierEntryPage = () => {
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && selectedSupplier && (
                 <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-scale-up" onClick={(e) => e.stopPropagation()}>
                         <div className="text-center">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Trash2 size={32} className="text-red-600" />
+                            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Trash2 size={40} className="text-red-500" />
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Supplier</h3>
-                            <p className="text-gray-600 mb-6">
-                                Are you sure you want to delete <strong>{selectedSupplier.companyName}</strong>? This action cannot be undone.
+                            <h3 className="text-2xl font-bold text-gray-900 mb-3">Delete Supplier?</h3>
+                            <p className="text-gray-600 mb-8 leading-relaxed">
+                                You are about to remove <strong>{selectedSupplier.companyName}</strong>. This action will archive the supplier record.
                             </p>
-                            <div className="flex gap-3 justify-center">
+                            <div className="flex gap-4">
                                 <button
                                     onClick={() => setShowDeleteConfirm(false)}
-                                    className="btn btn-secondary"
+                                    className="flex-1 btn btn-secondary py-3"
                                 >
-                                    Cancel
+                                    No, Keep it
                                 </button>
                                 <button
                                     onClick={handleDelete}
-                                    className="btn btn-danger"
+                                    className="flex-1 btn btn-danger py-3"
                                 >
-                                    Delete
+                                    Yes, Delete
                                 </button>
                             </div>
                         </div>
