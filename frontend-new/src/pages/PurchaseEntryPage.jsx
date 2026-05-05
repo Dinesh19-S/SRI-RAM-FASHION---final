@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Plus, Search, Eye, Trash2, X, Save, Building2, Calendar, FileText, IndianRupee, Package, Trash, Edit, CheckCircle2 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { ShoppingCart, Plus, Search, Eye, Trash2, X, Save, Building2, Calendar, FileText, IndianRupee, Package, Trash, Edit, CheckCircle2, Printer } from 'lucide-react';
 import { purchaseEntriesAPI, suppliersAPI, productsAPI } from '../services/api';
 import { useToast } from '../components/common';
+import BillTemplate from '../components/BillTemplate';
+import { fetchSettings } from '../store/slices/settingsSlice';
 
 const PurchaseEntryPage = () => {
     const toast = useToast();
+    const dispatch = useDispatch();
+    const settings = useSelector((state) => state.settings.data);
+    const resolvedSettings = settings || { company: {}, bank: {}, tax: { cgstRate: 0, sgstRate: 0 } };
     const [entries, setEntries] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [products, setProducts] = useState([]);
@@ -27,6 +33,7 @@ const PurchaseEntryPage = () => {
     });
 
     useEffect(() => {
+        dispatch(fetchSettings());
         fetchEntries();
         fetchSuppliers();
         fetchProducts();
@@ -528,70 +535,51 @@ const PurchaseEntryPage = () => {
             {/* View Details Modal */}
             {showViewModal && selectedEntry && (
                 <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-scale-up" onClick={(e) => e.stopPropagation()}>
-                        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-scale-up" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }}>
                             <div>
-                                <h3 className="text-xl font-black text-gray-900">Purchase Invoice Details</h3>
-                                <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Bill #: {selectedEntry.billNumber}</p>
+                                <h3 className="text-xl font-black text-white">Purchase Invoice Preview</h3>
+                                <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Bill #: {selectedEntry.billNumber}</p>
                             </div>
-                            <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                                <X size={24} className="text-gray-400" />
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => window.print()}
+                                    className="btn bg-white/10 hover:bg-white/20 text-white border-white/20 flex items-center gap-2"
+                                >
+                                    <Printer size={18} />
+                                    Print
+                                </button>
+                                <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
+                                    <X size={24} />
+                                </button>
+                            </div>
                         </div>
-                        <div className="p-8 space-y-6">
-                            <div className="grid grid-cols-2 gap-8">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Supplier</p>
-                                    <p className="font-bold text-gray-900 text-lg">{selectedEntry.supplier?.companyName}</p>
-                                    <p className="text-sm text-gray-500">{selectedEntry.supplier?.address}</p>
-                                </div>
-                                <div className="space-y-1 text-right">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</p>
-                                    <p className="font-bold text-gray-900">{new Date(selectedEntry.date).toLocaleDateString()}</p>
-                                    <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${selectedEntry.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                        {selectedEntry.paymentStatus}
-                                    </span>
-                                </div>
+                        <div className="p-0 overflow-y-auto max-h-[80vh] bg-gray-100">
+                            <div className="max-w-[800px] mx-auto my-8 shadow-lg bg-white overflow-hidden rounded-xl">
+                                <BillTemplate
+                                    bill={{
+                                        ...selectedEntry,
+                                        billType: 'PURCHASE',
+                                        customer: selectedEntry.supplier, // Map supplier to customer for template
+                                        items: selectedEntry.items?.map(item => ({
+                                            ...item,
+                                            productName: item.product?.name || item.name || 'N/A',
+                                            hsnCode: item.product?.hsn || item.hsnCode || '',
+                                            designColor: item.designColor || item.product?.size || '',
+                                            weightKg: item.quantity, // Purchase entries often use quantity as weight
+                                            ratePerKg: item.rate,
+                                            total: item.total
+                                        })),
+                                        subtotal: selectedEntry.totalAmount / 1.05,
+                                        totalTax: selectedEntry.totalAmount - (selectedEntry.totalAmount / 1.05),
+                                        grandTotal: selectedEntry.totalAmount
+                                    }}
+                                    settings={resolvedSettings}
+                                />
                             </div>
-
-                            <div className="border rounded-2xl overflow-hidden border-gray-100">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest border-b">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left">Product</th>
-                                            <th className="px-4 py-3 text-center">Qty</th>
-                                            <th className="px-4 py-3 text-right">Rate</th>
-                                            <th className="px-4 py-3 text-right">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {selectedEntry.items?.map((item, idx) => (
-                                            <tr key={idx}>
-                                                <td className="px-4 py-3 font-bold text-gray-800">{item.product?.name}</td>
-                                                <td className="px-4 py-3 text-center text-gray-600">{item.quantity}</td>
-                                                <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(item.rate)}</td>
-                                                <td className="px-4 py-3 text-right font-black text-gray-900">{formatCurrency(item.total)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    <tfoot className="bg-gray-50/50">
-                                        <tr>
-                                            <td colSpan="3" className="px-4 py-4 text-right font-black text-gray-500 uppercase tracking-widest text-[10px]">Grand Total</td>
-                                            <td className="px-4 py-4 text-right font-black text-xl text-emerald-600">{formatCurrency(selectedEntry.totalAmount)}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-
-                            {selectedEntry.notes && (
-                                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Notes</p>
-                                    <p className="text-sm text-blue-900">{selectedEntry.notes}</p>
-                                </div>
-                            )}
                         </div>
                         <div className="px-8 py-6 bg-gray-50 border-t flex justify-end">
-                            <button onClick={() => setShowViewModal(false)} className="btn btn-primary px-10">Close Details</button>
+                            <button onClick={() => setShowViewModal(false)} className="btn btn-primary px-10">Close Preview</button>
                         </div>
                     </div>
                 </div>
