@@ -62,29 +62,62 @@ const mapBillItem = (item) => {
         id: id,
         billId: item.bill_id,
         productId: item.product_id,
-        ratePerPiece: Number(item.rate_per_piece || 0),
+        name: item.product_name || item.name || '',
+        productName: item.product_name || item.name || '',
+        hsnCode: item.hsn_code || item.hsn || '',
+        ratePerPiece: Number(item.rate || item.rate_per_piece || 0),
+        ratePerPack: Number(item.rate || item.rate_per_pack || 0),
+        noOfPacks: Number(item.quantity || 0),
+        pcsInPack: Number(item.pcs_in_pack || 1),
         totalPrice: Number(item.total || item.total_price || 0),
         gstRate: Number(item.gst_rate || 0),
-        quantity: Number(item.quantity || 0)
+        quantity: Number(item.quantity || 0),
+        price: Number(item.rate || 0),
+        total: Number(item.total || 0),
     };
 };
 
 const mapBill = (b) => {
     if (!b) return null;
     const id = b.id || b._id;
+    const pd = b.payment_details || {};
+    const cust = pd.customer || {};
+    
     return {
         ...b,
         _id: id,
         id: id,
         billNumber: b.bill_number,
         paymentStatus: b.payment_status || 'pending',
-        billType: b.bill_type || 'SALES',
+        paymentMethod: b.payment_method || 'cash',
+        paymentDetails: pd,
+        billType: (b.bill_type || 'SALES').toUpperCase(),
         grandTotal: Number(b.grand_total || 0),
         subtotal: Number(b.subtotal || 0),
-        totalTax: Number(b.total_tax || 0),
+        totalTax: Number(b.tax_total || 0),
         taxableAmount: Number(b.taxable_amount || 0),
         discountAmount: Number(b.discount_amount || 0),
         roundOff: Number(b.round_off || 0),
+        cgst: Number(b.cgst_total || 0),
+        sgst: Number(b.sgst_total || 0),
+        igst: Number(b.igst_total || 0),
+        partyName: b.party_name || '',
+        transport: b.transport_name || '',
+        fromText: pd.fromDate || '',
+        toText: pd.toDate || '',
+        totalPacks: pd.totalPacks || 0,
+        numOfBundles: pd.numOfBundles || 1,
+        amountInWords: pd.amountInWords || '',
+        referenceInvoiceNumber: pd.referenceInvoiceNumber || '',
+        customer: {
+            name: b.party_name || cust.name || '',
+            phone: b.party_phone || cust.phone || '',
+            email: cust.email || '',
+            address: b.party_address || cust.address || '',
+            gstin: b.party_gstin || cust.gstin || '',
+            state: b.party_state || cust.state || 'Tamilnadu',
+            stateCode: b.party_state_code || cust.stateCode || '33',
+        },
         items: Array.isArray(b.bill_items) ? b.bill_items.map(mapBillItem) : (Array.isArray(b.items) ? b.items.map(mapBillItem) : [])
     };
 };
@@ -100,12 +133,12 @@ const flattenBillItems = (bills) => {
                 date: bill.date,
                 invNo: bill.bill_number || bill.invoiceNumber,
                 item: item.product_name || item.particular || 'N/A',
-                rate: Number(item.rate_per_piece || item.rate_per_kg || item.rate || item.price || 0),
+                rate: Number(item.rate || item.rate_per_piece || item.rate_per_kg || item.price || 0),
                 qty: Number(item.quantity || item.weight_kg || item.qty || 0),
                 taxableAmount: Number(item.taxable_amount || 0),
-                cgst: Number(item.cgst || 0),
-                sgst: Number(item.sgst || 0),
-                igst: Number(item.igst || 0),
+                cgst: Number(item.cgst_amount || item.cgst || 0),
+                sgst: Number(item.sgst_amount || item.sgst || 0),
+                igst: Number(item.igst_amount || item.igst || 0),
                 total: Number(item.total || item.total_price || 0)
             });
         });
@@ -119,57 +152,72 @@ const flattenBillItems = (bills) => {
  */
 const prepareBillData = (data) => {
     const { items, customer, ...rest } = data;
+    const cust = customer || {};
+
+    // Store extended data (customer info, extra fields) in payment_details JSONB
+    const existingDetails = data.paymentDetails || {};
+    const extendedDetails = {
+        ...existingDetails,
+        customer: cust,
+        fromDate: data.fromDate || data.from_text || '',
+        toDate: data.toDate || data.to_text || '',
+        totalPacks: Number(data.totalPacks || 0),
+        numOfBundles: Number(data.numOfBundles || 1),
+        amountInWords: data.amountInWords || '',
+        referenceInvoiceNumber: data.referenceInvoiceNumber || '',
+    };
+
     return {
-        bill_number: data.billNumber || `SRF-${Date.now().toString().slice(-6)}`,
+        bill_number: data.billNumber || data.bill_number || `SRF-${Date.now().toString().slice(-6)}`,
         date: data.date || new Date().toISOString(),
-        customer_data: customer || {},
+        bill_type: (data.billType || data.bill_type || 'SALES').toUpperCase(),
+        party_name: data.partyName || data.party_name || cust.name || '',
+        party_gstin: data.partyGstin || data.party_gstin || cust.gstin || '',
+        party_phone: data.partyPhone || data.party_phone || cust.phone || '',
+        party_address: data.partyAddress || data.party_address || cust.address || '',
+        party_state: data.partyState || data.party_state || cust.state || 'Tamilnadu',
+        party_state_code: data.partyStateCode || data.party_state_code || cust.stateCode || '33',
         subtotal: Number(data.subtotal || 0),
-        discount_amount: Number(data.discountAmount || 0),
-        taxable_amount: Number(data.taxableAmount || 0),
-        cgst: Number(data.cgst || 0),
-        sgst: Number(data.sgst || 0),
-        igst: Number(data.igst || 0),
-        total_tax: Number(data.totalTax || 0),
-        round_off: Number(data.roundOff || 0),
-        grand_total: Number(data.grandTotal || 0),
-        payment_status: data.paymentStatus || 'pending',
-        payment_method: data.paymentMethod || 'cash',
-        payment_details: data.paymentDetails || {},
-        bill_type: data.billType || 'SALES',
-        transport: data.transport || '',
-        from_text: data.fromDate || data.from_text || '',
-        to_text: data.toDate || data.to_text || '',
-        total_packs: Number(data.totalPacks || 0),
-        num_of_bundles: Number(data.numOfBundles || 1),
-        amount_in_words: data.amountInWords || '',
+        discount_amount: Number(data.discountAmount || data.discount_amount || 0),
+        taxable_amount: Number(data.taxableAmount || data.taxable_amount || 0),
+        cgst_total: Number(data.cgst || data.cgst_total || 0),
+        sgst_total: Number(data.sgst || data.sgst_total || 0),
+        igst_total: Number(data.igst || data.igst_total || 0),
+        tax_total: Number(data.totalTax || data.tax_total || 0),
+        round_off: Number(data.roundOff || data.round_off || 0),
+        grand_total: Number(data.grandTotal || data.grand_total || 0),
+        payment_status: data.paymentStatus || data.payment_status || 'pending',
+        payment_method: data.paymentMethod || data.payment_method || 'cash',
+        payment_details: extendedDetails,
         notes: data.notes || '',
-        reference_invoice_number: data.referenceInvoiceNumber || '',
-        party_name: data.partyName || (customer?.name || '')
+        transport_name: data.transport || data.transport_name || '',
     };
 };
 
 const prepareBillItem = (item) => {
-    const qty = Number(item.quantity || 0);
-    const rate = Number(item.ratePerPiece || item.price || 0);
-    const total = Number(item.total || (qty * rate));
+    const qty = Number(item.quantity || item.noOfPacks || 0);
+    const rate = Number(item.ratePerPack || item.ratePerPiece || item.price || item.rate || 0);
+    const amount = qty * rate;
+    const gstRate = Number(item.gstRate || item.gst_rate || 0);
+    const taxableAmount = amount;
+    const gstAmount = (taxableAmount * gstRate) / 100;
+    const cgstAmount = gstAmount / 2;
+    const sgstAmount = gstAmount / 2;
+    const total = Number(item.total || (taxableAmount + gstAmount));
     
     return {
-        product_id: item.productId,
-        product_name: item.name || item.productName,
-        sku: item.sku || '',
-        hsn: item.hsnCode || item.hsn || '',
-        hsn_code: item.hsnCode || item.hsn || '',
+        product_id: item.productId || item.product_id || null,
+        product_name: item.name || item.productName || item.product_name || '',
+        hsn_code: item.hsnCode || item.hsn || item.hsn_code || '',
         quantity: qty,
-        price: rate,
-        rate_per_piece: rate,
-        pcs_in_pack: Number(item.pcsInPack || 1),
-        rate_per_pack: Number(item.ratePerPack || 0),
-        no_of_packs: Number(item.noOfPacks || 0),
-        mrp: Number(item.mrp || rate),
-        gst_rate: Number(item.gstRate || 0),
-        gst_amount: Number(item.gstAmount || 0),
+        rate: rate,
+        amount: amount,
+        taxable_amount: taxableAmount,
+        gst_rate: gstRate,
+        cgst_amount: cgstAmount,
+        sgst_amount: sgstAmount,
+        igst_amount: 0,
         total: total,
-        sizes_or_pieces: item.sizesOrPieces || ''
     };
 };
 
@@ -196,36 +244,35 @@ const mapPurchase = (p) => {
         _id: id,
         id: id,
         invoiceNumber: p.invoice_number,
-        supplier: p.supplier_data,
+        supplier: p.supplier,
         grandTotal: Number(p.grand_total || 0),
-        totalWeight: Number(p.total_weight || 0),
         subtotal: Number(p.subtotal || 0),
-        totalTax: Number(p.total_tax || 0),
+        totalTax: Number(p.tax_total || 0),
         items: Array.isArray(p.purchase_items) ? p.purchase_items.map(mapPurchaseItem) : (Array.isArray(p.items) ? p.items.map(mapPurchaseItem) : [])
     };
 };
 
 const preparePurchaseData = (data) => {
     return {
-        invoice_number: data.invoiceNumber || data.invNo,
+        invoice_number: data.invoiceNumber || data.invNo || '',
         date: data.date || new Date().toISOString(),
-        supplier_data: data.supplier || {},
+        supplier: data.supplier || {},
         subtotal: Number(data.subtotal || 0),
-        total_tax: Number(data.totalTax || 0),
+        tax_total: Number(data.totalTax || data.tax_total || 0),
         grand_total: Number(data.grandTotal || 0),
-        total_weight: Number(data.totalWeight || 0)
+        notes: data.notes || ''
     };
 };
 
 const preparePurchaseItem = (item) => {
-    const qty = Number(item.weightKg || 0);
-    const rate = Number(item.ratePerKg || 0);
+    const qty = Number(item.weightKg || item.quantity || 0);
+    const rate = Number(item.ratePerKg || item.rate || 0);
     return {
-        particular: item.particular,
+        product_name: item.particular || item.productName || item.name || '',
         hsn_code: item.hsnCode || '',
-        design_color: item.designColor || '',
-        weight_kg: qty,
-        rate_per_kg: rate,
+        quantity: qty,
+        rate: rate,
+        amount: qty * rate,
         gst_rate: Number(item.gstRate || 0),
         total: Number(item.total || (qty * rate))
     };
@@ -308,7 +355,6 @@ const mapCategory = (cat) => {
 const prepareSupplierData = (data) => {
     return {
         name: data.name,
-        contact_person: data.contactPerson || '',
         phone: data.phone || '',
         email: data.email || '',
         address: data.address || '',
@@ -684,7 +730,7 @@ export const appAPI = {
 export const productsAPI = {
     getAll: async (params) => {
         try {
-            let query = supabase.from('products').select('*, categories(*)');
+            let query = supabase.from('products').select('*, categories(*)', { count: 'exact' });
 
             if (params?.search) {
                 query = query.ilike('name', `%${params.search}%`);
@@ -847,7 +893,7 @@ export const categoriesAPI = {
 
 export const billsAPI = {
     getAll: async (params) => {
-        let query = supabase.from('bills').select('*');
+        let query = supabase.from('bills').select('*', { count: 'exact' });
 
         if (params?.search) {
             query = query.ilike('bill_number', `%${params.search}%`);
@@ -914,13 +960,26 @@ export const billsAPI = {
         return { data: { success: true, data: mapBill(bill) } };
     },
     update: async (id, data) => {
-        const { items, ...rawBillData } = data;
-        const billData = prepareBillData(data);
+        const { items, ...rest } = data;
+
+        // For partial updates (status changes), only update provided fields
+        const isPartialUpdate = data.paymentStatus && !data.billNumber && !data.items;
+        let updatePayload;
+
+        if (isPartialUpdate) {
+            updatePayload = {
+                payment_status: data.paymentStatus,
+            };
+            if (data.paymentMethod) updatePayload.payment_method = data.paymentMethod;
+            if (data.paymentDetails) updatePayload.payment_details = data.paymentDetails;
+        } else {
+            updatePayload = prepareBillData(data);
+        }
 
         // 1. Update the bill
         const { data: bill, error: billError } = await supabase
             .from('bills')
-            .update(billData)
+            .update(updatePayload)
             .eq('id', id)
             .select()
             .single();
@@ -1008,14 +1067,17 @@ export const reportsAPI = {
 
 export const settingsAPI = {
     get: async () => {
-        const { data, error } = await supabase
-            .from('settings')
-            .select('*')
-            .eq('id', '00000000-0000-0000-0000-000000000001')
-            .single();
+        try {
+            const { data, error } = await supabase
+                .from('settings')
+                .select('*')
+                .eq('id', '00000000-0000-0000-0000-000000000001');
 
-        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'no rows'
-        return { data: { success: true, data: data || {} } };
+            if (error) throw error;
+            return { data: { success: true, data: data && data.length > 0 ? data[0] : {} } };
+        } catch (error) {
+            return handleSupabaseError(error);
+        }
     },
     update: async (data) => {
         const { data: result, error } = await supabase
@@ -1099,11 +1161,12 @@ export const customersAPI = {
     getAll: async (params) => {
         let query = supabase.from('customers').select('*');
         if (params?.search) {
-            query = query.or(`name.ilike.%${params.search}%,phone.ilike.%${params.search}%`);
+            const term = params.search.replace(/'/g, "''");
+            query = query.or(`name.ilike.%${term}%,phone.ilike.%${term}%,company_name.ilike.%${term}%`);
         }
         const { data, error } = await query.order('name', { ascending: true });
         if (error) throw error;
-        return { data: { success: true, data: data.map(mapCustomer) } };
+        return { data: { success: true, data: (data || []).map(mapCustomer) } };
     },
     getById: async (id) => {
         const { data, error } = await supabase.from('customers').select('*').eq('id', id).single();
@@ -1165,7 +1228,8 @@ export const suppliersAPI = {
     getAll: async (params) => {
         let query = supabase.from('suppliers').select('*');
         if (params?.search) {
-            query = query.or(`name.ilike.%${params.search}%,contact_person.ilike.%${params.search}%`);
+            const term = params.search.replace(/'/g, "''");
+            query = query.ilike('name', `%${term}%`);
         }
         const { data, error } = await query.order('name', { ascending: true });
         if (error) throw error;
@@ -1199,7 +1263,8 @@ export const paymentsAPI = {
     getAll: async (params) => {
         let query = supabase.from('payments').select('*');
         if (params?.search) {
-            query = query.or(`transaction_id.ilike.%${params.search}%,payer_name.ilike.%${params.search}%`);
+            const term = params.search.replace(/'/g, "''");
+            query = query.or(`transaction_id.ilike.%${term}%,party_name.ilike.%${term}%`);
         }
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw error;
