@@ -580,57 +580,34 @@ export const productsAPI = {
 export const categoriesAPI = {
     getAll: async () => {
         try {
-            const { data, error } = await supabase
-                .from('categories')
-                .select('*')
-                .order('name', { ascending: true });
-
-            if (error) throw error;
-            return { data: { success: true, data: (data || []).map(mapCategory) } };
+            const response = await api.get(ENDPOINTS.categories.list);
+            return response;
         } catch (error) {
-            return handleSupabaseError(error);
+            return handleApiError(error);
         }
     },
     create: async (data) => {
         try {
-            const { data: result, error } = await supabase
-                .from('categories')
-                .insert([data])
-                .select()
-                .single();
-
-            if (error) throw error;
-            return { data: { success: true, data: mapCategory(result) } };
+            const response = await api.post(ENDPOINTS.categories.list, data);
+            return response;
         } catch (error) {
-            return handleSupabaseError(error);
+            return handleApiError(error);
         }
     },
     update: async (id, data) => {
         try {
-            const { data: result, error } = await supabase
-                .from('categories')
-                .update(data)
-                .eq('id', id)
-                .select()
-                .single();
-
-            if (error) throw error;
-            return { data: { success: true, data: mapCategory(result) } };
+            const response = await api.put(ENDPOINTS.categories.byId(id), data);
+            return response;
         } catch (error) {
-            return handleSupabaseError(error);
+            return handleApiError(error);
         }
     },
     delete: async (id) => {
         try {
-            const { error } = await supabase
-                .from('categories')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-            return { data: { success: true } };
+            const response = await api.delete(ENDPOINTS.categories.byId(id));
+            return response;
         } catch (error) {
-            return handleSupabaseError(error);
+            return handleApiError(error);
         }
     },
 };
@@ -752,75 +729,82 @@ export const billsAPI = {
 
 export const inventoryAPI = {
     getMovements: async (params) => {
-        let query = supabase.from('stock_movements').select('*, products(*)');
-        if (params?.productId) query = query.eq('product_id', params.productId);
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return { data: { success: true, data } };
+        try {
+            const response = await api.get(ENDPOINTS.inventory.movements, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     addMovement: async (data) => {
-        const { data: result, error } = await supabase.from('stock_movements').insert([data]).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+        try {
+            const response = await api.post(ENDPOINTS.inventory.movements, data);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     getStats: async () => {
-        return { data: { success: true, data: { totalItems: 0, lowStockCount: 0 } } };
+        try {
+            const response = await api.get(ENDPOINTS.inventory.stats);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
 };
 
 export const reportsAPI = {
     getSalesSummary: async (params) => {
-        const { data, error } = await supabase.from('bills').select('*').neq('bill_type', 'PURCHASE');
-        if (error) throw error;
-        const total = (data || []).reduce((sum, b) => sum + Number(b.grand_total || 0), 0);
-        return { data: { success: true, data: { total, count: (data || []).length } } };
+        try {
+            const response = await api.get(ENDPOINTS.reports.salesSummary, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     getSalesReport: async (params) => {
-        let query = supabase.from('bills').select('*, bill_items(*)').neq('bill_type', 'PURCHASE');
-        if (params?.startDate) query = query.gte('date', params.startDate);
-        if (params?.endDate) query = query.lte('date', params.endDate);
-        const { data, error } = await query.order('date', { ascending: false });
-        if (error) throw error;
-        return { data: { success: true, data: flattenBillItems(data) } };
+        try {
+            const response = await api.get(ENDPOINTS.reports.salesReport, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     getPurchaseReport: async (params) => {
-        let query = supabase.from('bills').select('*, bill_items(*)').eq('bill_type', 'PURCHASE');
-        if (params?.startDate) query = query.gte('date', params.startDate);
-        if (params?.endDate) query = query.lte('date', params.endDate);
-        const { data, error } = await query.order('date', { ascending: false });
-        if (error) throw error;
-        return { data: { success: true, data: flattenBillItems(data) } };
+        try {
+            const response = await api.get(ENDPOINTS.reports.purchaseReport, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     getStockReport: async (params) => {
-        const { data, error } = await supabase.from('products').select('*, categories(*)');
-        if (error) throw error;
-        return { data: { success: true, data: (data || []).map(mapProduct) } };
+        try {
+            const response = await api.get(ENDPOINTS.reports.stock, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     }
 };
 
 export const settingsAPI = {
     get: async () => {
         try {
-            const { data, error } = await supabase
-                .from('settings')
-                .select('*')
-                .eq('id', '00000000-0000-0000-0000-000000000001');
-
-            if (error) throw error;
-            return { data: { success: true, data: data && data.length > 0 ? data[0] : {} } };
+            const response = await api.get(ENDPOINTS.settings.root);
+            return response;
         } catch (error) {
-            return handleSupabaseError(error);
+            return handleApiError(error);
         }
     },
     update: async (data) => {
-        const { data: result, error } = await supabase
-            .from('settings')
-            .upsert({ id: '00000000-0000-0000-0000-000000000001', ...data })
-            .select()
-            .single();
-
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+        try {
+            const response = await api.put(ENDPOINTS.settings.root, data);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     uploadLogo: (formData) => api.post(ENDPOINTS.settings.logo, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -829,320 +813,315 @@ export const settingsAPI = {
 
 export const dashboardAPI = {
     getOverview: async (params) => {
-        const { data: bills } = await supabase.from('bills').select('*').order('date', { ascending: false });
-        const { data: products } = await supabase.from('products').select('*').order('name', { ascending: true });
-        const { data: customers } = await supabase.from('customers').select('*');
-        const { data: categories } = await supabase.from('categories').select('*');
-
-        const salesBills = bills?.filter(b => b.bill_type !== 'PURCHASE') || [];
-        const purchaseBills = bills?.filter(b => b.bill_type === 'PURCHASE') || [];
-        
-        const totalRevenue = salesBills.reduce((sum, b) => sum + Number(b.grand_total || 0), 0) - purchaseBills.reduce((sum, b) => sum + Number(b.grand_total || 0), 0);
-        const lowStockAlerts = products?.filter(p => Number(p.stock || 0) <= Number(p.low_stock_threshold || 5)) || [];
-
-        return {
-            data: {
-                success: true,
+        try {
+            const response = await api.get(ENDPOINTS.dashboard.overview);
+            return response;
+        } catch (error) {
+            console.error('Error fetching dashboard overview:', error);
+            return {
                 data: {
-                    stats: {
-                        totalRevenue,
-                        totalOrders: salesBills.length,
-                        totalCustomers: customers?.length || 0,
-                        productCount: products?.length || 0
-                    },
-                    recentBills: salesBills.slice(0, params?.recentLimit || 6).map(mapBill),
-                    lowStockAlerts: lowStockAlerts.slice(0, 5).map(mapProduct),
-                    products: products?.slice(0, params?.productLimit || 10).map(mapProduct),
-                    categoryStats: categories?.map(cat => ({
-                        name: cat.name,
-                        count: products?.filter(p => p.category === cat.name || p.category_id === cat.id || (p.categories?.name === cat.name)).length || 0,
-                        totalStock: products?.filter(p => p.category === cat.name || p.category_id === cat.id || (p.categories?.name === cat.name)).reduce((sum, p) => sum + Number(p.stock || 0), 0) || 0
-                    }))
+                    success: false,
+                    message: error.message || 'Failed to fetch dashboard overview'
                 }
-            }
-        };
+            };
+        }
     },
     getRevenueChart: async (period) => {
-        const { data: bills } = await supabase.from('bills').select('*').order('date', { ascending: true });
-        // Simple day-wise aggregation for charts
-        const dailyData = bills?.reduce((acc, b) => {
-            const day = b.date?.split('T')[0] || (b.created_at ? new Date(b.created_at).toISOString().split('T')[0] : 'N/A');
-            if (day === 'N/A') return acc;
-            if (!acc[day]) acc[day] = { _id: day, sales: 0, purchase: 0, revenue: 0, orders: 0 };
-            const amount = Number(b.grand_total || 0);
-            if (b.bill_type === 'PURCHASE') {
-                acc[day].purchase += amount;
-                acc[day].revenue -= amount;
-            } else {
-                acc[day].sales += amount;
-                acc[day].revenue += amount;
-                acc[day].orders += 1;
-            }
-            return acc;
-        }, {}) || {};
-
-        return { data: { success: true, data: Object.values(dailyData) } };
+        try {
+            const response = await api.get(ENDPOINTS.dashboard.revenueChart, {
+                params: { period }
+            });
+            return response;
+        } catch (error) {
+            console.error('Error fetching revenue chart:', error);
+            return {
+                data: {
+                    success: false,
+                    message: error.message || 'Failed to fetch revenue chart'
+                }
+            };
+        }
     },
     getNotifications: async (limit = 5) => {
-        const { data: products } = await supabase.from('products').select('*');
-        const lowStock = (products || []).filter(p => Number(p.stock || 0) <= Number(p.low_stock_threshold || 5)).slice(0, limit);
-        return { data: { success: true, data: { lowStockAlerts: lowStock.map(mapProduct) } } };
+        try {
+            const response = await api.get(ENDPOINTS.dashboard.notifications, {
+                params: { limit }
+            });
+            return response;
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+            return {
+                data: {
+                    success: false,
+                    message: error.message || 'Failed to fetch notifications'
+                }
+            };
+        }
     }
 };
 
 export const customersAPI = {
     getAll: async (params) => {
-        let query = supabase.from('customers').select('*');
-        if (params?.search) {
-            const term = params.search.replace(/'/g, "''");
-            query = query.or(`name.ilike.%${term}%,phone.ilike.%${term}%,company_name.ilike.%${term}%`);
+        try {
+            const response = await api.get(ENDPOINTS.customers.list, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
         }
-        const { data, error } = await query.order('name', { ascending: true });
-        if (error) throw error;
-        return { data: { success: true, data: (data || []).map(mapCustomer) } };
     },
     getById: async (id) => {
-        const { data, error } = await supabase.from('customers').select('*').eq('id', id).single();
-        if (error) throw error;
-        return { data: { success: true, data: mapCustomer(data) } };
+        try {
+            const response = await api.get(ENDPOINTS.customers.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     create: async (data) => {
-        const customerData = prepareCustomerData(data);
-        const { data: result, error } = await supabase.from('customers').insert([customerData]).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: mapCustomer(result) } };
+        try {
+            const customerData = prepareCustomerData(data);
+            const response = await api.post(ENDPOINTS.customers.list, customerData);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     update: async (id, data) => {
-        const customerData = prepareCustomerData(data);
-        const { data: result, error } = await supabase.from('customers').update(customerData).eq('id', id).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: mapCustomer(result) } };
+        try {
+            const customerData = prepareCustomerData(data);
+            const response = await api.put(ENDPOINTS.customers.byId(id), customerData);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     delete: async (id) => {
-        const { error } = await supabase.from('customers').delete().eq('id', id);
-        if (error) throw error;
-        return { data: { success: true } };
+        try {
+            const response = await api.delete(ENDPOINTS.customers.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
 };
 
 export const hsnAPI = {
     getAll: async (params) => {
-        let query = supabase.from('hsn_codes').select('*');
-        if (params?.search) {
-            query = query.ilike('code', `%${params.search}%`);
+        try {
+            const response = await api.get(ENDPOINTS.hsn.list, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
         }
-        const { data, error } = await query.order('code', { ascending: true });
-        if (error) throw error;
-        return { data: { success: true, data } };
     },
     getById: async (id) => {
-        const { data, error } = await supabase.from('hsn_codes').select('*').eq('id', id).single();
-        if (error) throw error;
-        return { data: { success: true, data } };
+        try {
+            const response = await api.get(ENDPOINTS.hsn.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     create: async (data) => {
-        const { data: result, error } = await supabase.from('hsn_codes').insert([data]).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+        try {
+            const response = await api.post(ENDPOINTS.hsn.list, data);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     update: async (id, data) => {
-        const { data: result, error } = await supabase.from('hsn_codes').update(data).eq('id', id).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+        try {
+            const response = await api.put(ENDPOINTS.hsn.byId(id), data);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     delete: async (id) => {
-        const { error } = await supabase.from('hsn_codes').delete().eq('id', id);
-        if (error) throw error;
-        return { data: { success: true } };
+        try {
+            const response = await api.delete(ENDPOINTS.hsn.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
 };
 
 export const suppliersAPI = {
     getAll: async (params) => {
-        let query = supabase.from('suppliers').select('*');
-        if (params?.search) {
-            const term = params.search.replace(/'/g, "''");
-            query = query.ilike('name', `%${term}%`);
+        try {
+            const response = await api.get(ENDPOINTS.suppliers.list, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
         }
-        const { data, error } = await query.order('name', { ascending: true });
-        if (error) throw error;
-        return { data: { success: true, data: data.map(mapSupplier) } };
     },
     getById: async (id) => {
-        const { data, error } = await supabase.from('suppliers').select('*').eq('id', id).single();
-        if (error) throw error;
-        return { data: { success: true, data: mapSupplier(data) } };
+        try {
+            const response = await api.get(ENDPOINTS.suppliers.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     create: async (data) => {
-        const supplierData = prepareSupplierData(data);
-        const { data: result, error } = await supabase.from('suppliers').insert([supplierData]).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: mapSupplier(result) } };
+        try {
+            const supplierData = prepareSupplierData(data);
+            const response = await api.post(ENDPOINTS.suppliers.list, supplierData);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     update: async (id, data) => {
-        const supplierData = prepareSupplierData(data);
-        const { data: result, error } = await supabase.from('suppliers').update(supplierData).eq('id', id).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: mapSupplier(result) } };
+        try {
+            const supplierData = prepareSupplierData(data);
+            const response = await api.put(ENDPOINTS.suppliers.byId(id), supplierData);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     delete: async (id) => {
-        const { error } = await supabase.from('suppliers').delete().eq('id', id);
-        if (error) throw error;
-        return { data: { success: true } };
+        try {
+            const response = await api.delete(ENDPOINTS.suppliers.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
 };
 
 export const paymentsAPI = {
     getAll: async (params) => {
-        let query = supabase.from('payments').select('*');
-        if (params?.search) {
-            const term = params.search.replace(/'/g, "''");
-            query = query.or(`transaction_id.ilike.%${term}%,party_name.ilike.%${term}%`);
+        try {
+            const response = await api.get(ENDPOINTS.payments.list, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
         }
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return { data: { success: true, data } };
     },
     getById: async (id) => {
-        const { data, error } = await supabase.from('payments').select('*').eq('id', id).single();
-        if (error) throw error;
-        return { data: { success: true, data } };
+        try {
+            const response = await api.get(ENDPOINTS.payments.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     create: async (data) => {
-        const { data: result, error } = await supabase.from('payments').insert([data]).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+        try {
+            const response = await api.post(ENDPOINTS.payments.list, data);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     update: async (id, data) => {
-        const { data: result, error } = await supabase.from('payments').update(data).eq('id', id).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+        try {
+            const response = await api.put(ENDPOINTS.payments.byId(id), data);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     delete: async (id) => {
-        const { error } = await supabase.from('payments').delete().eq('id', id);
-        if (error) throw error;
-        return { data: { success: true } };
+        try {
+            const response = await api.delete(ENDPOINTS.payments.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
 };
 
 export const salesEntriesAPI = {
     getAll: async (params) => {
-        let query = supabase.from('sales_entries').select('*');
-        const { data, error } = await query.order('date', { ascending: false });
-        if (error) throw error;
-        return { data: { success: true, data } };
+        try {
+            const response = await api.get(ENDPOINTS.salesEntries.list, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     getById: async (id) => {
-        const { data, error } = await supabase.from('sales_entries').select('*').eq('id', id).single();
-        if (error) throw error;
-        return { data: { success: true, data } };
+        try {
+            const response = await api.get(ENDPOINTS.salesEntries.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     create: async (data) => {
-        const { data: result, error } = await supabase.from('sales_entries').insert([data]).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+        try {
+            const response = await api.post(ENDPOINTS.salesEntries.list, data);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     update: async (id, data) => {
-        const { data: result, error } = await supabase.from('sales_entries').update(data).eq('id', id).select().single();
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+        try {
+            const response = await api.put(ENDPOINTS.salesEntries.byId(id), data);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     delete: async (id) => {
-        const { error } = await supabase.from('sales_entries').delete().eq('id', id);
-        if (error) throw error;
-        return { data: { success: true } };
+        try {
+            const response = await api.delete(ENDPOINTS.salesEntries.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     generateBill: (id) => api.post(ENDPOINTS.salesEntries.generateBill(id)),
 };
 
 export const purchaseEntriesAPI = {
     getAll: async (params) => {
-        let query = supabase.from('purchase_entries').select('*, purchase_items(*)');
-        
-        if (params?.search) {
-            query = query.or(`invoice_number.ilike.%${params.search}%`);
+        try {
+            const response = await api.get(ENDPOINTS.purchaseEntries.list, { params });
+            return response;
+        } catch (error) {
+            return handleApiError(error);
         }
-
-        const page = params?.page ? parseInt(params.page) : 1;
-        const limit = params?.limit ? parseInt(params.limit) : 20;
-        const from = (page - 1) * limit;
-        const to = from + limit - 1;
-
-        const { data, error, count } = await query
-            .order('date', { ascending: false })
-            .range(from, to);
-
-        if (error) throw error;
-        return { data: { success: true, data: data.map(mapPurchase), pagination: { total: count, page, limit } } };
     },
     getById: async (id) => {
-        const { data, error } = await supabase
-            .from('purchase_entries')
-            .select('*, purchase_items(*)')
-            .eq('id', id)
-            .single();
-
-        if (error) throw error;
-        return { data: { success: true, data: mapPurchase(data) } };
+        try {
+            const response = await api.get(ENDPOINTS.purchaseEntries.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
     create: async (data) => {
-        const { items } = data;
-        const entryData = preparePurchaseData(data);
-
-        const { data: result, error } = await supabase
-            .from('purchase_entries')
-            .insert([entryData])
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        if (items && items.length > 0) {
-            const preparedItems = items.map(item => ({ 
-                ...preparePurchaseItem(item), 
-                purchase_id: result.id 
-            }));
-            const { error: itemsError } = await supabase
-                .from('purchase_items')
-                .insert(preparedItems);
-            
-            if (itemsError) throw itemsError;
+        try {
+            const entryData = preparePurchaseData(data);
+            const response = await api.post(ENDPOINTS.purchaseEntries.list, entryData);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
         }
-
-        return { data: { success: true, data: mapPurchase(result) } };
     },
     update: async (id, data) => {
-        const { items } = data;
-        const entryData = preparePurchaseData(data);
-
-        const { data: result, error } = await supabase
-            .from('purchase_entries')
-            .update(entryData)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        if (items) {
-            await supabase.from('purchase_items').delete().eq('purchase_id', id);
-            const preparedItems = items.map(item => ({ 
-                ...preparePurchaseItem(item), 
-                purchase_id: result.id 
-            }));
-            const { error: itemsError } = await supabase
-                .from('purchase_items')
-                .insert(preparedItems);
-            
-            if (itemsError) throw itemsError;
+        try {
+            const entryData = preparePurchaseData(data);
+            const response = await api.put(ENDPOINTS.purchaseEntries.byId(id), entryData);
+            return response;
+        } catch (error) {
+            return handleApiError(error);
         }
-
-        return { data: { success: true, data: mapPurchase(result) } };
     },
     delete: async (id) => {
-        const { error } = await supabase.from('purchase_entries').delete().eq('id', id);
-        if (error) throw error;
-        return { data: { success: true } };
+        try {
+            const response = await api.delete(ENDPOINTS.purchaseEntries.byId(id));
+            return response;
+        } catch (error) {
+            return handleApiError(error);
+        }
     },
 };
 
