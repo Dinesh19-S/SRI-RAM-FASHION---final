@@ -38,6 +38,9 @@ const API_URL = resolveApiUrl();
 const mapProduct = (p) => {
     if (!p) return null;
     const id = p.id || p._id;
+    const categoryFromJoin = p.categories
+        ? { ...p.categories, _id: p.categories.id || p.categories._id, id: p.categories.id || p.categories._id }
+        : null;
     return {
         ...p,
         _id: id,
@@ -46,7 +49,7 @@ const mapProduct = (p) => {
         mrp: Number(p.mrp || 0),
         lowStockThreshold: p.low_stock_threshold || 5,
         isActive: p.is_active !== false,
-        category: p.categories ? { ...p.categories, _id: p.categories.id } : (p.category_id ? { _id: p.category_id, id: p.category_id, name: 'N/A' } : null)
+        category: categoryFromJoin || (p.category_id ? { _id: p.category_id, id: p.category_id, name: 'N/A' } : null)
     };
 };
 
@@ -229,11 +232,17 @@ const preparePurchaseItem = (item) => {
 };
 
 const prepareProductData = (data) => {
+    const categoryId =
+        data.categoryId ||
+        (typeof data.category === 'string'
+            ? data.category
+            : (data.category?._id || data.category?.id));
+
     return {
         name: data.name,
         sku: data.sku || (data.hsn || '') + Date.now().toString().slice(-4),
         description: data.description || '',
-        category_id: data.categoryId || (typeof data.category === 'string' ? data.category : (data.category?._id || data.category?.id)),
+        category_id: categoryId,
         mrp: Number(data.mrp || data.sellingPrice || 0),
         selling_price: Number(data.sellingPrice || 0),
         stock: Number(data.stock || 0),
@@ -248,9 +257,11 @@ const prepareProductData = (data) => {
 
 const mapCustomer = (c) => {
     if (!c) return null;
+    const id = c.id || c._id;
     return {
         ...c,
-        _id: c.id,
+        _id: id,
+        id,
         companyName: c.company_name || c.name,
         mobile: c.mobile || c.phone,
         alternateNo: c.alternate_no,
@@ -275,10 +286,22 @@ const prepareCustomerData = (data) => {
 
 const mapSupplier = (s) => {
     if (!s) return null;
+    const id = s.id || s._id;
     return {
         ...s,
-        _id: s.id,
+        _id: id,
+        id,
         contactPerson: s.contact_person
+    };
+};
+
+const mapCategory = (cat) => {
+    if (!cat) return null;
+    const id = cat.id || cat._id;
+    return {
+        ...cat,
+        _id: id,
+        id
     };
 };
 
@@ -291,6 +314,32 @@ const prepareSupplierData = (data) => {
         address: data.address || '',
         gstin: data.gstin || ''
     };
+};
+
+const handleSupabaseError = async (error) => {
+    const status = error?.status || error?.code;
+    const message = String(error?.message || '');
+
+    const isAuthFailure =
+        status === 401 ||
+        message.toLowerCase().includes('jwt') ||
+        message.toLowerCase().includes('invalid token') ||
+        message.toLowerCase().includes('expired');
+
+    if (isAuthFailure) {
+        try {
+            await supabase.auth.signOut();
+        } catch {
+            // no-op
+        }
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+        }
+    }
+
+    throw error;
 };
 
 const CACHE_TTL = {
@@ -561,7 +610,17 @@ export const authAPI = {
     login: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        return { data: { token: data.session.access_token, user: data.user } };
+        return { data: { token: data.session?.access_token || null, user: data.user || null } };
+    },
+    signInWithGoogle: async () => {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin,
+            },
+        });
+        if (error) throw error;
+        return data;
     },
     register: async (data) => {
         const { data: result, error } = await supabase.auth.signUp({
@@ -576,31 +635,44 @@ export const authAPI = {
             }
         });
         if (error) throw error;
-        return { data: { token: result.session?.access_token, user: result.user } };
+        return { data: { token: result.session?.access_token || null, user: result.user || null } };
     },
     sendOTP: (phone) => supabase.auth.signInWithOtp({ phone }),
-    loginPhone: (phone, token) => supabase.auth.verifyOtp({ phone, token, type: 'sms' }),
+    loginPhone: async (phone, token) => {
+        const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+        if (error) throw error;
+        return { data: { token: data.session?.access_token || null, user: data.user || null } };
+    },
     getProfile: () => supabase.auth.getUser(),
-    googleLogin: (credential) => supabase.auth.signInWithIdToken({ provider: 'google', token: credential }),
     forgotPassword: (email) => supabase.auth.resetPasswordForEmail(email),
     resetPassword: (email, code, newPassword) => supabase.auth.updateUser({ password: newPassword }),
 };
 
 export const appAPI = {
     warmup: async () => {
-        try {
-            // Check Supabase connection
-            const { data, error } = await supabase.from('categories').select('count', { count: 'exact', head: true });
-            if (error) {
-                console.error('Supabase connection error:', error.message);
-                return { success: false, error: error.message };
-            }
-            console.log('Supabase connected successfully');
-            return { success: true };
-        } catch (err) {
-            console.error('Warmup failed:', err.message);
-            return { success: false, error: err.message };
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+            return { success: false, error: sessionError.message };
         }
+
+        // Avoid auth-protected table calls for signed-out users.
+        if (!sessionData?.session) {
+            return { success: false, skipped: true, reason: 'NO_SESSION' };
+        }
+
+        const { error } = await supabase
+            .from('categories')
+            .select('*', { count: 'exact', head: true });
+
+        if (error) {
+            await handleSupabaseError(error);
+        }
+
+        if (import.meta.env.DEV) {
+            console.log('Supabase connected successfully');
+        }
+
+        return { success: true };
     },
     getEndpoints: () => cachedGet(
         ENDPOINTS.endpoints,
@@ -611,32 +683,36 @@ export const appAPI = {
 
 export const productsAPI = {
     getAll: async (params) => {
-        let query = supabase.from('products').select('*, categories(*)');
+        try {
+            let query = supabase.from('products').select('*, categories(*)');
 
-        if (params?.search) {
-            query = query.ilike('name', `%${params.search}%`);
+            if (params?.search) {
+                query = query.ilike('name', `%${params.search}%`);
+            }
+
+            if (params?.category) {
+                query = query.eq('category_id', params.category);
+            }
+
+            if (params?.isActive !== undefined) {
+                query = query.eq('is_active', params.isActive);
+            }
+
+            // Pagination
+            const page = params?.page ? parseInt(params.page) : 1;
+            const limit = params?.limit ? parseInt(params.limit) : 20;
+            const from = (page - 1) * limit;
+            const to = from + limit - 1;
+
+            const { data, error, count } = await query
+                .order('name', { ascending: true })
+                .range(from, to);
+
+            if (error) throw error;
+            return { data: { success: true, data: data.map(mapProduct), pagination: { total: count, page, limit } } };
+        } catch (error) {
+            return handleSupabaseError(error);
         }
-
-        if (params?.category) {
-            query = query.eq('category_id', params.category);
-        }
-
-        if (params?.isActive !== undefined) {
-            query = query.eq('is_active', params.isActive);
-        }
-
-        // Pagination
-        const page = params?.page ? parseInt(params.page) : 1;
-        const limit = params?.limit ? parseInt(params.limit) : 20;
-        const from = (page - 1) * limit;
-        const to = from + limit - 1;
-
-        const { data, error, count } = await query
-            .order('name', { ascending: true })
-            .range(from, to);
-
-        if (error) throw error;
-        return { data: { success: true, data: data.map(mapProduct), pagination: { total: count, page, limit } } };
     },
     getById: async (id) => {
         const { data, error } = await supabase
@@ -656,7 +732,7 @@ export const productsAPI = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) return handleSupabaseError(error);
         return { data: { success: true, data: mapProduct(result) } };
     },
     update: async (id, data) => {
@@ -668,7 +744,7 @@ export const productsAPI = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) return handleSupabaseError(error);
         return { data: { success: true, data: mapProduct(result) } };
     },
     delete: async (id) => {
@@ -677,7 +753,7 @@ export const productsAPI = {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) return handleSupabaseError(error);
         return { data: { success: true } };
     },
     updateStock: async (id, { stock, type, reason }) => {
@@ -688,7 +764,7 @@ export const productsAPI = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) return handleSupabaseError(error);
 
         // Also record movement
         await supabase.from('stock_movements').insert([{
@@ -706,50 +782,66 @@ export const productsAPI = {
             .select('*')
             .lte('stock', 'low_stock_threshold');
 
-        if (error) throw error;
+        if (error) return handleSupabaseError(error);
         return { data: { success: true, data: data.map(mapProduct) } };
     },
 };
 
 export const categoriesAPI = {
     getAll: async () => {
-        const { data, error } = await supabase
-            .from('categories')
-            .select('*')
-            .order('name', { ascending: true });
+        try {
+            const { data, error } = await supabase
+                .from('categories')
+                .select('*')
+                .order('name', { ascending: true });
 
-        if (error) throw error;
-        return { data: { success: true, data: (data || []).map(cat => ({ ...cat, _id: cat.id })) } };
+            if (error) throw error;
+            return { data: { success: true, data: (data || []).map(mapCategory) } };
+        } catch (error) {
+            return handleSupabaseError(error);
+        }
     },
     create: async (data) => {
-        const { data: result, error } = await supabase
-            .from('categories')
-            .insert([data])
-            .select()
-            .single();
+        try {
+            const { data: result, error } = await supabase
+                .from('categories')
+                .insert([data])
+                .select()
+                .single();
 
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+            if (error) throw error;
+            return { data: { success: true, data: mapCategory(result) } };
+        } catch (error) {
+            return handleSupabaseError(error);
+        }
     },
     update: async (id, data) => {
-        const { data: result, error } = await supabase
-            .from('categories')
-            .update(data)
-            .eq('id', id)
-            .select()
-            .single();
+        try {
+            const { data: result, error } = await supabase
+                .from('categories')
+                .update(data)
+                .eq('id', id)
+                .select()
+                .single();
 
-        if (error) throw error;
-        return { data: { success: true, data: result } };
+            if (error) throw error;
+            return { data: { success: true, data: mapCategory(result) } };
+        } catch (error) {
+            return handleSupabaseError(error);
+        }
     },
     delete: async (id) => {
-        const { error } = await supabase
-            .from('categories')
-            .delete()
-            .eq('id', id);
+        try {
+            const { error } = await supabase
+                .from('categories')
+                .delete()
+                .eq('id', id);
 
-        if (error) throw error;
-        return { data: { success: true } };
+            if (error) throw error;
+            return { data: { success: true } };
+        } catch (error) {
+            return handleSupabaseError(error);
+        }
     },
 };
 

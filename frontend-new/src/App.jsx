@@ -1,73 +1,42 @@
-import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from './components/layout/MainLayout';
-import { appAPI } from './services/api';
 import { supabase } from './services/supabase';
 import { setOnlineStatus } from './store/slices/appSlice';
-import { upsertBill, removeBill } from './store/slices/billsSlice';
-import { upsertProduct, removeProduct, upsertCategory } from './store/slices/productsSlice';
-import { useDispatch } from 'react-redux';
-import { logout as logoutAction } from './store/slices/authSlice';
-import { useSupabaseRealtime } from './hooks/useSupabaseRealtime';
+import { logout as logoutAction, setSession, setSessionChecked } from './store/slices/authSlice';
 
 // Lazy-loaded pages for code splitting
-const loadHomePage = () => import('./pages/HomePage');
-const loadLoginPage = () => import('./pages/LoginPage');
-const loadRegisterPage = () => import('./pages/RegisterPage');
-const loadDashboardPage = () => import('./pages/DashboardPage');
-const loadBillingPage = () => import('./pages/BillingPage');
-const loadInventoryPage = () => import('./pages/InventoryPage');
-const loadSettingsPage = () => import('./pages/SettingsPage');
-const loadPurchaseEntryPage = () => import('./pages/PurchaseEntryPage');
-const loadPurchaseBillingPage = () => import('./pages/PurchaseBillingPage');
-const loadSalesReportsPage = () => import('./pages/SalesReportsPage');
-const loadPurchaseReportsPage = () => import('./pages/PurchaseReportsPage');
-const loadStockReportsPage = () => import('./pages/StockReportsPage');
-const loadCustomerEntryPage = () => import('./pages/CustomerEntryPage');
-const loadItemsPage = () => import('./pages/ItemsPage');
-const loadSupplierEntryPage = () => import('./pages/SupplierEntryPage');
+const HomePage = lazy(() => import('./pages/HomePage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const BillingPage = lazy(() => import('./pages/BillingPage'));
+const InventoryPage = lazy(() => import('./pages/InventoryPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const PurchaseEntryPage = lazy(() => import('./pages/PurchaseEntryPage'));
+const PurchaseBillingPage = lazy(() => import('./pages/PurchaseBillingPage'));
+const SalesReportsPage = lazy(() => import('./pages/SalesReportsPage'));
+const PurchaseReportsPage = lazy(() => import('./pages/PurchaseReportsPage'));
+const StockReportsPage = lazy(() => import('./pages/StockReportsPage'));
+const CustomerEntryPage = lazy(() => import('./pages/CustomerEntryPage'));
+const ItemsPage = lazy(() => import('./pages/ItemsPage'));
+const SupplierEntryPage = lazy(() => import('./pages/SupplierEntryPage'));
 
-const HomePage = lazy(loadHomePage);
-const LoginPage = lazy(loadLoginPage);
-const RegisterPage = lazy(loadRegisterPage);
-const DashboardPage = lazy(loadDashboardPage);
-const BillingPage = lazy(loadBillingPage);
-const InventoryPage = lazy(loadInventoryPage);
-const SettingsPage = lazy(loadSettingsPage);
-const PurchaseEntryPage = lazy(loadPurchaseEntryPage);
-const PurchaseBillingPage = lazy(loadPurchaseBillingPage);
-const SalesReportsPage = lazy(loadSalesReportsPage);
-const PurchaseReportsPage = lazy(loadPurchaseReportsPage);
-const StockReportsPage = lazy(loadStockReportsPage);
-const CustomerEntryPage = lazy(loadCustomerEntryPage);
-const ItemsPage = lazy(loadItemsPage);
-const SupplierEntryPage = lazy(loadSupplierEntryPage);
-
-const prefetchProtectedRoutes = () => {
-  loadDashboardPage();
-  loadInventoryPage();
-
-  const warmSecondaryRoutes = () => {
-    loadBillingPage();
-    loadPurchaseEntryPage();
-    loadPurchaseBillingPage();
-    loadCustomerEntryPage();
-    loadSupplierEntryPage();
-  };
-
-  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-    window.requestIdleCallback(warmSecondaryRoutes, { timeout: 1500 });
-  } else {
-    window.setTimeout(warmSecondaryRoutes, 500);
-  }
-};
-
-// Loading fallback
-const PageLoader = () => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px' }}>
-    <div style={{ width: '32px', height: '32px', border: '3px solid #e2e8f0', borderTopColor: '#1e40af', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+// Full-screen loading spinner shown while checking auth
+const FullScreenLoader = () => (
+  <div style={{ 
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+    height: '100vh', width: '100vw', background: '#fff' 
+  }}>
+    <div style={{ 
+      width: '40px', height: '40px', border: '3px solid #e2e8f0', 
+      borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.6s linear infinite' 
+    }} />
+    <p style={{ marginTop: '16px', color: '#6b7280', fontFamily: 'sans-serif', fontSize: '14px' }}>
+      Loading Sri Ram Fashions...
+    </p>
     <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
   </div>
 );
@@ -78,88 +47,83 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
-// Public Route wrapper (redirect to dashboard if authenticated)
+// Public Route wrapper
 const PublicRoute = ({ children }) => {
   const { isAuthenticated } = useSelector((state) => state.auth);
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
 };
 
-// Simplified page transition — opacity only, fast
-const pageVariants = {
-  initial: { opacity: 0 },
-  in: { opacity: 1 },
-  out: { opacity: 0 },
-};
-
-const pageTransition = {
-  type: 'tween',
-  ease: 'easeOut',
-  duration: 0.25,
-};
-
-// Animated Page Wrapper
+// Page transition
+const pageVariants = { initial: { opacity: 0 }, in: { opacity: 1 }, out: { opacity: 0 } };
+const pageTransition = { duration: 0.2 };
 const AnimatedPage = ({ children }) => (
-  <motion.div
-    initial="initial"
-    animate="in"
-    exit="out"
-    variants={pageVariants}
-    transition={pageTransition}
-    style={{ width: '100%', height: '100%' }}
-  >
+  <motion.div initial="initial" animate="in" exit="out" variants={pageVariants} transition={pageTransition}>
     {children}
   </motion.div>
 );
 
-// Animated Routes Component
-const AnimatedRoutes = () => {
-  const location = useLocation();
+function App() {
+  const { isInitializing } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  // ── Auth initialization: runs ONCE on mount ──
+  useEffect(() => {
+    let isMounted = true;
+
+    // Step 1: Listen for auth state changes (fires for Google OAuth redirect too)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        if (session) {
+          dispatch(setSession({ 
+            token: session.access_token, 
+            user: session.user 
+          }));
+          
+          // Navigate to dashboard if we're on a public page
+          const currentPath = window.location.pathname;
+          if (currentPath === '/login' || currentPath === '/register' || currentPath === '/') {
+            navigate('/dashboard', { replace: true });
+          }
+        } else {
+          // INITIAL_SESSION with no session means user is not logged in
+          dispatch(setSessionChecked());
+        }
+      } else if (event === 'SIGNED_OUT') {
+        dispatch(logoutAction());
+      }
+    });
+
+    // Step 2: Online/Offline
+    const handleOnline = () => dispatch(setOnlineStatus(true));
+    const handleOffline = () => dispatch(setOnlineStatus(false));
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []); // Empty deps — run only once
+
+  // ── Show loading screen until Supabase has checked the session ──
+  if (isInitializing) {
+    return <FullScreenLoader />;
+  }
 
   return (
-    <Suspense fallback={<PageLoader />}>
-      <AnimatePresence>
-        <Routes location={location} key={location.pathname}>
-          {/* Public Home Page - Always accessible */}
-          <Route
-            path="/"
-            element={
-              <AnimatedPage>
-                <HomePage />
-              </AnimatedPage>
-            }
-          />
-
-          {/* Public Auth Routes */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <AnimatedPage>
-                  <LoginPage />
-                </AnimatedPage>
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <AnimatedPage>
-                  <RegisterPage />
-                </AnimatedPage>
-              </PublicRoute>
-            }
-          />
-
-          {/* Protected Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }
-          >
+    <Suspense fallback={<FullScreenLoader />}>
+      <AnimatePresence mode="wait">
+        <Routes>
+          <Route path="/" element={<PublicRoute><HomePage /></PublicRoute>} />
+          <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+          
+          <Route path="/dashboard" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
             <Route index element={<DashboardPage />} />
             <Route path="purchase/entry" element={<PurchaseEntryPage />} />
             <Route path="purchase/billing" element={<PurchaseBillingPage />} />
@@ -174,86 +138,10 @@ const AnimatedRoutes = () => {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
-          {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AnimatePresence>
     </Suspense>
-  );
-};
-
-function App() {
-  const { isAuthenticated } = useSelector((state) => state.auth);
-  const dispatch = useDispatch();
-
-  useEffect(() => {
-    // 1. Listen for Supabase Auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        dispatch(logoutAction());
-      }
-    });
-
-    appAPI.warmup().catch(() => {});
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [dispatch]);
-
-  // Handle Online/Offline status
-  useEffect(() => {
-    const handleOnline = () => dispatch(setOnlineStatus(true));
-    const handleOffline = () => dispatch(setOnlineStatus(false));
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [dispatch]);
-
-  // 2. Real-time data synchronization
-  useSupabaseRealtime();
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      return undefined;
-    }
-
-    let timeoutId = null;
-    let idleId = null;
-
-    const schedulePrefetch = () => prefetchProtectedRoutes();
-
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      idleId = window.requestIdleCallback(schedulePrefetch, { timeout: 1000 });
-    } else {
-      timeoutId = window.setTimeout(schedulePrefetch, 350);
-    }
-
-    return () => {
-      if (idleId !== null && 'cancelIdleCallback' in window) {
-        window.cancelIdleCallback(idleId);
-      }
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [isAuthenticated]);
-
-  const RouterComponent = (window?.electronAPI?.isElectron || window.location.protocol === 'file:')
-    ? HashRouter
-    : BrowserRouter;
-
-  return (
-    <RouterComponent>
-      <div className="min-h-screen app-shell">
-        <AnimatedRoutes />
-      </div>
-    </RouterComponent>
   );
 }
 

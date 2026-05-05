@@ -133,9 +133,13 @@ const ItemsPage = () => {
 
     const handleOpenModal = (item = null) => {
         if (item) {
+            const categoryValue =
+                item.category?._id ||
+                item.category?.id ||
+                (typeof item.category === 'string' ? item.category : '');
             setFormData({
                 name: item.name || '',
-                category: item.category?._id || item.category || '',
+                category: categoryValue,
                 size: item.size || '',
                 costPrice: item.costPrice?.toString() || '',
                 sellingPrice: item.sellingPrice?.toString() || '',
@@ -160,13 +164,24 @@ const ItemsPage = () => {
             return;
         }
 
+        // Always resolve to category UUID before save.
+        const selectedCategory =
+            categories.find((c) => (c._id || c.id) === formData.category) ||
+            categories.find((c) => c.name?.toLowerCase() === String(formData.category).toLowerCase());
+        const resolvedCategoryId = selectedCategory?._id || selectedCategory?.id || '';
+
+        if (!resolvedCategoryId) {
+            toast.error('Please select a valid category from the dropdown');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const productData = {
                 name: formData.name,
                 // Auto-generate SKU from HSN or name for backend compatibility
                 sku: formData.hsn || formData.name.substring(0, 3).toUpperCase() + Date.now().toString().slice(-4),
-                category: formData.category,
+                category: resolvedCategoryId,
                 size: formData.size,
                 costPrice: Number(formData.costPrice) || 0,
                 mrp: Number(formData.sellingPrice),  // MRP is required by backend

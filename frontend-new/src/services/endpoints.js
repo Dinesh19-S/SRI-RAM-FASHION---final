@@ -9,7 +9,6 @@ export const ENDPOINTS = {
         sendOtp: '/auth/send-otp',
         loginPhone: '/auth/login-phone',
         profile: '/auth/profile',
-        google: '/auth/google',
         forgotPassword: '/auth/forgot-password',
         resetPassword: '/auth/reset-password'
     },

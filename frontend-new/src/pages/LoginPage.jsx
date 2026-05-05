@@ -1,18 +1,15 @@
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { GoogleLogin } from '@react-oauth/google';
-import { login, sendOTP, loginWithPhone, clearError, googleLogin, forgotPassword, resetPassword } from '../store/slices/authSlice';
+import { login, sendOTP, loginWithPhone, forgotPassword, resetPassword } from '../store/slices/authSlice';
+import { authAPI } from '../services/api';
 import { Eye, EyeOff, X, CheckCircle, ArrowRight } from 'lucide-react';
 import sriRamLogo from '../assets/logo.jpg';
-import { getCurrentOrigin, getGoogleLoginStatus } from '../utils/authRuntime';
 
 const LoginPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { isLoading, error } = useSelector((state) => state.auth);
-    const googleLoginStatus = getGoogleLoginStatus();
-    const googleOrigin = getCurrentOrigin();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -31,11 +28,9 @@ const LoginPage = () => {
     const [forgotStep, setForgotStep] = useState('email');
     const [forgotError, setForgotError] = useState('');
     const [forgotLoading, setForgotLoading] = useState(false);
-    const [googleError, setGoogleError] = useState('');
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        setGoogleError('');
         const result = await dispatch(login({ email, password }));
         if (login.fulfilled.match(result)) {
             navigate('/dashboard');
@@ -153,10 +148,10 @@ const LoginPage = () => {
                     <p className="text-sm text-gray-700 font-bold">Welcome back! Please sign in.</p>
                 </div>
 
-                {(error || googleError) && (
+                {error && (
                     <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm flex items-center gap-2 text-left font-medium">
                         <CheckCircle size={18} className="text-red-600 rotate-45" />
-                        {error || googleError}
+                        {error}
                     </div>
                 )}
 
@@ -208,52 +203,30 @@ const LoginPage = () => {
                     >
                         {isLoading ? 'Signing In...' : <><span className="text-base">Sign In</span> <ArrowRight size={18} /></>}
                     </button>
-                </form>
 
-                <div className="flex items-center my-6">
-                    <div className="flex-1 border-t border-gray-300"></div>
-                    <span className="px-4 text-gray-700 text-xs font-bold tracking-wider">OR CONTINUE WITH</span>
-                    <div className="flex-1 border-t border-gray-300"></div>
-                </div>
-
-                {googleLoginStatus.enabled ? (
-                    <div className="space-y-3">
-                        <div className="flex justify-center w-full">
-                            <GoogleLogin
-                                onSuccess={async (credentialResponse) => {
-                                    dispatch(clearError());
-                                    setGoogleError('');
-                                    if (!credentialResponse?.credential) {
-                                        setGoogleError('Google response was incomplete. Please try again.');
-                                        return;
-                                    }
-                                    const result = await dispatch(googleLogin({ credential: credentialResponse.credential }));
-                                    if (googleLogin.fulfilled.match(result)) {
-                                        navigate('/dashboard');
-                                        return;
-                                    }
-                                    setGoogleError(result.payload || 'Google login failed. Please try again.');
-                                }}
-                                onError={() => {
-                                    dispatch(clearError());
-                                    setGoogleError(
-                                        `Google login failed for origin ${googleOrigin}. Use a Web OAuth client and add this origin in Google Cloud Console.`
-                                    );
-                                }}
-                                theme="outline"
-                                size="large"
-                                width="340"
-                                shape="rectangular"
-                                text="continue_with"
-                                logo_alignment="center"
-                            />
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-200"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-gray-500 font-medium">Or continue with</span>
                         </div>
                     </div>
-                ) : (
-                    <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm text-left font-medium">
-                        {googleLoginStatus.reason}
-                    </div>
-                )}
+
+                    <button
+                        type="button"
+                        onClick={() => authAPI.signInWithGoogle()}
+                        className="w-full p-4 bg-white border border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-50 transition-all flex items-center justify-center gap-3 text-sm"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                        </svg>
+                        Sign in with Google
+                    </button>
+                </form>
 
                 <div className="mt-8 text-center text-sm text-gray-700 font-medium">
                     Don't have an account? <Link to="/register" className="font-bold text-blue-700 hover:text-blue-900 hover:underline ml-1">Sign Up</Link>

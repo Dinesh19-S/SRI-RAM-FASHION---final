@@ -2,10 +2,20 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 
+const supabaseUrlFallback = process.env.SUPABASE_URL || ''
+const supabaseAnonKeyFallback =
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_KEY ||
+  ''
+
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
+  define: {
+    __SUPABASE_URL_FALLBACK__: JSON.stringify(supabaseUrlFallback),
+    __SUPABASE_ANON_KEY_FALLBACK__: JSON.stringify(supabaseAnonKeyFallback),
+  },
   optimizeDeps: {
     entries: ['src/**/*.{js,jsx,ts,tsx}'],
   },
