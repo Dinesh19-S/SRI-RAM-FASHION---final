@@ -1145,11 +1145,46 @@ export const aiAPI = {
 };
 
 export const emailAPI = {
-    getStatus: async () => ({ data: { success: true, configured: true } }),
-    sendTest: async (to) => ({ data: { success: true, message: 'Test email sent (Mock)' } }),
-    sendBill: async (billId, to) => ({ data: { success: true, message: 'Bill email sent (Mock)' } }),
-    sendDailySummary: async (to) => ({ data: { success: true, message: 'Daily summary sent (Mock)' } }),
-    sendReport: async (data) => ({ data: { success: true, message: 'Report sent (Mock)' } }),
+    getStatus: async () => {
+        try {
+            const response = await api.get(ENDPOINTS.email.status);
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    sendTest: async (to) => {
+        try {
+            const response = await api.post(ENDPOINTS.email.test, { to });
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    sendBill: async (billId, to) => {
+        try {
+            const response = await api.post(ENDPOINTS.email.sendBill(billId), { to });
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    sendDailySummary: async (to) => {
+        try {
+            const response = await api.post(ENDPOINTS.email.dailySummary, { to });
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    sendReport: async (reportData) => {
+        try {
+            const response = await api.post(ENDPOINTS.email.sendReport, reportData);
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
 };
 
 export const backupAPI = {

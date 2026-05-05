@@ -1,16 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSettings, updateSettings } from '../store/slices/settingsSlice';
-import { Building, User, Bell, Shield, Save, Check, FileText, Download, Eye, Printer, Database, Trash2, AlertTriangle, Loader2, Upload } from 'lucide-react';
+import { Building, User, Bell, Shield, Save, Check, FileText, Download, Eye, Printer, Database, Trash2, AlertTriangle, Loader2, Upload, Mail, Send, X } from 'lucide-react';
+
 import { useToast } from '../components/common';
 import { downloadLetterheadWithContent, getLetterheadPreviewUrlWithContent } from '../utils/letterheadGenerator';
 import { backupService } from '../services/backupService';
+import { emailAPI } from '../services/api';
+
 
 const SettingsPage = () => {
     const toast = useToast();
     const dispatch = useDispatch();
     const { data: settings, isLoading } = useSelector((state) => state.settings);
     const [activeTab, setActiveTab] = useState('company');
+    const [emailStatus, setEmailStatus] = useState(null);
+    const [testEmail, setTestEmail] = useState('');
+    const [isSendingTest, setIsSendingTest] = useState(false);
+
     const [formData, setFormData] = useState({
         company: {
             name: '',
@@ -29,13 +36,19 @@ const SettingsPage = () => {
     const [letterContent, setLetterContent] = useState('');
     const textareaRef = useRef(null);
 
-    useEffect(() => { dispatch(fetchSettings()); }, [dispatch]);
+    useEffect(() => { 
+        dispatch(fetchSettings()); 
+        fetchEmailStatus();
+    }, [dispatch]);
+
     useEffect(() => { if (settings) setFormData(prev => ({ ...prev, ...settings })); }, [settings]);
 
     const tabs = [
         { id: 'company', label: 'Company', icon: Building },
         { id: 'profile', label: 'Profile', icon: User },
         { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'email', label: 'Email Service', icon: Mail },
+
         { id: 'security', label: 'Security', icon: Shield },
         { id: 'letterpad', label: 'Letter Pad', icon: FileText },
         { id: 'data', label: 'Backup', icon: Database }
@@ -109,7 +122,38 @@ const SettingsPage = () => {
         reader.readAsText(file);
     };
 
+    const fetchEmailStatus = async () => {
+        try {
+            const response = await emailAPI.getStatus();
+            setEmailStatus(response.data);
+        } catch (error) {
+            console.error('Error fetching email status:', error);
+        }
+    };
+
+    const handleSendTestEmail = async () => {
+        if (!testEmail || !testEmail.includes('@')) {
+            toast.warning('Please enter a valid email address');
+            return;
+        }
+
+        setIsSendingTest(true);
+        try {
+            const response = await emailAPI.sendTest(testEmail);
+            if (response.data.success) {
+                toast.success(response.data.message || 'Test email sent successfully!');
+            } else {
+                toast.error(response.data.message || 'Failed to send test email');
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error sending test email');
+        } finally {
+            setIsSendingTest(false);
+        }
+    };
+
     const handleSave = async () => {
+
         await dispatch(updateSettings(formData));
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -412,7 +456,88 @@ const SettingsPage = () => {
                         </div>
                     )}
 
+                    {/* Email Service Tab */}
+                    {activeTab === 'email' && (
+                        <div className="settings-panel">
+                            <div className="settings-panel-header">
+                                <Mail size={24} className="panel-icon" />
+                                <div>
+                                    <h2 className="settings-panel-title">Email Configuration</h2>
+                                    <p className="settings-panel-desc">Manage and test your email delivery service</p>
+                                </div>
+                            </div>
+
+                            <div className="settings-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                {/* Configuration Status */}
+                                <div style={{ padding: '24px', borderRadius: '16px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                                    <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Service Status</h3>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            <div style={{ padding: '12px', borderRadius: '9999px', background: emailStatus?.configured ? '#ecfdf5' : '#fffbeb', color: emailStatus?.configured ? '#059669' : '#d97706' }}>
+                                                {emailStatus?.configured ? <Check size={24} /> : <AlertTriangle size={24} />}
+                                            </div>
+                                            <div>
+                                                <p style={{ fontWeight: '700', color: '#0f172a' }}>{emailStatus?.configured ? 'Service Configured' : 'Service Not Configured'}</p>
+                                                <p style={{ fontSize: '12px', color: '#64748b' }}>Provider: <span style={{ fontWeight: '700', textTransform: 'uppercase' }}>{emailStatus?.provider || 'None'}</span></p>
+                                            </div>
+                                        </div>
+                                        {emailStatus?.configured && (
+                                            <span style={{ padding: '4px 12px', borderRadius: '9999px', background: '#10b981', color: 'white', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase' }}>Active</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Sandbox Warning if using Resend */}
+                                {emailStatus?.provider === 'resend' && (
+                                    <div style={{ padding: '24px', borderRadius: '16px', background: '#fffbeb', border: '1px solid #fef3c7', display: 'flex', gap: '16px' }}>
+                                        <AlertTriangle style={{ color: '#d97706', flexShrink: 0 }} size={24} />
+                                        <div>
+                                            <h4 style={{ fontWeight: '700', color: '#92400e', fontSize: '14px' }}>Resend Sandbox Limitation</h4>
+                                            <p style={{ fontSize: '12px', color: '#b45309', marginTop: '4px', lineHeight: '1.6' }}>
+                                                By default, Resend only allows sending emails to the account owner's address. 
+                                                To send to "real persons" (customers/suppliers), you must <strong>verify your domain</strong> in the Resend dashboard or use the configured <strong>SMTP fallback</strong>.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Test Email Section */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Verify Delivery</h3>
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <div style={{ position: 'relative', flex: 1 }}>
+                                            <Mail size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                            <input
+                                                type="email"
+                                                className="settings-input"
+                                                style={{ paddingLeft: '48px' }}
+                                                placeholder="Enter recipient email (e.g. your personal email)"
+                                                value={testEmail}
+                                                onChange={(e) => setTestEmail(e.target.value)}
+                                            />
+                                        </div>
+                                        <button 
+                                            className="btn btn-primary"
+                                            style={{ padding: '0 32px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                            onClick={handleSendTestEmail}
+                                            disabled={isSendingTest || !emailStatus?.configured}
+                                        >
+                                            {isSendingTest ? (
+                                                <div style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                                            ) : <Send size={18} />}
+                                            {isSendingTest ? 'Sending...' : 'Send Test Email'}
+                                        </button>
+                                    </div>
+                                    <p style={{ fontSize: '10px', color: '#94a3b8', textAlign: 'center', fontStyle: 'italic' }}>
+                                        Use this to confirm that your emails are actually reaching real inboxes.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Security Tab */}
+
                     {activeTab === 'security' && (
                         <div className="settings-panel">
                             <div className="settings-panel-header">
