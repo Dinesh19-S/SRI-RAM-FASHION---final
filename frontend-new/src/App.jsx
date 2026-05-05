@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from './components/layout/MainLayout';
-import { supabase } from './services/supabase';
+
 import { setOnlineStatus } from './store/slices/appSlice';
 import { logout as logoutAction, setSession, setSessionChecked } from './store/slices/authSlice';
 
@@ -69,32 +69,22 @@ function App() {
 
   // ── Auth initialization: runs ONCE on mount ──
   useEffect(() => {
-    let isMounted = true;
-
-    // Step 1: Listen for auth state changes (fires for Google OAuth redirect too)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!isMounted) return;
-
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-        if (session) {
-          dispatch(setSession({ 
-            token: session.access_token, 
-            user: session.user 
-          }));
-          
-          // Navigate to dashboard if we're on a public page
-          const currentPath = window.location.pathname;
-          if (currentPath === '/login' || currentPath === '/register' || currentPath === '/') {
-            navigate('/dashboard', { replace: true });
-          }
-        } else {
-          // INITIAL_SESSION with no session means user is not logged in
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          // You could optionally fetch profile here to verify token
+          // const profile = await dispatch(getProfile()).unwrap();
           dispatch(setSessionChecked());
+        } catch (error) {
+          dispatch(logoutAction());
         }
-      } else if (event === 'SIGNED_OUT') {
-        dispatch(logoutAction());
+      } else {
+        dispatch(setSessionChecked());
       }
-    });
+    };
+
+    initializeAuth();
 
     // Step 2: Online/Offline
     const handleOnline = () => dispatch(setOnlineStatus(true));
@@ -103,12 +93,10 @@ function App() {
     window.addEventListener('offline', handleOffline);
 
     return () => {
-      isMounted = false;
-      subscription?.unsubscribe();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []); // Empty deps — run only once
+  }, [dispatch]); // Empty deps — run only once
 
   // ── Show loading screen until Supabase has checked the session ──
   if (isInitializing) {

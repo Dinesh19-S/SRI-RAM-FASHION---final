@@ -1,38 +1,18 @@
-import { supabase } from './supabase';
+import { backupAPI } from './api';
+import { downloadBackupPDF } from '../utils/backupPdfGenerator';
 
 export const backupService = {
     exportAllData: async () => {
         try {
-            const tables = [
-                'customers',
-                'suppliers',
-                'categories',
-                'products',
-                'hsn_codes',
-                'bills',
-                'bill_items',
-                'purchase_entries',
-                'purchase_items',
-                'stock_movements',
-                'settings'
-            ];
-
-            const backupData = {};
-
-            for (const table of tables) {
-                const { data, error } = await supabase.from(table).select('*');
-                if (error) {
-                    console.error(`Error backing up table ${table}:`, error);
-                    continue;
-                }
-                backupData[table] = data;
+            const response = await backupAPI.exportData();
+            if (!response.success) {
+                return { success: false, message: response.message || 'Export failed' };
             }
 
-            // Generate filename with timestamp
+            const backupData = response.data;
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const filename = `sriram_fashions_backup_${timestamp}.json`;
 
-            // Create blob and download
             const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -46,71 +26,41 @@ export const backupService = {
             return { success: true, message: 'Backup downloaded successfully' };
         } catch (error) {
             console.error('Backup error:', error);
-            return { success: false, message: error.message };
+            return { success: false, message: error.message || 'Backup failed' };
         }
     },
 
-    flashAllData: async () => {
+    exportPdfBackup: async (settings) => {
         try {
-            const tables = [
-                'bill_items',
-                'purchase_items',
-                'stock_movements',
-                'bills',
-                'purchase_entries',
-                'products',
-                'categories',
-                'customers',
-                'suppliers',
-                'hsn_codes'
-            ];
-
-            for (const table of tables) {
-                // Delete all rows where id is not null (effectively all rows)
-                const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                if (error) {
-                    console.error(`Error flashing table ${table}:`, error);
-                }
+            const response = await backupAPI.exportData();
+            if (!response.success) {
+                return { success: false, message: response.message || 'Export failed' };
             }
 
-            return { success: true, message: 'All data has been cleared successfully' };
+            downloadBackupPDF(response.data, settings);
+            return { success: true, message: 'PDF Backup downloaded successfully' };
         } catch (error) {
-            console.error('Flash error:', error);
-            return { success: false, message: error.message };
+            console.error('PDF Backup error:', error);
+            return { success: false, message: error.message || 'PDF Backup failed' };
         }
     },
 
     importData: async (jsonData) => {
         try {
-            const tables = [
-                'hsn_codes',
-                'customers',
-                'suppliers',
-                'categories',
-                'products',
-                'bills',
-                'bill_items',
-                'purchase_entries',
-                'purchase_items',
-                'stock_movements',
-                'settings'
-            ];
-
-            for (const table of tables) {
-                const data = jsonData[table];
-                if (data && Array.isArray(data) && data.length > 0) {
-                    // Upsert data to avoid duplicates if some IDs already exist
-                    const { error } = await supabase.from(table).upsert(data);
-                    if (error) {
-                        console.error(`Error importing table ${table}:`, error);
-                    }
-                }
+            const response = await backupAPI.importData(jsonData);
+            if (response.success) {
+                return { success: true, message: 'Data restored successfully' };
+            } else {
+                return { success: false, message: response.message || 'Import failed' };
             }
-
-            return { success: true, message: 'Data restored successfully' };
         } catch (error) {
             console.error('Import error:', error);
-            return { success: false, message: error.message };
+            return { success: false, message: error.message || 'Import failed' };
         }
+    },
+
+    flashAllData: async () => {
+        // For safety, we'll just return a message or implement a dedicated clear route
+        return { success: false, message: 'Flash operation should be handled via database management tools for safety.' };
     }
 };

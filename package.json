@@ -9,7 +9,8 @@
         "build": "npm run build --prefix frontend-new && mv frontend-new/dist ./dist",
         "test:mongodb": "node test-mongodb.js",
         "setup:mongodb": "node mongodb-setup.js",
-        "seed": "node api/seed.js"
+        "seed": "node api/seed.js",
+        "dev:all": "concurrently \"npm run dev\" \"npm run dev --prefix frontend-new\""
     },
     "dependencies": {
         "@google/generative-ai": "^0.24.1",
@@ -27,7 +28,8 @@
         "passport": "^0.7.0",
         "passport-google-oauth20": "^2.0.0",
         "pdfkit": "^0.17.2",
-        "resend": "^6.9.2"
+        "resend": "^6.9.2",
+        "concurrently": "^8.2.2"
     },
     "engines": {
         "node": "22.x"

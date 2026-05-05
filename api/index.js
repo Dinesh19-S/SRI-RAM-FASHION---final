@@ -28,6 +28,7 @@ import salesEntriesRoutes from './routes/salesEntries.js';
 import purchaseEntriesRoutes from './routes/purchaseEntries.js';
 import aiRoutes from './routes/ai.js';
 import emailRoutes from './routes/email.js';
+import backupRoutes from './routes/backup.js';
 
 const app = express();
 const REQUIRED_ENV_VARS = ['MONGODB_URI', 'JWT_SECRET'];
@@ -175,6 +176,7 @@ const createApiRouter = () => {
     router.use('/purchase-entries', authenticateToken, cacheMiddleware(cachePolicies.DYNAMIC), purchaseEntriesRoutes);
     router.use('/ai', authenticateToken, aiRoutes);
     router.use('/email', authenticateToken, emailRoutes);
+    router.use('/backup', authenticateToken, backupRoutes);
 
     return router;
 };

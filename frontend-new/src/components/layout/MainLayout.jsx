@@ -428,9 +428,9 @@ const MainLayout = () => {
 
                         <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-white/50 border rounded-full text-[10px] font-bold uppercase tracking-wider"
                             style={{ borderColor: 'var(--border-soft)' }}>
-                            <div className={`w-2 h-2 rounded-full ${syncStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : syncStatus === 'error' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-amber-500 animate-pulse'}`} />
-                            <span className={syncStatus === 'connected' ? 'text-green-700' : syncStatus === 'error' ? 'text-red-700' : 'text-amber-700'}>
-                                {syncStatus === 'connected' ? 'Supabase Sync Active' : syncStatus === 'error' ? 'Sync Error' : 'Connecting Sync...'}
+                            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
+                            <span className={isOnline ? 'text-green-700' : 'text-red-700'}>
+                                {isOnline ? 'Backend Online' : 'Offline Mode'}
                             </span>
                         </div>
 

@@ -159,6 +159,45 @@ const prepareProductData = (data) => {
     };
 };
 
+const prepareCustomerData = (data) => {
+    return {
+        companyName: data.companyName,
+        mobile: data.mobile,
+        alternateNo: data.alternateNo || '',
+        email: data.email || '',
+        gstin: data.gstin || '',
+        state: data.state || 'Tamilnadu',
+        stateCode: data.stateCode || '33',
+        address: data.address || '',
+        placeOfSupply: data.placeOfSupply || '',
+        isActive: data.isActive !== false
+    };
+};
+
+const preparePurchaseData = (data) => {
+    return {
+        invoiceNumber: data.invoiceNumber || data.billNumber || '',
+        date: data.date || new Date(),
+        supplier: {
+            name: data.supplier?.name || data.supplier || '',
+            mobile: data.supplier?.mobile || '',
+            gstin: data.supplier?.gstin || '',
+            address: data.supplier?.address || ''
+        },
+        items: Array.isArray(data.items) ? data.items.map(item => ({
+            particular: item.particular || item.name || '',
+            hsnCode: item.hsnCode || '',
+            designColor: item.designColor || '',
+            weightKg: Number(item.weightKg || 0),
+            ratePerKg: Number(item.ratePerKg || 0),
+            amount: Number(item.amount || 0),
+            total: Number(item.total || 0)
+        })) : [],
+        notes: data.notes || '',
+        status: data.status || 'completed'
+    };
+};
+
 const handleError = async (error) => {
     const status = error?.response?.status;
     const message = String(error?.response?.data?.message || error?.message || '');
@@ -283,14 +322,11 @@ const loadPersistedResponse = (cacheKey, authScoped = true) => {
     }
 
     return {
-        response: {
-            data: parsed.data,
-            status: parsed.status || 200,
-            statusText: parsed.statusText || 'OK',
-            headers: {},
-            config: { url: cacheKey, method: 'get', fromPersistentCache: true }
-        },
-        expiresAt: parsed.expiresAt
+        data: parsed.data,
+        status: parsed.status || 200,
+        statusText: parsed.statusText || 'OK',
+        headers: {},
+        config: { url: cacheKey, method: 'get', fromPersistentCache: true }
     };
 };
 
@@ -426,12 +462,7 @@ api.interceptors.response.use(
             clearAPICache();
         }
 
-        // Actionable logging for Supabase errors
-        if (error.response?.status === 400 && error.response?.data?.message?.includes('column')) {
-            console.error('Supabase Schema Error detected!');
-            console.error('Missing column suspected:', error.response.data.message);
-            console.error('Recommended fix: Run "ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;" in Supabase SQL Editor.');
-        }
+
 
         const isAuthEndpoint = error.config?.url?.includes('/auth/');
         if (error.response?.status === 401 && !isAuthEndpoint) {
@@ -731,25 +762,25 @@ export const inventoryAPI = {
     getMovements: async (params) => {
         try {
             const response = await api.get(ENDPOINTS.inventory.movements, { params });
-            return response;
+            return { data: { success: true, data: response.data?.data || [] } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     addMovement: async (data) => {
         try {
             const response = await api.post(ENDPOINTS.inventory.movements, data);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getStats: async () => {
         try {
-            const response = await api.get(ENDPOINTS.inventory.stats);
-            return response;
+            const response = await cachedGet(ENDPOINTS.inventory.stats, {}, CACHE_TTL.SHORT);
+            return { data: { success: true, data: response.data?.data || { totalItems: 0, lowStockCount: 0 } } };
         } catch (error) {
-            return handleApiError(error);
+            return { data: { success: true, data: { totalItems: 0, lowStockCount: 0 } } };
         }
     },
 };
@@ -757,34 +788,34 @@ export const inventoryAPI = {
 export const reportsAPI = {
     getSalesSummary: async (params) => {
         try {
-            const response = await api.get(ENDPOINTS.reports.salesSummary, { params });
-            return response;
+            const response = await cachedGet(ENDPOINTS.reports.salesSummary, { params }, CACHE_TTL.SHORT);
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getSalesReport: async (params) => {
         try {
             const response = await api.get(ENDPOINTS.reports.salesReport, { params });
-            return response;
+            return { data: { success: true, data: response.data?.data || [] } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getPurchaseReport: async (params) => {
         try {
             const response = await api.get(ENDPOINTS.reports.purchaseReport, { params });
-            return response;
+            return { data: { success: true, data: response.data?.data || [] } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getStockReport: async (params) => {
         try {
-            const response = await api.get(ENDPOINTS.reports.stock, { params });
-            return response;
+            const response = await api.get(ENDPOINTS.reports.stockReport, { params });
+            return { data: { success: true, data: response.data?.data || [] } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     }
 };
@@ -792,18 +823,18 @@ export const reportsAPI = {
 export const settingsAPI = {
     get: async () => {
         try {
-            const response = await api.get(ENDPOINTS.settings.root);
-            return response;
+            const response = await cachedGet(ENDPOINTS.settings.root, {}, CACHE_TTL.LONG);
+            return { data: { success: true, data: response.data?.data || {} } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     update: async (data) => {
         try {
             const response = await api.put(ENDPOINTS.settings.root, data);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     uploadLogo: (formData) => api.post(ENDPOINTS.settings.logo, formData, {
@@ -817,13 +848,7 @@ export const dashboardAPI = {
             const response = await api.get(ENDPOINTS.dashboard.overview);
             return response;
         } catch (error) {
-            console.error('Error fetching dashboard overview:', error);
-            return {
-                data: {
-                    success: false,
-                    message: error.message || 'Failed to fetch dashboard overview'
-                }
-            };
+            throw handleError(error);
         }
     },
     getRevenueChart: async (period) => {
@@ -833,13 +858,7 @@ export const dashboardAPI = {
             });
             return response;
         } catch (error) {
-            console.error('Error fetching revenue chart:', error);
-            return {
-                data: {
-                    success: false,
-                    message: error.message || 'Failed to fetch revenue chart'
-                }
-            };
+            throw handleError(error);
         }
     },
     getNotifications: async (limit = 5) => {
@@ -849,13 +868,7 @@ export const dashboardAPI = {
             });
             return response;
         } catch (error) {
-            console.error('Error fetching notifications:', error);
-            return {
-                data: {
-                    success: false,
-                    message: error.message || 'Failed to fetch notifications'
-                }
-            };
+            throw handleError(error);
         }
     }
 };
@@ -866,7 +879,7 @@ export const customersAPI = {
             const response = await api.get(ENDPOINTS.customers.list, { params });
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getById: async (id) => {
@@ -874,7 +887,7 @@ export const customersAPI = {
             const response = await api.get(ENDPOINTS.customers.byId(id));
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     create: async (data) => {
@@ -883,7 +896,7 @@ export const customersAPI = {
             const response = await api.post(ENDPOINTS.customers.list, customerData);
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     update: async (id, data) => {
@@ -892,7 +905,7 @@ export const customersAPI = {
             const response = await api.put(ENDPOINTS.customers.byId(id), customerData);
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     delete: async (id) => {
@@ -900,7 +913,7 @@ export const customersAPI = {
             const response = await api.delete(ENDPOINTS.customers.byId(id));
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
 };
@@ -908,42 +921,42 @@ export const customersAPI = {
 export const hsnAPI = {
     getAll: async (params) => {
         try {
-            const response = await api.get(ENDPOINTS.hsn.list, { params });
-            return response;
+            const response = await cachedGet(ENDPOINTS.hsn.list, { params }, CACHE_TTL.LONG);
+            return { data: { success: true, data: response.data?.data || [] } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getById: async (id) => {
         try {
-            const response = await api.get(ENDPOINTS.hsn.byId(id));
-            return response;
+            const response = await cachedGet(ENDPOINTS.hsn.byId(id), {}, CACHE_TTL.LONG);
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     create: async (data) => {
         try {
             const response = await api.post(ENDPOINTS.hsn.list, data);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     update: async (id, data) => {
         try {
             const response = await api.put(ENDPOINTS.hsn.byId(id), data);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     delete: async (id) => {
         try {
-            const response = await api.delete(ENDPOINTS.hsn.byId(id));
-            return response;
+            await api.delete(ENDPOINTS.hsn.byId(id));
+            return { data: { success: true } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
 };
@@ -951,44 +964,42 @@ export const hsnAPI = {
 export const suppliersAPI = {
     getAll: async (params) => {
         try {
-            const response = await api.get(ENDPOINTS.suppliers.list, { params });
-            return response;
+            const response = await cachedGet(ENDPOINTS.suppliers.list, { params }, CACHE_TTL.SHORT);
+            return { data: { success: true, data: response.data?.data || [] } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getById: async (id) => {
         try {
-            const response = await api.get(ENDPOINTS.suppliers.byId(id));
-            return response;
+            const response = await cachedGet(ENDPOINTS.suppliers.byId(id), {}, CACHE_TTL.MEDIUM);
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     create: async (data) => {
         try {
-            const supplierData = prepareSupplierData(data);
-            const response = await api.post(ENDPOINTS.suppliers.list, supplierData);
-            return response;
+            const response = await api.post(ENDPOINTS.suppliers.list, data);
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     update: async (id, data) => {
         try {
-            const supplierData = prepareSupplierData(data);
-            const response = await api.put(ENDPOINTS.suppliers.byId(id), supplierData);
-            return response;
+            const response = await api.put(ENDPOINTS.suppliers.byId(id), data);
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     delete: async (id) => {
         try {
-            const response = await api.delete(ENDPOINTS.suppliers.byId(id));
-            return response;
+            await api.delete(ENDPOINTS.suppliers.byId(id));
+            return { data: { success: true } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
 };
@@ -997,41 +1008,41 @@ export const paymentsAPI = {
     getAll: async (params) => {
         try {
             const response = await api.get(ENDPOINTS.payments.list, { params });
-            return response;
+            return { data: { success: true, data: response.data?.data || [] } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getById: async (id) => {
         try {
             const response = await api.get(ENDPOINTS.payments.byId(id));
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     create: async (data) => {
         try {
             const response = await api.post(ENDPOINTS.payments.list, data);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     update: async (id, data) => {
         try {
             const response = await api.put(ENDPOINTS.payments.byId(id), data);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     delete: async (id) => {
         try {
-            const response = await api.delete(ENDPOINTS.payments.byId(id));
-            return response;
+            await api.delete(ENDPOINTS.payments.byId(id));
+            return { data: { success: true } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
 };
@@ -1040,41 +1051,41 @@ export const salesEntriesAPI = {
     getAll: async (params) => {
         try {
             const response = await api.get(ENDPOINTS.salesEntries.list, { params });
-            return response;
+            return { data: { success: true, data: response.data?.data || [] } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getById: async (id) => {
         try {
             const response = await api.get(ENDPOINTS.salesEntries.byId(id));
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     create: async (data) => {
         try {
             const response = await api.post(ENDPOINTS.salesEntries.list, data);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     update: async (id, data) => {
         try {
             const response = await api.put(ENDPOINTS.salesEntries.byId(id), data);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     delete: async (id) => {
         try {
-            const response = await api.delete(ENDPOINTS.salesEntries.byId(id));
-            return response;
+            await api.delete(ENDPOINTS.salesEntries.byId(id));
+            return { data: { success: true } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     generateBill: (id) => api.post(ENDPOINTS.salesEntries.generateBill(id)),
@@ -1084,26 +1095,26 @@ export const purchaseEntriesAPI = {
     getAll: async (params) => {
         try {
             const response = await api.get(ENDPOINTS.purchaseEntries.list, { params });
-            return response;
+            return { data: { success: true, data: response.data?.data || [], pagination: response.data?.pagination } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     getById: async (id) => {
         try {
             const response = await api.get(ENDPOINTS.purchaseEntries.byId(id));
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     create: async (data) => {
         try {
             const entryData = preparePurchaseData(data);
             const response = await api.post(ENDPOINTS.purchaseEntries.list, entryData);
-            return response;
+            return { data: { success: true, data: response.data?.data } };
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     update: async (id, data) => {
@@ -1139,6 +1150,25 @@ export const emailAPI = {
     sendBill: async (billId, to) => ({ data: { success: true, message: 'Bill email sent (Mock)' } }),
     sendDailySummary: async (to) => ({ data: { success: true, message: 'Daily summary sent (Mock)' } }),
     sendReport: async (data) => ({ data: { success: true, message: 'Report sent (Mock)' } }),
+};
+
+export const backupAPI = {
+    exportData: async () => {
+        try {
+            const response = await api.get(ENDPOINTS.backup.export);
+            return response.data;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    importData: async (backupData) => {
+        try {
+            const response = await api.post(ENDPOINTS.backup.import, { backupData });
+            return response.data;
+        } catch (error) {
+            throw handleError(error);
+        }
+    }
 };
 
 export default api;

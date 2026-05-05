@@ -45,9 +45,23 @@ const SettingsPage = () => {
     const [isFlashing, setIsFlashing] = useState(false);
     const [showFlashConfirm, setShowFlashConfirm] = useState(false);
     const [isRestoring, setIsRestoring] = useState(false);
+    const [isPdfBackingUp, setIsPdfBackingUp] = useState(false);
     const fileInputRef = useRef(null);
 
+
+    const handlePdfBackup = async () => {
+        setIsPdfBackingUp(true);
+        const result = await backupService.exportPdfBackup({ company: settings?.company });
+        setIsPdfBackingUp(false);
+        if (result.success) {
+            toast.success(result.message);
+        } else {
+            toast.error(result.message);
+        }
+    };
+
     const handleBackup = async () => {
+
         setIsBackingUp(true);
         const result = await backupService.exportAllData();
         setIsBackingUp(false);
@@ -543,11 +557,21 @@ const SettingsPage = () => {
                                             <button 
                                                 className='btn btn-primary mt-4' 
                                                 onClick={handleBackup}
+
                                                 disabled={isBackingUp}
                                             >
                                                 {isBackingUp ? <Loader2 size={18} className='animate-spin' /> : <Download size={18} />}
                                                 {isBackingUp ? 'Backing up...' : 'Download Backup'}
                                             </button>
+                                            <button 
+                                                className='btn btn-ghost border mt-2 w-full flex items-center justify-center gap-2' 
+                                                onClick={handlePdfBackup}
+                                                disabled={isPdfBackingUp}
+                                            >
+                                                {isPdfBackingUp ? <Loader2 size={18} className='animate-spin' /> : <FileText size={18} />}
+                                                {isPdfBackingUp ? 'Generating PDF...' : 'Download PDF Report'}
+                                            </button>
+
                                         </div>
                                     </div>
 

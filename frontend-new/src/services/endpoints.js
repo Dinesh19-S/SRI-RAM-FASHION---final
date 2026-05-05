@@ -95,6 +95,10 @@ export const ENDPOINTS = {
         sendBill: (billId) => `/email/send-bill/${encodeId(billId)}`,
         dailySummary: '/email/daily-summary',
         sendReport: '/email/send-report'
+    },
+    backup: {
+        export: '/backup/export',
+        import: '/backup/import'
     }
 };
 

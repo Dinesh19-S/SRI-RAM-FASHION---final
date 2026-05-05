@@ -42,7 +42,19 @@ sri-ram-fashion-app/
 └── README.md
 ```
 
+```
+
+## ⚡ Quick Start (Recommended)
+
+To run both the backend and frontend with a single command:
+
+1. **Windows**: Double-click `run-app.bat` in the root folder.
+2. **Terminal**: Run `npm run dev:all` from the root folder.
+
+This will automatically install dependencies and start both servers.
+
 ## 🛠️ Getting Started
+
 
 ### Prerequisites
 
