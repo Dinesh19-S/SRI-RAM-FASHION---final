@@ -6,7 +6,10 @@
     "scripts": {
         "start": "node api/index.js",
         "dev": "nodemon api/index.js",
-        "build": "npm run build --prefix frontend-new && mv frontend-new/dist ./dist"
+        "build": "npm run build --prefix frontend-new && mv frontend-new/dist ./dist",
+        "test:mongodb": "node test-mongodb.js",
+        "setup:mongodb": "node mongodb-setup.js",
+        "seed": "node api/seed.js"
     },
     "dependencies": {
         "@google/generative-ai": "^0.24.1",
