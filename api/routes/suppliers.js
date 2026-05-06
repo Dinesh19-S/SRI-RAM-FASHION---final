@@ -60,6 +60,13 @@ router.post('/', async (req, res) => {
     try {
         const supplier = new Supplier(req.body);
         await supplier.save();
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('supplier:created', { data: supplier });
+        }
+
         res.status(201).json({ success: true, data: supplier });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -94,6 +101,13 @@ router.delete('/:id', async (req, res) => {
         if (!supplier) {
             return res.status(404).json({ success: false, message: 'Supplier not found' });
         }
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('supplier:deleted', { id: req.params.id });
+        }
+
         res.json({ success: true, message: 'Supplier deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

@@ -78,6 +78,13 @@ router.post('/', async (req, res) => {
     try {
         const product = new Product(req.body);
         await product.save();
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('product:created', { data: product });
+        }
+
         res.status(201).json({ success: true, data: product });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -95,6 +102,13 @@ router.put('/:id', async (req, res) => {
         if (!product) {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('product:updated', { id: req.params.id, data: product });
+        }
+
         res.json({ success: true, data: product });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -112,6 +126,13 @@ router.delete('/:id', async (req, res) => {
         if (!product) {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('product:deleted', { id: req.params.id });
+        }
+
         res.json({ success: true, message: 'Product deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

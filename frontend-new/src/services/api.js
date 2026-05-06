@@ -1134,6 +1134,18 @@ export const purchaseEntriesAPI = {
             return handleApiError(error);
         }
     },
+    uploadBillPdf: async (id, file) => {
+        try {
+            const formData = new FormData();
+            formData.append('billPdf', file);
+            const response = await api.post(`${ENDPOINTS.purchaseEntries.root}/${id}/upload`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
 };
 
 export const aiAPI = {
@@ -1169,6 +1181,7 @@ export const emailAPI = {
             throw handleError(error);
         }
     },
+    sendPurchase: (entryId, to) => api.post(`${ENDPOINTS.email.root}/send-purchase/${entryId}`, { to }),
     sendDailySummary: async (to) => {
         try {
             const response = await api.post(ENDPOINTS.email.dailySummary, { to });

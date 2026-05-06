@@ -30,6 +30,7 @@ const purchaseEntrySchema = new mongoose.Schema({
     subtotal: { type: Number, default: 0 },
     grandTotal: { type: Number, default: 0 },
     notes: { type: String },
+    billPdf: { type: String },
     status: {
         type: String,
         enum: ['draft', 'completed', 'cancelled'],

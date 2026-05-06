@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from './components/layout/MainLayout';
+import useSocketSync from './hooks/useSocketSync';
 
 import { setOnlineStatus } from './store/slices/appSlice';
 import { logout as logoutAction, setSession, setSessionChecked } from './store/slices/authSlice';
@@ -66,6 +67,9 @@ function App() {
   const { isInitializing } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  // Initialize Real-time Data Synchronization
+  useSocketSync();
 
   // ── Auth initialization: runs ONCE on mount ──
   useEffect(() => {

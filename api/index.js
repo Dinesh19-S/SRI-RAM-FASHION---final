@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
 import 'dotenv/config';
+import http from 'http';
+import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import User from './models/User.js';
@@ -81,6 +83,39 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Socket.io Setup
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: allowedOrigins,
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        credentials: true
+    }
+});
+
+// Make io accessible in routes
+app.set('io', io);
+
+io.on('connection', (socket) => {
+    console.log(`[Socket] Client connected: ${socket.id}`);
+    
+    socket.on('join', (room) => {
+        socket.join(room);
+        console.log(`[Socket] Client ${socket.id} joined room: ${room}`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`[Socket] Client disconnected: ${socket.id}`);
+    });
+});
 
 // Request Logger
 app.use((req, res, next) => {
@@ -252,8 +287,8 @@ const startServer = async () => {
         // On Vercel, we don't start the server manually; it's handled as a function
         if (process.env.VERCEL !== '1') {
             const PORT = process.env.PORT || 5000;
-            const server = app.listen(PORT, () => {
-                console.log(`Server running on port ${PORT}`);
+            server.listen(PORT, () => {
+                console.log(`Server running on port ${PORT} (Socket.io enabled)`);
                 console.log(`API URL (legacy): http://localhost:${PORT}${API_BASES.legacy}`);
                 console.log(`API URL (v1): http://localhost:${PORT}${API_BASES.versioned}`);
                 initScheduler();

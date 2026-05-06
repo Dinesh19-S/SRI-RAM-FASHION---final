@@ -20,6 +20,7 @@ const PurchaseEntryPage = () => {
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedEntry, setSelectedEntry] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
 
     const [formData, setFormData] = useState({
@@ -125,24 +126,42 @@ const PurchaseEntryPage = () => {
 
         setIsSubmitting(true);
         try {
-            await purchaseEntriesAPI.create(formData);
-            toast.success('Purchase entry created successfully');
-            setShowModal(false);
-            setFormData({
-                supplier: '',
-                billNumber: '',
-                date: new Date().toISOString().split('T')[0],
-                items: [{ product: '', quantity: '', rate: '', total: 0 }],
-                totalAmount: 0,
-                paymentStatus: 'pending',
-                notes: ''
-            });
-            fetchEntries();
+            const response = await purchaseEntriesAPI.create(formData);
+            if (response.data.success) {
+                const newEntryId = response.data.data._id;
+                
+                // Upload PDF if selected
+                if (selectedFile) {
+                    try {
+                        await purchaseEntriesAPI.uploadBillPdf(newEntryId, selectedFile);
+                    } catch (uploadError) {
+                        toast.error('Entry saved, but bill upload failed');
+                    }
+                }
+                
+                toast.success('Purchase entry recorded successfully');
+                setShowModal(false);
+                resetForm();
+                fetchEntries();
+            }
         } catch (error) {
             toast.error('Error creating entry: ' + (error.response?.data?.message || error.message));
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const resetForm = () => {
+        setFormData({
+            supplier: '',
+            billNumber: '',
+            date: new Date().toISOString().split('T')[0],
+            items: [{ product: '', quantity: '', rate: '', total: 0 }],
+            totalAmount: 0,
+            paymentStatus: 'pending',
+            notes: ''
+        });
+        setSelectedFile(null);
     };
 
     const handleViewEntry = (entry) => {
@@ -265,8 +284,19 @@ const PurchaseEntryPage = () => {
                                                 {entry.paymentStatus}
                                             </span>
                                         </td>
-                                        <td>
+                                         <td>
                                             <div className="flex justify-end gap-2">
+                                                {entry.billPdf && (
+                                                    <a
+                                                        href={`http://localhost:5000/${entry.billPdf}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="action-btn action-btn-purple"
+                                                        title="View Original Bill"
+                                                    >
+                                                        <FileText size={16} />
+                                                    </a>
+                                                )}
                                                 <button
                                                     className="action-btn action-btn-blue"
                                                     onClick={() => handleViewEntry(entry)}
@@ -474,11 +504,51 @@ const PurchaseEntryPage = () => {
                                     </div>
                                     <textarea
                                         name="notes"
-                                        className="form-input min-h-[100px]"
+                                        className="form-input min-h-[80px] mb-4"
                                         placeholder="Add any additional remarks here..."
                                         value={formData.notes}
                                         onChange={handleInputChange}
                                     />
+                                    
+                                    <div className="space-y-2">
+                                        <label className="form-label font-bold text-gray-700 flex items-center gap-2 text-sm uppercase tracking-wider">
+                                            <FileText size={16} className="text-emerald-600" />
+                                            Original Bill (PDF/Image)
+                                        </label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="file"
+                                                accept="application/pdf,image/*"
+                                                onChange={(e) => setSelectedFile(e.target.files[0])}
+                                                className="hidden"
+                                                id="bill-upload"
+                                            />
+                                            <label
+                                                htmlFor="bill-upload"
+                                                className="flex-1 cursor-pointer flex items-center justify-center gap-2 py-4 px-4 border-2 border-dashed border-gray-200 rounded-2xl text-sm font-medium text-gray-500 hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all bg-white"
+                                            >
+                                                {selectedFile ? (
+                                                    <span className="flex items-center gap-2 text-emerald-600 font-bold truncate">
+                                                        <CheckCircle2 size={16} />
+                                                        {selectedFile.name}
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <Plus size={16} />
+                                                        Attach Digital Bill
+                                                    </>
+                                                )}
+                                            </label>
+                                            {selectedFile && (
+                                                <button
+                                                    onClick={() => setSelectedFile(null)}
+                                                    className="p-3 text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                                                >
+                                                    <X size={18} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="bg-gray-900 rounded-3xl p-8 text-white space-y-6 shadow-xl shadow-gray-200">

@@ -60,6 +60,13 @@ router.post('/', async (req, res) => {
     try {
         const customer = new Customer(req.body);
         await customer.save();
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('customer:created', { data: customer });
+        }
+
         res.status(201).json({ success: true, data: customer });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -94,6 +101,13 @@ router.delete('/:id', async (req, res) => {
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found' });
         }
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('customer:deleted', { id: req.params.id });
+        }
+
         res.json({ success: true, message: 'Customer deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

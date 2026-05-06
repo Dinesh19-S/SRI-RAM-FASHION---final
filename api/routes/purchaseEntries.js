@@ -4,6 +4,7 @@ import PurchaseEntry from '../models/PurchaseEntry.js';
 import Bill from '../models/Bill.js';
 import Product from '../models/Product.js';
 import StockMovement from '../models/StockMovement.js';
+import { upload } from '../utils/upload.js';
 
 const router = express.Router();
 
@@ -148,6 +149,13 @@ router.get('/:id', async (req, res) => {
         if (!entry) {
             return res.status(404).json({ success: false, message: 'Purchase entry not found' });
         }
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('purchase:updated', { id: req.params.id, data: entry });
+        }
+
         res.json({ success: true, data: entry });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -259,6 +267,13 @@ router.post('/', async (req, res) => {
             }
         });
 
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('purchase:created', { data: entry });
+            io.emit('product:updated', { multi: true });
+        }
+
         res.status(201).json({ success: true, data: entry, bill });
     } catch (error) {
         res.status(error.statusCode || 500).json({ success: false, message: error.message });
@@ -358,6 +373,12 @@ router.put('/:id', async (req, res) => {
             }
         });
 
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('purchase:updated', { id: req.params.id, data: entry });
+        }
+
         res.json({ success: true, data: entry });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -373,7 +394,41 @@ router.delete('/:id', async (req, res) => {
         if (!entry) {
             return res.status(404).json({ success: false, message: 'Purchase entry not found' });
         }
+
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('purchase:deleted', { id: req.params.id });
+        }
+
         res.json({ success: true, message: 'Purchase entry deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Upload bill PDF for purchase entry
+router.post('/:id/upload', upload.single('billPdf'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded' });
+        }
+
+        const entry = await PurchaseEntry.findById(req.params.id);
+        if (!entry) {
+            return res.status(404).json({ success: false, message: 'Purchase entry not found' });
+        }
+
+        // Store relative path
+        const filePath = `uploads/purchase-bills/${req.file.filename}`;
+        entry.billPdf = filePath;
+        await entry.save();
+
+        res.json({ 
+            success: true, 
+            message: 'Bill PDF uploaded successfully',
+            data: { billPdf: filePath }
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

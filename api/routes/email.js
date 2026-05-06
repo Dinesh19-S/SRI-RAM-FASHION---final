@@ -259,4 +259,52 @@ router.post('/send-bill/:billId', async (req, res) => {
     }
 });
 
+// Send purchase entry email (linked bill)
+router.post('/send-purchase/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Try to find the bill associated with this purchase entry
+        const bill = await Bill.findOne({ 
+            sourcePurchaseEntry: id,
+            billType: 'PURCHASE'
+        });
+
+        if (!bill) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'No purchase bill found for this entry. Try creating the bill first.' 
+            });
+        }
+
+        if (!isEmailConfigured()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email service not configured.'
+            });
+        }
+
+        const { recipients, invalidRecipients: invalid } = resolveRecipients(req, bill.customer?.email);
+        if (recipients.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: buildMissingRecipientMessage(invalid)
+            });
+        }
+
+        const results = await sendBillNotification(bill, recipients);
+        const sent = recipients.some((_, index) => results[index]?.success);
+        
+        res.json({
+            success: sent,
+            message: sent 
+                ? appendSkippedInvalidMessage(`Purchase bill ${bill.billNumber} emailed to ${formatRecipientList(recipients.filter((_, i) => results[i]?.success))}`, invalid)
+                : 'Failed to send email',
+            invalidRecipients: invalid
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 export default router;

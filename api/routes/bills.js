@@ -276,6 +276,12 @@ router.post('/', async (req, res) => {
             });
         }
 
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('bill:created', { data: normalizeBillType(createdBill.toObject()) });
+        }
+
         res.status(201).json({ success: true, data: normalizeBillType(createdBill.toObject()) });
     } catch (error) {
         res.status(error.statusCode || 500).json({ success: false, message: error.message });
@@ -298,6 +304,13 @@ router.put('/:id', async (req, res) => {
             { new: true }
         );
         const billData = bill ? normalizeBillType(bill.toObject()) : bill;
+        
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('bill:updated', { id: req.params.id, data: billData });
+        }
+
         res.json({ success: true, data: billData });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -352,6 +365,12 @@ router.delete('/:id', async (req, res) => {
 
             await Bill.deleteOne({ _id: bill._id }, { session });
         });
+
+        // Broadcast real-time sync event
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('bill:deleted', { id: req.params.id });
+        }
 
         res.json({
             success: true,
