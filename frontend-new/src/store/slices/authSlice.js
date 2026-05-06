@@ -151,7 +151,7 @@ const authSlice = createSlice({
         clearError: (state) => {
             state.error = null;
         },
-        // NEW: Called by App.jsx after Supabase session check completes
+        // Called by App.jsx after the session check completes
         setSessionChecked: (state) => {
             state.isInitializing = false;
         },

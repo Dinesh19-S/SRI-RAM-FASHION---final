@@ -32,7 +32,7 @@ const API_URL = resolveApiUrl();
 
 /**
  * Data Mapping Utilities
- * Normalizes Supabase snake_case responses to the camelCase format expected by the UI.
+ * Normalizes backend responses to the format expected by the UI.
  */
 const mapProduct = (p) => {
     if (!p) return null;
@@ -51,25 +51,17 @@ const mapProduct = (p) => {
 
 const mapBillItem = (item) => {
     if (!item) return null;
-    const id = item.id || item._id;
+    const id = item._id || item.id;
     return {
         ...item,
         _id: id,
         id: id,
-        billId: item.bill_id,
-        productId: item.product_id,
-        name: item.product_name || item.name || '',
-        productName: item.product_name || item.name || '',
-        hsnCode: item.hsn_code || item.hsn || '',
-        ratePerPiece: Number(item.rate || item.rate_per_piece || 0),
-        ratePerPack: Number(item.rate || item.rate_per_pack || 0),
-        noOfPacks: Number(item.quantity || 0),
-        pcsInPack: Number(item.pcs_in_pack || 1),
-        totalPrice: Number(item.total || item.total_price || 0),
-        gstRate: Number(item.gst_rate || 0),
+        name: item.name || item.productName || '',
+        productName: item.productName || item.name || '',
         quantity: Number(item.quantity || 0),
-        price: Number(item.rate || 0),
+        price: Number(item.price || item.rate || 0),
         total: Number(item.total || 0),
+        gstRate: Number(item.gstRate || 0),
     };
 };
 
@@ -111,20 +103,20 @@ const flattenBillItems = (bills) => {
     let flattened = [];
     let sno = 1;
     (bills || []).forEach(bill => {
-        const items = Array.isArray(bill.bill_items) ? bill.bill_items : (Array.isArray(bill.items) ? bill.items : []);
+        const items = Array.isArray(bill.items) ? bill.items : [];
         items.forEach(item => {
             flattened.push({
                 sno: sno++,
                 date: bill.date,
-                invNo: bill.bill_number || bill.invoiceNumber,
-                item: item.product_name || item.particular || 'N/A',
-                rate: Number(item.rate || item.rate_per_piece || item.rate_per_kg || item.price || 0),
-                qty: Number(item.quantity || item.weight_kg || item.qty || 0),
-                taxableAmount: Number(item.taxable_amount || 0),
-                cgst: Number(item.cgst_amount || item.cgst || 0),
-                sgst: Number(item.sgst_amount || item.sgst || 0),
-                igst: Number(item.igst_amount || item.igst || 0),
-                total: Number(item.total || item.total_price || 0)
+                invNo: bill.billNumber || bill.invoiceNumber,
+                item: item.productName || item.particular || 'N/A',
+                rate: Number(item.price || item.rate || 0),
+                qty: Number(item.quantity || item.qty || 0),
+                taxableAmount: Number(item.taxableAmount || 0),
+                cgst: Number(item.cgst || 0),
+                sgst: Number(item.sgst || 0),
+                igst: Number(item.igst || 0),
+                total: Number(item.total || 0)
             });
         });
     });

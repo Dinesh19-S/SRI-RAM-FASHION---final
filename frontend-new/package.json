@@ -29,7 +29,6 @@
         "@capacitor/core": "^8.0.0",
         "@capacitor/ios": "^8.0.0",
         "@reduxjs/toolkit": "^2.11.1",
-        "@supabase/supabase-js": "^2.105.1",
         "@tailwindcss/vite": "^4.1.17",
         "@vitejs/plugin-react": "^5.1.1",
         "@vitejs/plugin-react-swc": "^4.2.3",

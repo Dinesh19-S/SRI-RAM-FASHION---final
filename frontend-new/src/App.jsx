@@ -102,7 +102,7 @@ function App() {
     };
   }, [dispatch]); // Empty deps — run only once
 
-  // ── Show loading screen until Supabase has checked the session ──
+  // ── Show loading screen until the session check completes ──
   if (isInitializing) {
     return <FullScreenLoader />;
   }
