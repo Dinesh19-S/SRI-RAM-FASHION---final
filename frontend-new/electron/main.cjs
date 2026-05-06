@@ -46,6 +46,8 @@ function createWindow() {
     } else {
         // In production, load the built index.html from the dist folder
         mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+        // TEMPORARY: Open DevTools in production to debug blank screen
+        mainWindow.webContents.openDevTools();
     }
 
     mainWindow.on('closed', () => {

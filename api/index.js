@@ -95,10 +95,17 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            // Allow same origins as the REST API (Electron, localhost, etc.)
+            if (!origin || origin === 'file://' || origin?.startsWith('capacitor://') || origin?.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error(`CORS blocked for origin: ${origin}`));
+        },
         methods: ["GET", "POST", "PUT", "DELETE"],
         credentials: true
-    }
+    },
+    transports: ['polling', 'websocket']
 });
 
 // Make io accessible in routes
@@ -242,15 +249,14 @@ if (process.env.VERCEL === '1') {
 const apiRouter = createApiRouter();
 
 // Mount API router
-// In Vercel, requests are rewritten to this function. 
-// We handle legacy, v1, and root paths to be as robust as possible.
+// Handle versioned and unversioned API paths
 app.use('/api/v1', apiRouter);
 app.use('/api', apiRouter);
-app.use('/', apiRouter);
-app.use('/api/v1', apiRouter); // Redundant but safe fallback
 
 // Set debug header
 app.use((req, res, next) => {
+    // Skip debug header for socket.io requests
+    if (req.url.startsWith('/socket.io')) return next();
     res.set('X-Debug-Path', req.url);
     next();
 });

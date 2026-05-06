@@ -4,7 +4,7 @@ import { Provider } from 'react-redux'
 import { store } from './store'
 import { ToastProvider } from './components/common'
 import './index.css'
-import { BrowserRouter } from 'react-router-dom'
+import { HashRouter } from 'react-router-dom'
 import App from './App.jsx'
 
 const RootWrapper = import.meta.env.DEV ? Fragment : StrictMode;
@@ -13,9 +13,9 @@ createRoot(document.getElementById('root')).render(
   <RootWrapper>
     <Provider store={store}>
       <ToastProvider>
-        <BrowserRouter>
+        <HashRouter>
           <App />
-        </BrowserRouter>
+        </HashRouter>
       </ToastProvider>
     </Provider>
   </RootWrapper>,
