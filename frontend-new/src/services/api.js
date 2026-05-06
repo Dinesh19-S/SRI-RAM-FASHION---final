@@ -582,9 +582,9 @@ export const productsAPI = {
             throw handleError(error);
         }
     },
-    updateStock: async (id, { stock, type, reason }) => {
+    updateStock: async (id, { quantity, type, reason }) => {
         try {
-            const response = await api.put(ENDPOINTS.products.stock(id), { stock });
+            const response = await api.post(ENDPOINTS.products.stock(id), { quantity, type, reason });
             return { data: { success: true, data: mapProduct(response.data?.data) } };
         } catch (error) {
             throw handleError(error);

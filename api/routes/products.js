@@ -149,8 +149,9 @@ router.post('/:id/stock', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
 
+        const qtyNum = Number(quantity);
         const previousStock = product.stock;
-        const newStock = type === 'in' ? previousStock + quantity : previousStock - quantity;
+        const newStock = type === 'in' ? previousStock + qtyNum : previousStock - qtyNum;
 
         if (newStock < 0) {
             return res.status(400).json({ success: false, message: 'Insufficient stock' });
@@ -163,7 +164,7 @@ router.post('/:id/stock', async (req, res) => {
         const movement = new StockMovement({
             product: product._id,
             type,
-            quantity,
+            quantity: qtyNum,
             previousStock,
             newStock,
             reason
