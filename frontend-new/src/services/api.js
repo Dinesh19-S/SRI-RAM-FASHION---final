@@ -138,7 +138,7 @@ const prepareProductData = (data) => {
         name: data.name,
         sku: data.sku || (data.hsn || '') + Date.now().toString().slice(-4),
         description: data.description || '',
-        categoryId: categoryId,
+        category: categoryId,
         mrp: Number(data.mrp || data.sellingPrice || 0),
         sellingPrice: Number(data.sellingPrice || 0),
         stock: Number(data.stock || 0),
