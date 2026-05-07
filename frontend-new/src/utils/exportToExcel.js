@@ -118,15 +118,18 @@ export const exportToExcelStyled = async ({
 
     headerRow.eachCell((cell, colIdx) => {
         const col = columns[colIdx - 1];
-        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF1e40af' } };
+        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
         cell.alignment = { horizontal: col.align === 'right' ? 'right' : 'left', vertical: 'middle' };
         cell.border = {
-            bottom: { style: 'medium', color: { argb: 'FF1e40af' } }
+            top: { style: 'thin', color: { argb: 'FF1e40af' } },
+            left: { style: 'thin', color: { argb: 'FF1e40af' } },
+            bottom: { style: 'medium', color: { argb: 'FFFFFFFF' } },
+            right: { style: 'thin', color: { argb: 'FF1e40af' } }
         };
         cell.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFF0F4FF' }
+            fgColor: { argb: 'FF1e40af' } // Indigo-600
         };
     });
 
@@ -144,7 +147,10 @@ export const exportToExcelStyled = async ({
             cell.font = { name: 'Calibri', size: 11 };
             cell.alignment = { horizontal: col.align === 'right' ? 'right' : 'left', vertical: 'middle' };
             cell.border = {
-                bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+                top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
             };
 
             // Format numbers

@@ -8,6 +8,7 @@ import { formatDate } from '../../utils/dateUtils';
 import {
     LayoutDashboard,
     Receipt,
+    Plus,
     Package,
     Settings,
     Search,
@@ -37,25 +38,26 @@ const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', {
 
 const navigationSections = [
     {
-        title: 'DASHBOARD',
+        title: 'MAIN',
         items: [
             { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-            { name: 'Billing', href: '/dashboard/billing', icon: Receipt },
-            { name: 'Purchase Billing', href: '/dashboard/purchase/billing', icon: Calculator },
-            { name: 'Purchase Entry', href: '/dashboard/purchase/entry', icon: Calculator },
+            { name: 'Bill List', href: '/dashboard/billing', icon: Receipt },
+            { name: 'Create Bill', href: '/dashboard/billing?view=create', icon: Plus },
+            { name: 'Purchase List', href: '/dashboard/purchase/billing', icon: Calculator },
+            { name: 'Add Purchase', href: '/dashboard/purchase/entry', icon: Calculator },
             { name: 'Inventory', href: '/dashboard/inventory', icon: Package },
         ]
     },
     {
         title: 'REPORTS',
         items: [
-            { name: 'Sales Reports', href: '/dashboard/reports/sales', icon: TrendingUp },
-            { name: 'Purchase Reports', href: '/dashboard/reports/purchase', icon: Calculator },
+            { name: 'Sell Reports', href: '/dashboard/reports/sales', icon: TrendingUp },
+            { name: 'Buy Reports', href: '/dashboard/reports/purchase', icon: Calculator },
             { name: 'Stock Reports', href: '/dashboard/reports/stock', icon: Package },
         ]
     },
     {
-        title: 'MASTER',
+        title: 'MANAGEMENT',
         items: [
             { name: 'Customers', href: '/dashboard/master/customers', icon: Users },
             { name: 'Suppliers', href: '/dashboard/master/suppliers', icon: Truck },
@@ -63,7 +65,7 @@ const navigationSections = [
         ]
     },
     {
-        title: 'SETTINGS',
+        title: 'SYSTEM',
         items: [
             { name: 'Settings', href: '/dashboard/settings', icon: Settings },
         ]
@@ -76,7 +78,8 @@ const searchSuggestions = [
     { label: 'Purchase Billing', path: '/dashboard/purchase/billing', keywords: ['purchase', 'bill', 'email', 'pdf'] },
     { label: 'Sales Reports', path: '/dashboard/reports/sales', keywords: ['sales', 'report', 'analysis'] },
     { label: 'Purchase Reports', path: '/dashboard/reports/purchase', keywords: ['purchase', 'buy', 'report', 'analysis'] },
-    { label: 'Billing', path: '/dashboard/billing', keywords: ['billing', 'bill', 'invoice', 'receipt'] },
+    { label: 'Create Bill', path: '/dashboard/billing?view=create', keywords: ['billing', 'create', 'generate', 'new'] },
+    { label: 'Bill List', path: '/dashboard/billing', keywords: ['billing', 'bill', 'invoice', 'list'] },
     { label: 'Products', path: '/dashboard/inventory', keywords: ['inventory', 'stock', 'product', 'item'] },
     { label: 'Stock Reports', path: '/dashboard/reports/stock', keywords: ['stock', 'report', 'inventory'] },
     { label: 'Suppliers', path: '/dashboard/master/suppliers', keywords: ['supplier', 'vendor', 'entry', 'master'] },
@@ -338,7 +341,7 @@ const MainLayout = () => {
                         <div className="text-sm font-bold text-white">
                             Sri Ram Fashions
                         </div>
-                        <div className="text-xs text-blue-200/70">Purchase & Sales</div>
+                        <div className="text-xs text-blue-200/70">Stock & Sales</div>
                     </div>
                 </div>
 
@@ -430,7 +433,7 @@ const MainLayout = () => {
                             style={{ borderColor: 'var(--border-soft)' }}>
                             <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
                             <span className={isOnline ? 'text-green-700' : 'text-red-700'}>
-                                {isOnline ? 'Backend Online' : 'Offline Mode'}
+                                {isOnline ? 'Connected' : 'Offline'}
                             </span>
                         </div>
 
@@ -440,7 +443,7 @@ const MainLayout = () => {
                                 <Search size={18} className="text-gray-500" />
                                 <input
                                     type="text"
-                                    placeholder="Search bills, products, pages..."
+                                    placeholder="Search..."
                                     className="bg-transparent border-none outline-none text-sm w-full text-gray-900 placeholder:text-gray-400"
                                     value={searchQuery}
                                     onChange={(e) => {
@@ -501,8 +504,8 @@ const MainLayout = () => {
                                     >
                                         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                                             <div>
-                                                <div className="text-sm font-semibold text-gray-900">Notifications</div>
-                                                <div className="text-xs text-gray-500">Latest updates and alerts</div>
+                                                <div className="text-sm font-semibold text-gray-900">Updates</div>
+                                                <div className="text-xs text-gray-500">Recent info</div>
                                             </div>
                                             {unreadCount > 0 && (
                                                 <button

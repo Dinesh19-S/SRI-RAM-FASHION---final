@@ -47,6 +47,20 @@ export const login = createAsyncThunk(
     }
 );
 
+export const loginWithGoogle = createAsyncThunk(
+    'auth/loginWithGoogle',
+    async (credential, { rejectWithValue }) => {
+        try {
+            const response = await authAPI.signInWithGoogle(credential);
+            const { token, user } = response.data;
+            persistAuthState(token || null, user || null);
+            return { token: token || null, user: user || null };
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Google login failed');
+        }
+    }
+);
+
 export const loginWithPhone = createAsyncThunk(
     'auth/loginWithPhone',
     async ({ phone, otp }, { rejectWithValue }) => {
@@ -180,6 +194,22 @@ const authSlice = createSlice({
                 state.token = action.payload.token;
             })
             .addCase(login.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+            // Login with Google
+            .addCase(loginWithGoogle.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(loginWithGoogle.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.isInitializing = false;
+                state.isAuthenticated = !!action.payload.token;
+                state.user = action.payload.user;
+                state.token = action.payload.token;
+            })
+            .addCase(loginWithGoogle.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
             })

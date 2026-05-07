@@ -523,6 +523,14 @@ export const authAPI = {
             throw handleError(error);
         }
     },
+    signInWithGoogle: async (credential) => {
+        try {
+            const response = await api.post('/auth/google', { credential }, { skipAuth: true });
+            return { data: response.data };
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
 };
 
 export const appAPI = {

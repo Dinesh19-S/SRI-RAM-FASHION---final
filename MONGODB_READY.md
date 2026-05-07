@@ -123,14 +123,7 @@ GEMINI_API_KEY=<configured>
 
 ## 🔄 Data Sync Status
 
-### From Supabase Migration
-- ✅ All models converted to MongoDB schema
-- ✅ Direct bills migrated to sales entries (36 records)
-- ✅ All relationships mapped using ObjectId references
-- ✅ Indexes created for optimal performance
-
 ### Data Integrity
-- ✅ No Supabase references in codebase
 - ✅ All models use Mongoose schemas
 - ✅ Middleware configured for MongoDB
 - ✅ Error handling in place
@@ -233,7 +226,6 @@ Access your cluster:
 - [x] Database contains 88+ documents
 - [x] All collections present and accessible
 - [x] Indexes created for performance
-- [x] Migration from Supabase completed
 - [x] API server can connect to MongoDB
 - [x] Environment variables configured
 - [x] Setup scripts created and tested
@@ -242,7 +234,7 @@ Access your cluster:
 
 **Your application is now fully using MongoDB!**
 
-All data has been successfully migrated to MongoDB Atlas, and your application is ready to run. Start the server with `npm run dev` and you're good to go!
+All data has been successfully established in MongoDB Atlas, and your application is ready to run. Start the server with `npm run dev` and you're good to go!
 
 ---
 **Last Updated**: May 5, 2026 15:30 UTC

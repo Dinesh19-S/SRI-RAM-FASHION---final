@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { ShoppingCart, Plus, Search, Eye, Trash2, X, Save, Building2, Calendar, FileText, IndianRupee, Package, Trash, Edit, CheckCircle2, Printer } from 'lucide-react';
+import { ShoppingCart, Plus, Search, Eye, Trash2, X, Save, Building2, Calendar, FileText, IndianRupee, Package, Trash, Edit, CheckCircle2, Printer, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 import { purchaseEntriesAPI, suppliersAPI, productsAPI } from '../services/api';
 import { useToast } from '../components/common';
 import BillTemplate from '../components/BillTemplate';
 import { fetchSettings } from '../store/slices/settingsSlice';
+
+const avatarBg = ['bg-indigo-500', 'bg-blue-500', 'bg-emerald-500', 'bg-teal-500', 'bg-slate-500'];
 
 const PurchaseEntryPage = () => {
     const toast = useToast();
@@ -56,7 +58,7 @@ const PurchaseEntryPage = () => {
             }));
         } catch (error) {
             console.error('Error fetching entries:', error);
-            toast.error('Failed to load purchase entries');
+            toast.error('Error: Could not load purchase history');
         } finally {
             setIsLoading(false);
         }
@@ -120,7 +122,7 @@ const PurchaseEntryPage = () => {
 
     const handleSave = async () => {
         if (!formData.supplier || !formData.billNumber || formData.items.some(item => !item.product || !item.quantity || !item.rate)) {
-            toast.warning('Please fill in all required fields and item details');
+            toast.warning('Error: Please fill all fields');
             return;
         }
 
@@ -129,23 +131,20 @@ const PurchaseEntryPage = () => {
             const response = await purchaseEntriesAPI.create(formData);
             if (response.data.success) {
                 const newEntryId = response.data.data._id;
-                
-                // Upload PDF if selected
                 if (selectedFile) {
                     try {
                         await purchaseEntriesAPI.uploadBillPdf(newEntryId, selectedFile);
                     } catch (uploadError) {
-                        toast.error('Entry saved, but bill upload failed');
+                        toast.error('Saved: Purchase added, but file upload failed');
                     }
                 }
-                
-                toast.success('Purchase entry recorded successfully');
+                toast.success('Success: Purchase record added');
                 setShowModal(false);
                 resetForm();
                 fetchEntries();
             }
         } catch (error) {
-            toast.error('Error creating entry: ' + (error.response?.data?.message || error.message));
+            toast.error('System Error: ' + (error.response?.data?.message || error.message));
         } finally {
             setIsSubmitting(false);
         }
@@ -170,146 +169,276 @@ const PurchaseEntryPage = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this purchase entry?')) return;
+        if (!window.confirm('Are you sure you want to delete this record?')) return;
         try {
             await purchaseEntriesAPI.delete(id);
-            toast.success('Entry deleted successfully');
+            toast.success('Deleted: Purchase record removed');
             fetchEntries();
         } catch (error) {
-            toast.error('Error deleting entry');
+            toast.error('Error: Could not delete record');
         }
     };
 
-    const formatCurrency = (a) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(a);
+    const formatCurrency = (a) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(a) || 0);
+
+    const metrics = useMemo(() => {
+        const totalValue = entries.reduce((sum, e) => sum + (e.totalAmount || 0), 0);
+        const pendingValue = entries.filter(e => e.paymentStatus === 'pending').reduce((sum, e) => sum + (e.totalAmount || 0), 0);
+        const paidCount = entries.filter(e => e.paymentStatus === 'paid').length;
+        const totalCount = entries.length;
+
+        return {
+            totalValue,
+            pendingValue,
+            paidPercent: totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0,
+            avgBill: totalCount > 0 ? Math.round(totalValue / totalCount) : 0
+        };
+    }, [entries]);
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Page Header */}
-            <div className="page-header-shell">
-                <div className="flex items-start gap-4">
-                    <div className="page-icon-badge">
-                        <ShoppingCart size={20} />
-                    </div>
-                    <div className="page-header-copy">
-                        <p className="page-header-kicker">Track inward inventory and bills</p>
-                        <h1 className="page-header-title">Purchase Entries</h1>
-                    </div>
-                </div>
-                <button
-                    className="btn btn-primary"
-                    onClick={() => setShowModal(true)}
-                >
-                    <Plus size={16} />
-                    New Purchase
-                </button>
-            </div>
-
-            {/* Filter Area */}
-            <div className="page-filter-card">
-                <div className="flex flex-wrap items-end gap-3">
-                    <div className="shrink-0 w-64">
-                        <label className="form-label">Search Bills</label>
-                        <div className="relative">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Bill # or Supplier name..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                className="form-input pl-9"
-                            />
+        <div className="space-y-10 animate-fade-in p-2 pb-20">
+            {/* Elite Procurement Header */}
+            <div className="page-header-shell bg-white/40 backdrop-blur-md border border-white/40 shadow-xl shadow-slate-200/20 rounded-3xl p-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-start gap-5">
+                        <div className="w-16 h-16 rounded-3xl bg-linear-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                            <ShoppingCart size={28} />
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Purchase History</p>
+                            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Purchase List</h1>
+                            <p className="text-sm font-bold text-slate-500 pt-1">Track all your stock purchases and vendor bills.</p>
                         </div>
                     </div>
-                    <button onClick={handleSearch} className="btn btn-primary">
-                        <Search size={16} />
-                        Search
-                    </button>
-                    <button onClick={() => { setSearchQuery(''); fetchEntries(); }} className="btn btn-ghost">
-                        <X size={16} />
-                        Clear
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            className="btn btn-secondary px-6 py-4 rounded-2xl flex items-center gap-2 group"
+                            onClick={() => fetchEntries()}
+                        >
+                            <Zap size={18} className="text-emerald-500 group-hover:animate-pulse" />
+                            <span className="font-black uppercase tracking-widest text-[11px]">Refresh</span>
+                        </button>
+                        <button
+                            className="btn btn-primary px-8 py-4 rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 border-none bg-emerald-600 text-white"
+                            onClick={() => setShowModal(true)}
+                        >
+                            <Plus size={20} strokeWidth={3} />
+                            <span className="font-black uppercase tracking-widest text-xs">New Purchase</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="page-table-card">
+            {/* Strategic Intelligence Dashboard */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="glass-card p-6 border-none group hover:scale-[1.02] transition-all">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Purchase Value</p>
+                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{formatCurrency(metrics.totalValue)}</h3>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
+                            <TrendingUp size={24} />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex items-center gap-2">
+                        <div className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[9px] font-black rounded-lg uppercase">Active</div>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{entries.length} Invoices Tracked</p>
+                    </div>
+                </div>
+
+                <div className="glass-card p-6 border-none group hover:scale-[1.02] transition-all border-l-4 border-amber-400">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Pending Payments</p>
+                            <h3 className="text-3xl font-black text-amber-600 tracking-tighter">{formatCurrency(metrics.pendingValue)}</h3>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                            <AlertTriangle size={24} />
+                        </div>
+                    </div>
+                    <div className="mt-6">
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-amber-400 h-full" style={{ width: `${100 - metrics.paidPercent}%` }}></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="glass-card p-6 border-none group hover:scale-[1.02] transition-all border-l-4 border-indigo-400">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Payment Progress</p>
+                            <h3 className="text-3xl font-black text-indigo-600 tracking-tighter">{metrics.paidPercent}%</h3>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            <CheckCircle2 size={24} />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex items-center gap-2">
+                         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{entries.filter(e => e.paymentStatus === 'paid').length} Invoices Cleared</p>
+                    </div>
+                </div>
+
+                <div className="glass-card p-6 border-none group hover:scale-[1.02] transition-all">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Average Purchase</p>
+                            <h3 className="text-3xl font-black text-slate-700 tracking-tighter">{formatCurrency(metrics.avgBill)}</h3>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                            <FileText size={24} />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex items-center gap-2">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Optimized Order Volume</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Procurement Intelligence Filters */}
+            <div className="glass-card p-8 border-none">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search by Bill #, Supplier, or Date..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            className="form-input pl-12 py-4 bg-slate-50 border-none shadow-inner rounded-2xl font-bold"
+                        />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <select className="px-6 py-4 rounded-2xl bg-slate-100 border-none font-black uppercase tracking-widest text-[11px] outline-none">
+                            <option value="">All Payment Status</option>
+                            <option value="paid">Paid Bills</option>
+                            <option value="pending">Unpaid Bills</option>
+                        </select>
+                        <button
+                            onClick={handleSearch}
+                            disabled={isLoading}
+                            className="px-8 py-4 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-[11px] flex items-center gap-2 group hover:bg-slate-800 transition-all active:scale-95"
+                        >
+                            {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={16} className="group-hover:scale-110 transition-transform" />}
+                            Search
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Purchase Ledger Table */}
+            <div className="glass-card p-0 border-none overflow-hidden">
+                <div className="p-8 pb-4 flex items-center justify-between">
+                    <div className="space-y-1">
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight">All Purchases</h3>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">History</p>
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100/50">
+                        <span className="text-[11px] font-black uppercase tracking-widest">{pagination.total} Purchase Records</span>
+                    </div>
+                </div>
+
                 <div className="overflow-x-auto">
-                    <table className="page-table">
+                    <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Bill Info</th>
-                                <th>Supplier</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th className="text-right">Actions</th>
+                            <tr className="bg-slate-50/50">
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Date</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Bill Number</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Supplier Name</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Amount</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-slate-100">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="6" className="page-empty-state">
-                                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                    <td colSpan="6" className="px-8 py-32 text-center">
+                                        <div className="flex flex-col items-center justify-center gap-4">
+                                            <div className="w-12 h-12 border-4 border-slate-100 border-t-emerald-600 rounded-full animate-spin" />
+                                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Loading Data...</p>
+                                        </div>
                                     </td>
                                 </tr>
                             ) : entries.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="page-empty-state">
-                                        No purchase entries found. Record a new purchase to see it here.
+                                    <td colSpan="6" className="px-8 py-32 text-center">
+                                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-dashed border-slate-200">
+                                            <ShoppingCart size={32} className="text-slate-300" />
+                                        </div>
+                                        <h4 className="text-lg font-black text-slate-900 tracking-tight mb-1">No Records</h4>
+                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">No purchases found.</p>
                                     </td>
                                 </tr>
                             ) : (
-                                entries.map((entry) => (
-                                    <tr key={entry._id}>
-                                        <td className="font-medium text-gray-600">
-                                            {new Date(entry.date).toLocaleDateString()}
-                                        </td>
-                                        <td>
-                                            <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase">
-                                                {entry.billNumber}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div className="flex items-center gap-2">
-                                                <Building2 size={14} className="text-gray-400" />
-                                                <span className="font-semibold text-gray-900">{entry.supplier?.companyName || 'Unknown Vendor'}</span>
+                                entries.map((entry, index) => (
+                                    <tr key={entry._id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex flex-col items-center justify-center shadow-sm group-hover:border-emerald-200 transition-all">
+                                                    <span className="text-[10px] font-black text-slate-500 leading-none uppercase">{new Date(entry.date).toLocaleString('default', { month: 'short' })}</span>
+                                                    <span className="text-xl font-black text-slate-900 leading-none mt-1">{new Date(entry.date).getDate()}</span>
+                                                </div>
+                                                <span className="text-[11px] font-bold text-slate-500">{new Date(entry.date).getFullYear()}</span>
                                             </div>
                                         </td>
-                                        <td className="font-bold text-gray-900">
-                                            {formatCurrency(entry.totalAmount)}
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-black text-slate-900 tracking-tight uppercase group-hover:text-emerald-700 transition-colors">{entry.billNumber}</span>
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">ID: {entry._id.slice(-8)}</span>
+                                            </div>
                                         </td>
-                                        <td>
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${entry.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-10 h-10 rounded-xl text-white flex items-center justify-center font-black text-xs shadow-lg ${avatarBg[index % avatarBg.length]}`}>
+                                                    {entry.supplier?.companyName?.charAt(0) || 'V'}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-black text-slate-900 tracking-tight">{entry.supplier?.companyName || 'Unknown Vendor'}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase">{entry.supplier?.mobile || 'No Profile'}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-base font-black text-slate-900 tracking-tighter">{formatCurrency(entry.totalAmount)}</span>
+                                                <span className="text-[9px] text-emerald-600 font-black uppercase tracking-widest">Incl. 5% GST</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border-2 flex items-center gap-2 w-fit ${
+                                                entry.paymentStatus === 'paid' 
+                                                ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+                                                : 'bg-amber-50 border-amber-100 text-amber-700'
+                                            }`}>
+                                                <div className={`w-1.5 h-1.5 rounded-full ${entry.paymentStatus === 'paid' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
                                                 {entry.paymentStatus}
                                             </span>
                                         </td>
-                                         <td>
-                                            <div className="flex justify-end gap-2">
+                                        <td className="px-8 py-6">
+                                            <div className="flex justify-end gap-3">
+                                                <button
+                                                    className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                                                    onClick={() => handleViewEntry(entry)}
+                                                >
+                                                    <Eye size={18} />
+                                                </button>
                                                 {entry.billPdf && (
                                                     <a
                                                         href={`http://localhost:5000/${entry.billPdf}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="action-btn action-btn-purple"
-                                                        title="View Original Bill"
+                                                        className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                     >
-                                                        <FileText size={16} />
+                                                        <FileText size={18} />
                                                     </a>
                                                 )}
                                                 <button
-                                                    className="action-btn action-btn-blue"
-                                                    onClick={() => handleViewEntry(entry)}
-                                                    title="View Details"
-                                                >
-                                                    <Eye size={16} />
-                                                </button>
-                                                <button
-                                                    className="action-btn action-btn-red"
+                                                    className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                     onClick={() => handleDelete(entry._id)}
-                                                    title="Delete"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         </td>
@@ -320,162 +449,158 @@ const PurchaseEntryPage = () => {
                     </table>
                 </div>
 
-                {/* Pagination */}
-                {pagination.pages > 0 && (
-                    <div className="page-pagination">
-                        <div className="page-pagination-group">
-                            <button
-                                onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-                                disabled={pagination.page <= 1}
-                                className="page-pagination-btn"
-                            >
-                                &lt;
-                            </button>
-                            {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                                const pageNum = Math.max(1, pagination.page - 2) + i;
-                                if (pageNum > pagination.pages) return null;
-                                return (
-                                    <button
-                                        key={pageNum}
-                                        onClick={() => setPagination(p => ({ ...p, page: pageNum }))}
-                                        className={`page-pagination-btn ${pagination.page === pageNum ? 'is-active' : ''}`}
-                                    >
-                                        {pageNum}
-                                    </button>
-                                );
-                            })}
-                            <button
-                                onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-                                disabled={pagination.page >= pagination.pages}
-                                className="page-pagination-btn"
-                            >
-                                &gt;
-                            </button>
+                {/* Professional Pagination */}
+                <div className="px-8 py-6 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-100">
+                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
+                        Purchase Entries: <span className="text-slate-900 font-black">{(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-slate-900 font-black">{pagination.total}</span> Records
+                    </p>
+                    {pagination.pages > 1 && (
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
+                                    disabled={pagination.page <= 1}
+                                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: pagination.pages }, (_, i) => {
+                                        const pageNum = i + 1;
+                                        const isActive = pagination.page === pageNum;
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setPagination(p => ({ ...p, page: pageNum }))}
+                                                className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${isActive ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
+                                    disabled={pagination.page >= pagination.pages}
+                                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
-            {/* New Entry Modal */}
+            {/* High-Performance Recording Modal */}
             {showModal && (
-                <div className="modal-overlay" onClick={() => !isSubmitting && setShowModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
-                        <div className="px-8 py-6" style={{ background: 'linear-gradient(135deg, #10b981 0%, #064e3b 100%)' }}>
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                                    <ShoppingCart size={24} className="text-white" />
+                <div className="modal-overlay bg-slate-900/60 p-4" onClick={() => !isSubmitting && setShowModal(false)}>
+                    <div className="modal-content max-w-6xl border-none animate-slide-up rounded-4xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-8 border-b flex items-center justify-between bg-emerald-50/50 rounded-t-4xl">
+                            <div className="flex items-center gap-5">
+                                <div className="w-16 h-16 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                    <ShoppingCart size={32} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-white">Record Purchase Entry</h3>
-                                    <p className="text-emerald-100 text-sm">Fill in vendor and invoice details to update stock</p>
+                                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter">New Purchase Record</h3>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Entry Session</span>
+                                    </div>
                                 </div>
                             </div>
+                            <button className="p-4 rounded-2xl hover:bg-white text-slate-400 transition-all" onClick={() => setShowModal(false)}><X size={24} /></button>
                         </div>
 
-                        <div className="p-8 space-y-8 max-h-[80vh] overflow-y-auto">
-                            {/* Header Info */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                <div className="space-y-1.5 md:col-span-2">
-                                    <label className="form-label font-bold text-gray-700">Vendor / Supplier *</label>
-                                    <div className="relative">
-                                        <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <select
-                                            name="supplier"
-                                            className="form-input pl-10 font-bold"
-                                            value={formData.supplier}
-                                            onChange={handleInputChange}
-                                        >
-                                            <option value="">Select a vendor</option>
-                                            {suppliers.map(s => <option key={s._id} value={s._id}>{s.companyName}</option>)}
-                                        </select>
-                                    </div>
+                        <div className="p-10 space-y-10 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="form-label">Select Supplier *</label>
+                                    <select
+                                        name="supplier"
+                                        className="form-input py-4 px-6 font-black text-lg"
+                                        value={formData.supplier}
+                                        onChange={handleInputChange}
+                                    >
+                                        <option value="">Select Supplier...</option>
+                                        {suppliers.map(s => <option key={s._id} value={s._id}>{s.companyName}</option>)}
+                                    </select>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="form-label font-bold text-gray-700">Invoice / Bill # *</label>
-                                    <div className="relative">
-                                        <FileText size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            name="billNumber"
-                                            className="form-input pl-10 uppercase font-mono"
-                                            placeholder="INV-001"
-                                            value={formData.billNumber}
-                                            onChange={handleInputChange}
-                                        />
-                                    </div>
+                                <div className="space-y-2">
+                                    <label className="form-label">Bill Number</label>
+                                    <input
+                                        type="text"
+                                        name="billNumber"
+                                        className="form-input py-4 px-6 font-mono font-black uppercase tracking-widest"
+                                        placeholder="BILL-IDENTIFIER"
+                                        value={formData.billNumber}
+                                        onChange={handleInputChange}
+                                    />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="form-label font-bold text-gray-700">Purchase Date</label>
-                                    <div className="relative">
-                                        <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input
-                                            type="date"
-                                            name="date"
-                                            className="form-input pl-10"
-                                            value={formData.date}
-                                            onChange={handleInputChange}
-                                        />
-                                    </div>
+                                <div className="space-y-2">
+                                    <label className="form-label">Date</label>
+                                    <input
+                                        type="date"
+                                        name="date"
+                                        className="form-input py-4 px-6 font-black"
+                                        value={formData.date}
+                                        onChange={handleInputChange}
+                                    />
                                 </div>
                             </div>
 
-                            {/* Items Section */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Package size={14} /> Item Details
-                                    </h4>
-                                    <button onClick={addItem} className="text-emerald-600 text-xs font-bold hover:underline flex items-center gap-1">
-                                        <Plus size={14} /> Add Another Item
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Purchase Items</h4>
+                                    <button onClick={addItem} className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/10">
+                                        <Plus size={14} strokeWidth={3} /> Add Line Item
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {formData.items.map((item, index) => (
-                                        <div key={index} className="grid grid-cols-12 gap-3 items-end p-4 rounded-2xl bg-gray-50 border border-gray-100 group animate-fade-in">
-                                            <div className="col-span-12 md:col-span-5 space-y-1">
-                                                <label className="text-[10px] font-bold text-gray-400 uppercase">Product *</label>
+                                        <div key={index} className="grid grid-cols-12 gap-6 items-center p-6 rounded-3xl bg-slate-50 border border-slate-100 group hover:border-emerald-200 hover:bg-white hover:shadow-2xl transition-all animate-fade-in">
+                                            <div className="col-span-12 md:col-span-5">
+                                                <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block">Select Product</label>
                                                 <select
-                                                    className="form-input bg-white"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl py-4 px-5 font-black text-slate-900 outline-none focus:border-emerald-500 transition-all"
                                                     value={item.product}
                                                     onChange={(e) => handleItemChange(index, 'product', e.target.value)}
                                                 >
-                                                    <option value="">Select Item</option>
-                                                    {products.map(p => <option key={p._id} value={p._id}>{p.name} (Size: {p.size || '-'})</option>)}
+                                                    <option value="">Choose item...</option>
+                                                    {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.size || 'N/A'})</option>)}
                                                 </select>
                                             </div>
-                                            <div className="col-span-4 md:col-span-2 space-y-1">
-                                                <label className="text-[10px] font-bold text-gray-400 uppercase">Quantity *</label>
+                                            <div className="col-span-4 md:col-span-2">
+                                                <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-center">Quantity</label>
                                                 <input
                                                     type="number"
-                                                    placeholder="0"
-                                                    className="form-input bg-white text-center"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl py-4 px-5 text-center font-black text-emerald-700 outline-none focus:border-emerald-500 transition-all"
                                                     value={item.quantity}
                                                     onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                                                 />
                                             </div>
-                                            <div className="col-span-4 md:col-span-2 space-y-1">
-                                                <label className="text-[10px] font-bold text-gray-400 uppercase">Unit Rate (₹)</label>
+                                            <div className="col-span-4 md:col-span-2">
+                                                <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-right">Unit Rate</label>
                                                 <input
                                                     type="number"
-                                                    placeholder="0.00"
-                                                    className="form-input bg-white text-right"
+                                                    className="w-full bg-white border border-slate-200 rounded-xl py-4 px-5 text-right font-black text-slate-900 outline-none focus:border-emerald-500 transition-all"
                                                     value={item.rate}
                                                     onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
                                                 />
                                             </div>
-                                            <div className="col-span-4 md:col-span-2 space-y-1">
-                                                <label className="text-[10px] font-bold text-gray-400 uppercase text-right block">Subtotal</label>
-                                                <div className="form-input bg-gray-100 text-right font-bold text-gray-600 border-dashed">
+                                            <div className="col-span-3 md:col-span-2">
+                                                <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-right">Subtotal</label>
+                                                <div className="py-4 text-right font-black text-slate-900 text-lg tracking-tight">
                                                     {formatCurrency(item.total)}
                                                 </div>
                                             </div>
-                                            <div className="col-span-12 md:col-span-1 flex justify-center pb-1">
+                                            <div className="col-span-1 flex justify-center">
                                                 <button
                                                     onClick={() => removeItem(index)}
-                                                    className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                    className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
                                                 >
-                                                    <Trash size={18} />
+                                                    <Trash2 size={20} />
                                                 </button>
                                             </div>
                                         </div>
@@ -483,160 +608,168 @@ const PurchaseEntryPage = () => {
                                 </div>
                             </div>
 
-                            {/* Summary Section */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start pt-4 border-t border-gray-100">
-                                <div className="space-y-1.5 md:col-span-2">
-                                    <label className="form-label font-bold text-gray-700">Payment Status & Notes</label>
-                                    <div className="flex gap-4 mb-4">
-                                        <button
-                                            onClick={() => setFormData(p => ({ ...p, paymentStatus: 'pending' }))}
-                                            className={`flex-1 py-3 rounded-2xl border-2 font-bold transition-all flex items-center justify-center gap-2 ${formData.paymentStatus === 'pending' ? 'bg-amber-50 border-amber-500 text-amber-700 ring-4 ring-amber-50' : 'bg-white border-gray-100 text-gray-400'}`}
-                                        >
-                                            Pending
-                                        </button>
-                                        <button
-                                            onClick={() => setFormData(p => ({ ...p, paymentStatus: 'paid' }))}
-                                            className={`flex-1 py-3 rounded-2xl border-2 font-bold transition-all flex items-center justify-center gap-2 ${formData.paymentStatus === 'paid' ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-4 emerald-50' : 'bg-white border-gray-100 text-gray-400'}`}
-                                        >
-                                            <CheckCircle2 size={18} />
-                                            Paid
-                                        </button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-10 border-t border-slate-100">
+                                <div className="space-y-10">
+                                    <div className="space-y-4">
+                                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest block">Payment Status</label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {['pending', 'paid'].map(status => (
+                                                <button
+                                                    key={status}
+                                                    onClick={() => setFormData(p => ({ ...p, paymentStatus: status }))}
+                                                    className={`py-6 rounded-3xl border-2 font-black uppercase tracking-widest text-[11px] transition-all flex items-center justify-center gap-3 ${
+                                                        formData.paymentStatus === status 
+                                                        ? (status === 'paid' ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-500/20' : 'bg-amber-500 border-amber-500 text-white shadow-xl shadow-amber-500/20')
+                                                        : 'bg-white border-slate-100 text-slate-400 grayscale hover:grayscale-0 hover:border-slate-300'
+                                                    }`}
+                                                >
+                                                    {status === 'paid' ? <ShieldCheck size={18} /> : <AlertTriangle size={18} />}
+                                                    {status === 'paid' ? 'Paid' : 'Pending'}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <textarea
-                                        name="notes"
-                                        className="form-input min-h-[80px] mb-4"
-                                        placeholder="Add any additional remarks here..."
-                                        value={formData.notes}
-                                        onChange={handleInputChange}
-                                    />
                                     
-                                    <div className="space-y-2">
-                                        <label className="form-label font-bold text-gray-700 flex items-center gap-2 text-sm uppercase tracking-wider">
-                                            <FileText size={16} className="text-emerald-600" />
-                                            Original Bill (PDF/Image)
-                                        </label>
-                                        <div className="flex items-center gap-3">
+                                    <div className="space-y-4">
+                                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest block">Upload Bill (PDF)</label>
+                                        <div className="relative group">
                                             <input
                                                 type="file"
                                                 accept="application/pdf,image/*"
                                                 onChange={(e) => setSelectedFile(e.target.files[0])}
                                                 className="hidden"
-                                                id="bill-upload"
+                                                id="bill-upload-elite"
                                             />
                                             <label
-                                                htmlFor="bill-upload"
-                                                className="flex-1 cursor-pointer flex items-center justify-center gap-2 py-4 px-4 border-2 border-dashed border-gray-200 rounded-2xl text-sm font-medium text-gray-500 hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all bg-white"
+                                                htmlFor="bill-upload-elite"
+                                                className="flex flex-col items-center justify-center gap-4 py-12 px-10 border-2 border-dashed border-slate-200 rounded-4xl text-[11px] font-black text-slate-500 hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50/30 transition-all bg-slate-50/50 cursor-pointer group"
                                             >
                                                 {selectedFile ? (
-                                                    <span className="flex items-center gap-2 text-emerald-600 font-bold truncate">
-                                                        <CheckCircle2 size={16} />
-                                                        {selectedFile.name}
-                                                    </span>
+                                                    <div className="text-center">
+                                                        <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600 shadow-lg">
+                                                            <FileText size={32} />
+                                                        </div>
+                                                        <span className="block text-emerald-900 font-black text-xs truncate max-w-[250px] mb-1">{selectedFile.name}</span>
+                                                        <span className="text-[8px] uppercase tracking-widest text-emerald-500">File Selected - Click to change</span>
+                                                    </div>
                                                 ) : (
                                                     <>
-                                                        <Plus size={16} />
-                                                        Attach Digital Bill
+                                                        <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-xl border border-slate-100 group-hover:scale-110 transition-transform">
+                                                            <UploadCloud size={28} className="text-emerald-500" />
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <span className="uppercase tracking-[0.3em] block mb-2">Upload Bill File</span>
+                                                            <span className="text-[8px] font-bold text-slate-300">Format: PDF / JPEG / PNG • Max: 50MB</span>
+                                                        </div>
                                                     </>
                                                 )}
                                             </label>
-                                            {selectedFile && (
-                                                <button
-                                                    onClick={() => setSelectedFile(null)}
-                                                    className="p-3 text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                                                >
-                                                    <X size={18} />
-                                                </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-900 rounded-4xl p-12 text-white relative overflow-hidden shadow-2xl shadow-slate-900/40 flex flex-col justify-between border border-white/5">
+                                    <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-400/5 rounded-full -translate-y-1/2 translate-x-1/3"></div>
+                                    <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-400/5 rounded-full translate-y-1/3 -translate-x-1/2"></div>
+                                    
+                                    <div className="relative z-10 space-y-8">
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.4em]">Bill Summary</h4>
+                                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.2em]">Total Amount</p>
+                                            </div>
+                                            <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/10 backdrop-blur-md">
+                                                <IndianRupee size={16} className="text-emerald-400" />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="space-y-6">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 text-[11px] font-black uppercase tracking-widest">Net Value</span>
+                                                <span className="font-black text-xl tracking-tight">{formatCurrency(formData.totalAmount / 1.05)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 text-[11px] font-black uppercase tracking-widest">Input GST (5%)</span>
+                                                <span className="font-black text-xl tracking-tight text-emerald-400">+{formatCurrency(formData.totalAmount - (formData.totalAmount / 1.05))}</span>
+                                            </div>
+                                            <div className="h-px bg-white/10" />
+                                            <div className="space-y-2">
+                                                <span className="text-emerald-500 text-[11px] font-black uppercase tracking-[0.3em]">Total Amount</span>
+                                                <div className="text-6xl font-black tracking-tighter text-white drop-shadow-2xl">
+                                                    {formatCurrency(formData.totalAmount)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative z-10 pt-12">
+                                        <button
+                                            onClick={handleSave}
+                                            className="w-full py-7 bg-emerald-400 hover:bg-white text-emerald-950 rounded-4xl font-black text-sm uppercase tracking-widest transition-all shadow-2xl shadow-emerald-400/30 active:scale-[0.97] flex items-center justify-center gap-4 group"
+                                            disabled={isSubmitting}
+                                        >
+                                            {isSubmitting ? (
+                                                <div className="w-5 h-5 border-2 border-emerald-950/20 border-t-emerald-950 rounded-full animate-spin" />
+                                            ) : (
+                                                <>
+                                                    Save Purchase
+                                                    <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
+                                                </>
                                             )}
-                                        </div>
+                                        </button>
                                     </div>
                                 </div>
-
-                                <div className="bg-gray-900 rounded-3xl p-8 text-white space-y-6 shadow-xl shadow-gray-200">
-                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Purchase Summary</h4>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400">Total Items</span>
-                                            <span className="font-bold">{formData.items.length}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400">Taxable Amount</span>
-                                            <span className="font-bold">{formatCurrency(formData.totalAmount / 1.05)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm pb-3 border-b border-white/10">
-                                            <span className="text-gray-400">GST (5%)</span>
-                                            <span className="font-bold text-emerald-400">+{formatCurrency(formData.totalAmount - (formData.totalAmount / 1.05))}</span>
-                                        </div>
-                                        <div className="pt-2">
-                                            <p className="text-[10px] font-black text-gray-500 uppercase mb-1">Grand Total</p>
-                                            <p className="text-4xl font-black text-white leading-none">
-                                                {formatCurrency(formData.totalAmount)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="px-8 py-6 bg-gray-50 flex items-center justify-end border-t border-gray-100">
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="btn btn-secondary px-8"
-                                    disabled={isSubmitting}
-                                >
-                                    Discard
-                                </button>
-                                <button
-                                    onClick={handleSave}
-                                    className="btn btn-primary px-10 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700"
-                                    disabled={isSubmitting}
-                                >
-                                    {isSubmitting ? (
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    ) : <Save size={18} />}
-                                    {isSubmitting ? 'Recording...' : 'Finalize Entry'}
-                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* View Details Modal */}
+            {/* Authoritative View Modal */}
             {showViewModal && selectedEntry && (
-                <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-scale-up" onClick={(e) => e.stopPropagation()}>
-                        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }}>
-                            <div>
-                                <h3 className="text-xl font-black text-white">Purchase Invoice Preview</h3>
-                                <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Bill #: {selectedEntry.billNumber}</p>
+                <div className="modal-overlay backdrop-blur-xl bg-slate-900/60 p-4" onClick={() => setShowViewModal(false)}>
+                    <div className="modal-content max-w-5xl border-none animate-scale-up" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-10 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-4xl">
+                            <div className="flex items-center gap-6">
+                                <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 shadow-2xl shadow-emerald-500/5">
+                                    <FileText size={32} />
+                                </div>
+                                <div>
+                                    <h3 className="text-3xl font-black tracking-tighter">Purchase Bill</h3>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <span className="px-3 py-1 bg-white/5 rounded-lg text-[11px] font-black uppercase tracking-widest text-slate-300 border border-white/5">Bill #: {selectedEntry.billNumber}</span>
+                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Purchase Record</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex gap-4">
                                 <button
                                     onClick={() => window.print()}
-                                    className="btn bg-white/10 hover:bg-white/20 text-white border-white/20 flex items-center gap-2"
+                                    className="w-14 h-14 rounded-2xl bg-white/5 hover:bg-emerald-500 hover:text-white border border-white/10 flex items-center justify-center transition-all group"
                                 >
-                                    <Printer size={18} />
-                                    Print
+                                    <Printer size={24} className="group-hover:scale-110 transition-transform" />
                                 </button>
-                                <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
+                                <button 
+                                    onClick={() => setShowViewModal(false)}
+                                    className="w-14 h-14 rounded-2xl bg-white/5 hover:bg-red-500 hover:text-white border border-white/10 flex items-center justify-center transition-all"
+                                >
                                     <X size={24} />
                                 </button>
                             </div>
                         </div>
-                        <div className="p-0 overflow-y-auto max-h-[80vh] bg-gray-100">
-                            <div className="max-w-[800px] mx-auto my-8 shadow-lg bg-white overflow-hidden rounded-xl">
+                        <div className="p-0 overflow-y-auto max-h-[75vh] bg-slate-50 custom-scrollbar">
+                            <div className="max-w-[850px] mx-auto my-16 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] bg-white overflow-hidden rounded-4xl border border-slate-100">
                                 <BillTemplate
                                     bill={{
                                         ...selectedEntry,
                                         billType: 'PURCHASE',
-                                        customer: selectedEntry.supplier, // Map supplier to customer for template
+                                        customer: selectedEntry.supplier,
                                         items: selectedEntry.items?.map(item => ({
                                             ...item,
                                             productName: item.product?.name || item.name || 'N/A',
                                             hsnCode: item.product?.hsn || item.hsnCode || '',
-                                            designColor: item.designColor || item.product?.size || '',
-                                            weightKg: item.quantity, // Purchase entries often use quantity as weight
+                                            designColor: item.product?.size || '',
+                                            weightKg: item.quantity,
                                             ratePerKg: item.rate,
                                             total: item.total
                                         })),
@@ -648,8 +781,17 @@ const PurchaseEntryPage = () => {
                                 />
                             </div>
                         </div>
-                        <div className="px-8 py-6 bg-gray-50 border-t flex justify-end">
-                            <button onClick={() => setShowViewModal(false)} className="btn btn-primary px-10">Close Preview</button>
+                        <div className="px-10 py-8 bg-white border-t border-slate-100 flex justify-between items-center rounded-b-[2.5rem]">
+                            <div className="flex items-center gap-3">
+                                <ShieldCheck size={20} className="text-emerald-500" />
+                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Verified Record</span>
+                            </div>
+                            <button 
+                                onClick={() => setShowViewModal(false)} 
+                                className="px-12 py-5 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] hover:bg-emerald-600 transition-all shadow-xl shadow-slate-900/10 active:scale-[0.98]"
+                            >
+                                Close View
+                            </button>
                         </div>
                     </div>
                 </div>

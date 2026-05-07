@@ -202,8 +202,10 @@ export const generateBillPDF = async (bill) => {
     const BLACK = '#000000';
     const RED = '#cc0000';
     const GRAY_TEXT = '#222222';
-    const GRAY_BORDER = '#333333';
+    const GRAY_BORDER = '#404040';
     const GRAY_LIGHT = '#555555';
+    const HEADER_BG = '#1e3a8a';
+    const LIGHT_GRAY = '#f3f4f6';
 
     // ===== Outer border =====
     let y = M;
@@ -363,13 +365,21 @@ export const generateBillPDF = async (bill) => {
     let tY = y;
     let tX = M;
 
-    doc.font('Helvetica-Bold').fontSize(8).fillColor(BLACK);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('white');
     for (let i = 0; i < columns.length; i++) {
-        doc.lineWidth(1).rect(tX, tY, colW[i], thH).stroke(GRAY_BORDER);
-        doc.text(columns[i].header, tX + 3, tY + 4, {
-            width: colW[i] - 6,
-            align: 'center',
-            lineGap: 0
+        // Header background
+        doc.rect(tX, tY, colW[i], thH).fill(HEADER_BG);
+        
+        // Header border
+        doc.lineWidth(1.5).rect(tX, tY, colW[i], thH).stroke(GRAY_BORDER);
+        
+        // Header text
+        doc.fillColor('white');
+        doc.text(columns[i].header, tX + 4, tY + 3, {
+            width: colW[i] - 8,
+            align: columns[i].align || 'center',
+            lineGap: 1,
+            height: thH
         });
         tX += colW[i];
     }
@@ -381,28 +391,45 @@ export const generateBillPDF = async (bill) => {
         const item = items[r];
 
         for (let c = 0; c < columns.length; c++) {
-            // Left border
+            const col = columns[c];
+            
+            // Cell background (alternating)
+            if (item) {
+                const bgColor = r % 2 === 0 ? 'white' : LIGHT_GRAY;
+                doc.rect(tX, tY, colW[c], rowH).fill(bgColor);
+            }
+            
+            // Cell border
             doc.lineWidth(1)
                 .moveTo(tX, tY)
                 .lineTo(tX, tY + rowH)
                 .stroke(GRAY_BORDER);
+            
             // Right border on last column
             if (c === columns.length - 1) {
                 doc.moveTo(tX + colW[c], tY)
                     .lineTo(tX + colW[c], tY + rowH)
                     .stroke(GRAY_BORDER);
             }
+            
+            // Bottom border
+            if (r === minRows - 1) {
+                doc.moveTo(tX, tY + rowH)
+                    .lineTo(tX + colW[c], tY + rowH)
+                    .stroke(GRAY_BORDER);
+            }
 
             if (item) {
-                const column = columns[c];
-                const cellText = column.value(item, r);
-                const align = column.align || 'center';
+                const cellText = col.value(item, r);
+                const align = col.align || 'center';
 
                 if (cellText) {
-                    doc.font('Helvetica').fontSize(8.5).fillColor(BLACK);
-                    const textPad = (c === 1) ? 7 : 3;
-                    doc.text(cellText, tX + textPad, tY + Math.max(3, (rowH - 10) / 2), {
-                        width: colW[c] - textPad - 3,
+                    doc.font('Helvetica').fontSize(9).fillColor(BLACK);
+                    const textPad = align === 'right' ? 6 : (align === 'left' ? 6 : 3);
+                    const cellY = tY + Math.max(4, (rowH - 11) / 2);
+                    
+                    doc.text(cellText, tX + textPad, cellY, {
+                        width: colW[c] - textPad * 2,
                         align,
                         lineGap: 0
                     });
@@ -433,21 +460,21 @@ export const generateBillPDF = async (bill) => {
     // Left column
     const sLX = M + 14;
     let sLY = y + 10;
-    const sLabelW = 68;
+    const sLabelW = 70;
     const sSepW = 12;
-    const sRowGap = 16;
+    const sRowGap = 18;
 
     const drawSummaryField = (label, value, isWords = false) => {
-        doc.font('Helvetica-Bold').fontSize(9).fillColor(BLACK);
+        doc.font('Helvetica-Bold').fontSize(10).fillColor(BLACK);
         doc.text(label, sLX, sLY, { width: sLabelW });
         doc.text(':', sLX + sLabelW, sLY, { width: sSepW, align: 'center' });
-        doc.font('Helvetica-Bold').fontSize(isWords ? 8 : 9).fillColor(BLACK);
+        doc.font('Helvetica-Bold').fontSize(isWords ? 8 : 10).fillColor(BLACK);
         doc.text(value, sLX + sLabelW + sSepW + 2, sLY, { width: sumLeftW - 28 - sLabelW - sSepW - 4 });
         sLY += sRowGap;
     };
 
-    drawSummaryField(quantityLabel, `${totalQuantity}`);
-    drawSummaryField('Bill Amount', `${totalAmt.toFixed(2)}`);
+    drawSummaryField(quantityLabel, `${totalQuantity}`.padStart(10, ' '));
+    drawSummaryField('Bill Amount', `₹ ${totalAmt.toFixed(2)}`.padStart(12, ' '));
     drawSummaryField('In words', `Rupees ${numberToWords(totalAmt)} Only`, true);
 
     // Middle column
@@ -478,16 +505,16 @@ export const generateBillPDF = async (bill) => {
 
     if (igstAmt > 0) {
         const igstRate = taxableAmt > 0 ? (igstAmt * 100) / taxableAmt : 5;
-        taxRows.push({ label: `IGST @ ${igstRate.toFixed(2).replace(/\.00$/, '')}%`, value: igstAmt.toFixed(2), highlight: true });
+        taxRows.push({ label: `IGST @ ${igstRate.toFixed(2).replace(/\.00$/, '')}%`, value: `₹ ${igstAmt.toFixed(2)}`, highlight: true });
     } else {
-        taxRows.push({ label: `CGST @ ${cgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: cgstAmt.toFixed(2), highlight: true });
-        taxRows.push({ label: `SGST @ ${sgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: sgstAmt.toFixed(2), highlight: true });
+        taxRows.push({ label: `CGST @ ${cgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: `₹ ${cgstAmt.toFixed(2)}`, highlight: true });
+        taxRows.push({ label: `SGST @ ${sgstRate.toFixed(2).replace(/\.00$/, '')}%`, value: `₹ ${sgstAmt.toFixed(2)}`, highlight: true });
     }
 
     taxRows.push({ label: 'Round Off', value: roundOff.toFixed(2) });
-    const rightTop = y + 8;
-    const totalLineY = y + row6H - 22;
-    const totalTextY = y + row6H - 11;
+    const rightTop = y + 10;
+    const totalLineY = y + row6H - 20;
+    const totalTextY = y + row6H - 9;
     const taxRowCount = taxRows.length;
     const availH = totalLineY - rightTop - 2;
     const taxRowGap = taxCount => availH / Math.max(taxCount - 1, 1);
@@ -497,17 +524,18 @@ export const generateBillPDF = async (bill) => {
         const rowY = rightTop + (gap * index);
         const color = row.highlight ? RED : BLACK;
         const fontWeight = row.highlight ? 'Helvetica-Bold' : 'Helvetica';
+        const fontSize = row.highlight ? 10 : 9;
 
-        doc.font(fontWeight).fontSize(9).fillColor(color);
+        doc.font(fontWeight).fontSize(fontSize).fillColor(color);
         doc.text(row.label, sRX, rowY, { width: sRW * 0.58 });
-        doc.font('Helvetica-Bold').fontSize(9).fillColor(color);
-        doc.text(row.value, sRX + sRW * 0.58, rowY, { width: sRW * 0.42, align: 'right' });
+        doc.font('Helvetica-Bold').fontSize(fontSize).fillColor(color);
+        doc.text(row.value.toString().padStart(10, ' '), sRX + sRW * 0.55, rowY, { width: sRW * 0.45, align: 'right' });
     });
 
-    doc.lineWidth(1.5).moveTo(sRX - 4, totalLineY).lineTo(sRX + sRW + 4, totalLineY).stroke(BLACK);
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(BLACK);
+    doc.lineWidth(2).moveTo(sRX - 4, totalLineY).lineTo(sRX + sRW + 4, totalLineY).stroke(BLACK);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(BLACK);
     doc.text('Total Amt', sRX, totalTextY, { width: sRW * 0.58 });
-    doc.text(`${totalAmt.toFixed(2)}`, sRX + sRW * 0.58, totalTextY, { width: sRW * 0.42, align: 'right' });
+    doc.text(`₹ ${totalAmt.toFixed(2)}`.padStart(12, ' '), sRX + sRW * 0.55, totalTextY, { width: sRW * 0.45, align: 'right' });
 
     y += row6H;
     hLine(y, 1.5);
@@ -524,29 +552,30 @@ export const generateBillPDF = async (bill) => {
 
     // Left: Terms
     const fLX = M + 14;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(BLUE);
-    doc.text('Terms And Conditions', fLX, y + 8, { underline: true });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(BLUE);
+    doc.text('Terms And Conditions', fLX, y + 8, { underline: true, characterSpacing: 0.5 });
 
-    doc.font('Helvetica').fontSize(7).fillColor(GRAY_BORDER);
+    doc.font('Helvetica').fontSize(7.5).fillColor(GRAY_BORDER);
     doc.text(
-        `Subject to Tirupur Jurisdiction.\nPayment by Cheque/DD only, payable at Tirupur.\nCheques made in favour of ${companyName} to be sent to Tirunelveli Address\nAll disputes are subjected to Tirunelveli Jurisdiction`,
-        fLX, y + 20,
-        { width: footLeftW - 28, lineGap: 1.5 }
+        `Subject to Tirupur Jurisdiction.\nPayment by Cheque/DD only, payable at Tirupur.\nCheques made in favour of ${companyName} to be sent to Tirunelveli Address.\nAll disputes are subjected to Tirunelveli Jurisdiction.`,
+        fLX, y + 21,
+        { width: footLeftW - 28, lineGap: 2 }
     );
 
     // Bank box
-    const bankBoxY = y + 44;
+    const bankBoxY = y + 46;
     const bankBoxW = footLeftW - 28;
-    const bankBoxH = 40;
-    doc.rect(fLX, bankBoxY, bankBoxW, bankBoxH).fill('#fffbe6');
-    doc.lineWidth(1.5).rect(fLX, bankBoxY, bankBoxW, bankBoxH).stroke('#d4a017');
+    const bankBoxH = 38;
+    doc.rect(fLX, bankBoxY, bankBoxW, bankBoxH).fill('#fffbf0');
+    doc.lineWidth(2).rect(fLX, bankBoxY, bankBoxW, bankBoxH).stroke('#f59e0b');
 
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(RED);
-    doc.text('Bank Details:', fLX + 8, bankBoxY + 5, { underline: true });
-    doc.font('Helvetica-Bold').fontSize(8).fillColor(BLUE);
-    doc.text(`ACC NAME: ${bankAccName}`, fLX + 8, bankBoxY + 16, { width: bankBoxW - 16 });
-    doc.text(`BANK: ${bankName}`, fLX + 8, bankBoxY + 25, { width: bankBoxW - 16 });
-    doc.text(`ACC NUM: ${bankAccount} | BRANCH: ${bankBranch} | IFSC: ${bankIfsc}`, fLX + 8, bankBoxY + 33, { width: bankBoxW - 16 });
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(RED);
+    doc.text('BANK DETAILS:', fLX + 8, bankBoxY + 4, { underline: true });
+    
+    doc.font('Helvetica').fontSize(8).fillColor(BLACK);
+    doc.text(`${bankAccName}`, fLX + 8, bankBoxY + 13, { width: bankBoxW - 16 });
+    doc.text(`${bankName} | ${bankBranch}`, fLX + 8, bankBoxY + 22, { width: bankBoxW - 16 });
+    doc.text(`A/C: ${bankAccount} | IFSC: ${bankIfsc}`, fLX + 8, bankBoxY + 31, { width: bankBoxW - 16 });
 
     // Right: Certification + Signature
     const fRX = M + footLeftW + 14;

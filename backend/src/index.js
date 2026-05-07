@@ -4,6 +4,8 @@ import compression from 'compression';
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import net from 'net';
+import http from 'http';
+import { Server } from 'socket.io';
 import bcrypt from 'bcryptjs';
 import User from './models/User.js';
 import Bill from './models/Bill.js';
@@ -266,7 +268,32 @@ const startServer = async () => {
                 process.exit(1);
             }
 
-            const server = app.listen(PORT, () => {
+            const httpServer = http.createServer(app);
+            const io = new Server(httpServer, {
+                cors: corsOptions,
+                pingTimeout: 60000,
+                pingInterval: 25000
+            });
+
+            // Socket.io Events
+            io.on('connection', (socket) => {
+                const clientId = socket.id;
+                console.log(`${new Date().toISOString()} [Socket] Client connected: ${clientId}`);
+
+                socket.on('join', (room) => {
+                    socket.join(room);
+                    console.log(`[Socket] Client ${clientId} joined room: ${room}`);
+                });
+
+                socket.on('disconnect', () => {
+                    console.log(`${new Date().toISOString()} [Socket] Client disconnected: ${clientId}`);
+                });
+            });
+
+            // Make io accessible globally or export it
+            app.set('io', io);
+
+            httpServer.listen(PORT, () => {
                 if (PORT !== preferredPort) {
                     console.log(`⚠️  Port ${preferredPort} was in use, using port ${PORT} instead`);
                 }
@@ -276,7 +303,7 @@ const startServer = async () => {
                 initScheduler();
             });
 
-            server.on('error', (err) => {
+            httpServer.on('error', (err) => {
                 console.error('Server error:', err);
                 process.exit(1);
             });

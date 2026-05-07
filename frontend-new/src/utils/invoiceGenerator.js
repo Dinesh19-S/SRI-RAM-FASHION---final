@@ -138,24 +138,24 @@ export const generateInvoicePDF = (bill, settings = {}) => {
 
     const columns = isPurchase
         ? [
-            { header: 'S.No', width: 0.06, align: 'center', value: (_, index) => `${index + 1}` },
-            { header: 'Particular', width: 0.30, align: 'left', value: (item) => item.productName || item.name || '' },
+            { header: 'S.No', width: 0.05, align: 'center', value: (_, index) => `${index + 1}` },
+            { header: 'Particular', width: 0.35, align: 'left', value: (item) => item.productName || item.name || '' },
             { header: 'HSN\nCode', width: 0.12, align: 'center', value: (item) => String(item.hsnCode || item.hsn || '') },
             { header: 'Design /\nColor', width: 0.16, align: 'center', value: (item) => String(item.designColor || item.sizesOrPieces || '') },
-            { header: 'Weight\n(KG)', width: 0.12, align: 'center', value: (item) => `${toAmount(item.weightKg, toAmount(item.quantity))}` },
-            { header: 'Rate Per\nKG', width: 0.12, align: 'center', value: (item) => `${toAmount(item.ratePerKg, toAmount(item.price))}` },
-            { header: 'Amount\nRs.', width: 0.12, align: 'center', value: (item) => `${toAmount(item.total, toAmount(item.weightKg, toAmount(item.quantity)) * toAmount(item.ratePerKg, toAmount(item.price)))}` }
+            { header: 'Weight\n(KG)', width: 0.10, align: 'right', value: (item) => `${toAmount(item.weightKg, toAmount(item.quantity)).toFixed(2)}` },
+            { header: 'Rate Per\nKG', width: 0.10, align: 'right', value: (item) => `${toAmount(item.ratePerKg, toAmount(item.price)).toFixed(2)}` },
+            { header: 'Amount\nRs.', width: 0.12, align: 'right', value: (item) => `${toAmount(item.total, toAmount(item.weightKg, toAmount(item.quantity)) * toAmount(item.ratePerKg, toAmount(item.price))).toFixed(2)}` }
         ]
         : [
             { header: 'S.No', width: 0.05, align: 'center', value: (_, index) => `${index + 1}` },
-            { header: 'Product', width: 0.20, align: 'left', value: (item) => item.productName || item.name || '' },
+            { header: 'Product Description', width: 0.28, align: 'left', value: (item) => item.productName || item.name || '' },
             { header: 'HSN\nCode', width: 0.09, align: 'center', value: (item) => String(item.hsnCode || item.hsn || '') },
             { header: 'Sizes/\nPieces', width: 0.09, align: 'center', value: (item) => String(item.sizesOrPieces || '') },
-            { header: 'Rate Per\nPiece', width: 0.10, align: 'center', value: (item) => item.ratePerPiece ? `${item.ratePerPiece}` : '' },
-            { header: 'Pcs in\nPack', width: 0.08, align: 'center', value: (item) => item.pcsInPack ? `${item.pcsInPack}` : '' },
-            { header: 'Rate Per\nPack', width: 0.12, align: 'center', value: (item) => `${toAmount(item.ratePerPack, toAmount(item.price))}` },
-            { header: 'No Of\nPacks', width: 0.09, align: 'center', value: (item) => `${toAmount(item.noOfPacks, toAmount(item.quantity))}` },
-            { header: 'Amount\nRs.', width: 0.18, align: 'right', value: (item) => `${toAmount(item.total, toAmount(item.ratePerPack, toAmount(item.price)) * toAmount(item.noOfPacks, toAmount(item.quantity)))}` }
+            { header: 'Rate Per\nPiece', width: 0.09, align: 'right', value: (item) => item.ratePerPiece ? `${toAmount(item.ratePerPiece).toFixed(2)}` : '' },
+            { header: 'Pcs In\nPack', width: 0.08, align: 'center', value: (item) => item.pcsInPack ? `${item.pcsInPack}` : '' },
+            { header: 'Rate Per\nPack', width: 0.10, align: 'right', value: (item) => `${toAmount(item.ratePerPack, toAmount(item.price)).toFixed(2)}` },
+            { header: 'No Of\nPacks', width: 0.08, align: 'center', value: (item) => `${toAmount(item.noOfPacks, toAmount(item.quantity))}` },
+            { header: 'Amount\nRs.', width: 0.14, align: 'right', value: (item) => `${toAmount(item.total, toAmount(item.ratePerPack, toAmount(item.price)) * toAmount(item.noOfPacks, toAmount(item.quantity))).toFixed(2)}` }
         ];
 
     // ===== Fixed section heights (mm) =====
@@ -386,7 +386,7 @@ export const generateInvoicePDF = (bill, settings = {}) => {
                     pdf.setFont('helvetica', 'normal');
                     pdf.setFontSize(7);
                     setC(pdf, BLACK);
-                    const txtX = align === 'left' ? tX + 2 : tX + colW[c] / 2;
+                    const txtX = align === 'left' ? tX + 2 : align === 'right' ? tX + colW[c] - 2 : tX + colW[c] / 2;
                     pdf.text(cellText, txtX, tY + rowH / 2 + 1, { align, maxWidth: colW[c] - 3 });
                 }
             }

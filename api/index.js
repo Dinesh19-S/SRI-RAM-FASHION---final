@@ -91,38 +91,87 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Socket.io Setup
+// Socket.io Setup - Enhanced for persistent connections
 const server = http.createServer(app);
 const io = new Server(server, {
+    path: '/socket.io',
     cors: {
-        origin: (origin, callback) => {
-            // Allow same origins as the REST API (Electron, localhost, etc.)
-            if (!origin || origin === 'file://' || origin?.startsWith('capacitor://') || origin?.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
-                return callback(null, true);
-            }
-            return callback(new Error(`CORS blocked for origin: ${origin}`));
-        },
-        methods: ["GET", "POST", "PUT", "DELETE"],
+        origin: "*",
+        methods: ["GET", "POST"],
         credentials: true
     },
-    transports: ['polling', 'websocket']
+    transports: ['websocket', 'polling'],  // ✅ Prefer websocket
+    allowEIO3: true,
+    pingTimeout: 120000,      // ✅ Increased from 60000 to 120 seconds
+    pingInterval: 30000,      // ✅ Increased from 25000 to 30 seconds - send ping more frequently
+    maxHttpBufferSize: 1e6,   // ✅ 1MB buffer for large data transfers
+    enablesXDR: false,
+    secure: process.env.NODE_ENV === 'production',
+    rejectUnauthorized: false
 });
 
 // Make io accessible in routes
 app.set('io', io);
 
+// ✅ Track connected clients
+const connectedClients = new Map();
+
 io.on('connection', (socket) => {
-    console.log(`[Socket] Client connected: ${socket.id}`);
-    
+    console.log(`[Socket] ✅ Client connected: ${socket.id}`);
+    connectedClients.set(socket.id, {
+        connectedAt: new Date(),
+        id: socket.id
+    });
+
+    // ✅ Join room handling
     socket.on('join', (room) => {
         socket.join(room);
         console.log(`[Socket] Client ${socket.id} joined room: ${room}`);
     });
 
-    socket.on('disconnect', () => {
-        console.log(`[Socket] Client disconnected: ${socket.id}`);
+    // ✅ Heartbeat/Ping response
+    socket.on('ping', (callback) => {
+        if (typeof callback === 'function') {
+            callback();  // Send pong back
+        }
+    });
+
+    // ✅ Leave room handling
+    socket.on('leave', (room) => {
+        socket.leave(room);
+        console.log(`[Socket] Client ${socket.id} left room: ${room}`);
+    });
+
+    // ✅ Improved disconnect handling
+    socket.on('disconnect', (reason) => {
+        console.log(`[Socket] ⚠️ Client disconnected: ${socket.id}. Reason: ${reason}`);
+        connectedClients.delete(socket.id);
+    });
+
+    // ✅ Error handling
+    socket.on('error', (error) => {
+        console.error(`[Socket] ❌ Error from ${socket.id}:`, error);
+    });
+
+    // ✅ Send initial status to client
+    socket.emit('status', {
+        message: 'Connected to server',
+        timestamp: new Date().toISOString()
     });
 });
+
+// ✅ Periodic health check - clean up dead connections
+setInterval(() => {
+    const now = Date.now();
+    connectedClients.forEach((client, clientId) => {
+        const connectionDuration = now - new Date(client.connectedAt).getTime();
+        if (connectionDuration > 7 * 24 * 60 * 60 * 1000) {  // 7 days
+            // Don't disconnect, just log long-lived connections
+            console.log(`[Socket] Long-lived connection: ${clientId} (${connectionDuration / 1000 / 60} minutes)`);
+        }
+    });
+    console.log(`[Socket] Currently connected clients: ${connectedClients.size}`);
+}, 60000);  // Every minute
 
 // Request Logger
 app.use((req, res, next) => {

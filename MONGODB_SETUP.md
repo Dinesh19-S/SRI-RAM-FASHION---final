@@ -117,20 +117,6 @@ Run `npm run setup:mongodb` to initialize collections and indexes
 **Solution**: 
 The admin user already exists. You can proceed to start the server with `npm run dev`
 
-## 📝 Data Migration (from Supabase)
-
-If you have existing data in Supabase:
-
-1. Export data from Supabase as JSON/CSV
-2. Create a migration script in `migrations/` folder
-3. Use Mongoose models to import the data
-4. Run migration script before starting server
-
-Example migration:
-```bash
-node migrations/migrate-from-supabase.js
-```
-
 ## ✨ Running the Full Application
 
 ```bash
