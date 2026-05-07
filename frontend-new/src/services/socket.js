@@ -1,23 +1,34 @@
 import { io } from 'socket.io-client';
 
 const getSocketUrl = () => {
-    // Match the logic in api.js for determining the base URL
+    // 1. Explicit environment variable always takes precedence
     const explicitUrl = import.meta.env.VITE_API_URL?.trim();
     if (explicitUrl) {
-        // Remove /api/v1 from the end if present, as socket.io connects to the root usually
+        // Clean up API path to get the base server URL
         return explicitUrl.replace(/\/api\/v1\/?$/, '').replace(/\/api\/?$/, '');
     }
 
+    // 2. Detect environment
     const isLocalHost = typeof window !== 'undefined' &&
         (window.location.hostname === 'localhost' ||
             window.location.hostname === '127.0.0.1' ||
             window.location.hostname === '::1');
 
-    if (typeof window !== 'undefined' && !isLocalHost) {
-        return window.location.origin;
+    const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
+
+    // 3. Fallback logic
+    if (typeof window !== 'undefined') {
+        if (isFileProtocol) {
+            // Electron/Capacitor environment - must use a remote URL or default localhost
+            return 'http://localhost:5000'; // Default dev fallback
+        }
+        if (!isLocalHost) {
+            // Production Website environment
+            return window.location.origin;
+        }
     }
 
-    return 'http://localhost:5000';
+    return 'http://localhost:5000'; // Standard localhost fallback
 };
 
 const SOCKET_URL = getSocketUrl();
@@ -26,17 +37,27 @@ export const socket = io(SOCKET_URL, {
     path: '/socket.io',
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: Infinity,  // ✅ Keep trying indefinitely
-    reconnectionDelay: 1000,         // ✅ Start with 1 second delay
-    reconnectionDelayMax: 30000,     // ✅ Max 30 seconds between attempts
-    randomizationFactor: 0.5,        // ✅ Add randomization to prevent thundering herd
-    transports: ['websocket', 'polling'],  // ✅ Prefer websocket
+    reconnectionAttempts: Infinity,  // ✅ Never stop trying
+    reconnectionDelay: 1000,         // ✅ 1s, 2s, 4s...
+    reconnectionDelayMax: 5000,      // ✅ Don't wait longer than 5s to try again
+    randomizationFactor: 0.5,
+    transports: ['websocket', 'polling'], // ✅ Try websocket first, fallback to polling
     upgrade: true,
     rememberUpgrade: true,
-    forceNew: false,
-    timeout: 60000,
-    query: {}
+    timeout: 20000,                  // ✅ Shorter timeout to detect failures faster
+    forceNew: false
 });
+
+// ✅ Reconnect on window/tab focus to ensure connection is alive
+if (typeof window !== 'undefined') {
+    window.addEventListener('focus', () => {
+        if (!socket.connected) {
+            console.log('[Socket] 🔄 Tab focused, attempting reconnection...');
+            socket.connect();
+        }
+    });
+}
+
 
 // Enhanced connection status tracking
 let connectionAttempts = 0;

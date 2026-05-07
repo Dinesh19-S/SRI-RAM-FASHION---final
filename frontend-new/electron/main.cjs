@@ -19,7 +19,9 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,
             nodeIntegration: false,
-            sandbox: true,
+            sandbox: false,
+            webSecurity: false, // Help with loading local assets
+            allowRunningInsecureContent: true
         },
         show: false, // show after ready-to-show for a cleaner launch
     });
@@ -39,13 +41,11 @@ function createWindow() {
     });
 
     if (isDev) {
-        // In dev mode, load from Vite dev server
         mainWindow.loadURL('http://localhost:5173');
-        // Uncomment to auto-open DevTools:
-        // mainWindow.webContents.openDevTools();
     } else {
-        // In production, load the built index.html from the dist folder
         mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+        // Open DevTools to debug white screen in production
+        mainWindow.webContents.openDevTools();
     }
 
     mainWindow.on('closed', () => {
