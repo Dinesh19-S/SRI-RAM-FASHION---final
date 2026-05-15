@@ -37,25 +37,34 @@ export const socket = io(SOCKET_URL, {
     path: '/socket.io',
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: Infinity,  // ✅ Never stop trying
-    reconnectionDelay: 1000,         // ✅ 1s, 2s, 4s...
-    reconnectionDelayMax: 5000,      // ✅ Don't wait longer than 5s to try again
+    reconnectionAttempts: Infinity,  // ✅ Never stop trying to reconnect
+    reconnectionDelay: 1000,         // ✅ Start with 1s delay
+    reconnectionDelayMax: 5000,      // ✅ Max 5s delay between attempts
     randomizationFactor: 0.5,
-    transports: ['websocket', 'polling'], // ✅ Try websocket first, fallback to polling
+    transports: ['websocket', 'polling'], // ✅ WebSocket first, fallback to polling
     upgrade: true,
     rememberUpgrade: true,
-    timeout: 20000,                  // ✅ Shorter timeout to detect failures faster
-    forceNew: false
+    timeout: 20000,                  // ✅ Connection timeout
+    forceNew: false,
+    rejectUnauthorized: false        // ✅ Allow self-signed certificates in development
 });
 
-// ✅ Reconnect on window/tab focus to ensure connection is alive
+// ✅ Maintain persistent connection with active monitoring
 if (typeof window !== 'undefined') {
+    // Reconnect on window focus (tab becomes active)
     window.addEventListener('focus', () => {
         if (!socket.connected) {
-            console.log('[Socket] 🔄 Tab focused, attempting reconnection...');
+            console.log('[Socket] 🔄 Window focused, attempting reconnection...');
             socket.connect();
         }
     });
+    
+    // Periodic health check - ensure connection stays alive
+    setInterval(() => {
+        if (socket.connected) {
+            socket.emit('ping', Date.now());
+        }
+    }, 30000); // Every 30 seconds
 }
 
 

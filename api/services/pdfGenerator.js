@@ -151,15 +151,13 @@ export const generateBillPDF = async (bill) => {
             { header: 'Amount\nRs.', width: 0.12, align: 'center', value: (item) => `${toAmount(item.total, toAmount(item.weightKg, toAmount(item.quantity)) * toAmount(item.ratePerKg, toAmount(item.price)))}` }
         ]
         : [
-            { header: 'S.No', width: 0.05, align: 'center', value: (_, index) => `${index + 1}` },
-            { header: 'Product', width: 0.18, align: 'left', value: (item) => item.productName || item.name || '' },
-            { header: 'HSN\nCode', width: 0.09, align: 'center', value: (item) => String(item.hsnCode || item.hsn || '') },
-            { header: 'Sizes/\nPieces', width: 0.10, align: 'center', value: (item) => String(item.sizesOrPieces || '') },
-            { header: 'Rate Per\nPiece', width: 0.10, align: 'center', value: (item) => item.ratePerPiece ? `${item.ratePerPiece}` : '' },
-            { header: 'Pcs in\nPack', width: 0.08, align: 'center', value: (item) => item.pcsInPack ? `${item.pcsInPack}` : '' },
-            { header: 'Rate Per\nPack', width: 0.11, align: 'center', value: (item) => `${toAmount(item.ratePerPack, toAmount(item.price))}` },
-            { header: 'No Of\nPacks', width: 0.09, align: 'center', value: (item) => `${toAmount(item.noOfPacks, toAmount(item.quantity))}` },
-            { header: 'Amount\nRs.', width: 0.20, align: 'center', value: (item) => `${toAmount(item.total, toAmount(item.ratePerPack, toAmount(item.price)) * toAmount(item.noOfPacks, toAmount(item.quantity)))}` }
+            { header: 'S.No', width: 0.06, align: 'center', value: (_, index) => `${index + 1}` },
+            { header: 'Product\nDescription', width: 0.20, align: 'left', value: (item) => item.productName || item.name || '' },
+            { header: 'HSN Code', width: 0.12, align: 'center', value: (item) => String(item.hsnCode || item.hsn || '') },
+            { header: 'Sizes /\nPieces', width: 0.12, align: 'center', value: (item) => String(item.sizesOrPieces || '') },
+            { header: 'Rate Per\nPiece', width: 0.12, align: 'center', value: (item) => item.ratePerPiece ? `${item.ratePerPiece}` : '' },
+            { header: 'No Of\nPacks', width: 0.12, align: 'center', value: (item) => `${toAmount(item.noOfPacks, toAmount(item.quantity))}` },
+            { header: 'Amount Rs.', width: 0.26, align: 'right', value: (item) => `${toAmount(item.total, toAmount(item.ratePerPiece || item.price, 0) * toAmount(item.noOfPacks, toAmount(item.quantity)))}` }
         ];
 
     // ===== Page dimensions =====

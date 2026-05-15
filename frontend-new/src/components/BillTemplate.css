@@ -224,20 +224,23 @@
     padding-left: 8px !important;
 }
 
+.ti-text-right {
+    text-align: right !important;
+    padding-right: 8px !important;
+}
+
 .ti-empty-row td {
     height: 22px;
 }
 
 /* Column widths */
-.ti-col-sno { width: 5%; }
-.ti-col-product { width: 18%; }
-.ti-col-hsn { width: 9%; }
-.ti-col-sizes { width: 10%; }
-.ti-col-ratepc { width: 10%; }
-.ti-col-pcsinpk { width: 8%; }
-.ti-col-ratepk { width: 11%; }
-.ti-col-nopacks { width: 9%; }
-.ti-col-amount { width: 12%; }
+.ti-col-sno { width: 6%; }
+.ti-col-product { width: 20%; }
+.ti-col-hsn { width: 12%; }
+.ti-col-sizes { width: 12%; }
+.ti-col-ratepc { width: 12%; }
+.ti-col-nopacks { width: 12%; }
+.ti-col-amount { width: 26%; }
 
 /* ============================================
    ROW 6: Summary (3-column bottom section)

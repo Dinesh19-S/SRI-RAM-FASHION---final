@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 
 import logoImage from '../../assets/logo.jpg';
+import { useToast } from '../common';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -143,6 +144,18 @@ const MainLayout = () => {
     const [notificationsLastLoadedAt, setNotificationsLastLoadedAt] = useState(0);
     const searchRef = useRef(null);
     const notificationsRef = useRef(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const toast = useToast();
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        toast.info('Refreshing application state...');
+        
+        // Short delay for visual feedback before actual reload
+        setTimeout(() => {
+            window.location.reload();
+        }, 800);
+    };
 
     const unreadCount = useMemo(
         () => notifications.filter((notification) => !notification.read).length,
@@ -480,19 +493,26 @@ const MainLayout = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <button
+                            className={`p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all duration-300 ${isRefreshing ? 'rotate-180 text-blue-600 bg-blue-50' : ''}`}
+                            onClick={handleRefresh}
+                            title="Refresh Page"
+                        >
+                            <RefreshCw size={19} className={isRefreshing ? 'animate-spin' : ''} />
+                        </button>
                         <div className="relative" ref={notificationsRef}>
-                            <button
-                                className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                                onClick={() => setNotificationsOpen((prev) => !prev)}
-                                aria-label="Notifications"
-                            >
-                                <Bell size={20} />
-                                {unreadCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full border-2 border-white flex items-center justify-center">
-                                        {unreadCount > 9 ? '9+' : unreadCount}
-                                    </span>
-                                )}
-                            </button>
+                                <button
+                                    className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                                    onClick={() => setNotificationsOpen((prev) => !prev)}
+                                    aria-label="Notifications"
+                                >
+                                    <Bell size={20} />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full border-2 border-white flex items-center justify-center">
+                                            {unreadCount > 9 ? '9+' : unreadCount}
+                                        </span>
+                                    )}
+                                </button>
 
                             <AnimatePresence>
                                 {notificationsOpen && (

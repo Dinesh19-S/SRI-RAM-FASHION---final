@@ -102,15 +102,13 @@ const BillTemplate = ({ bill, settings, forPrint = false }) => {
     const bankAccName = settings?.bank?.accountHolderName || companyName;
 
     const salesColumns = [
-        { key: 'sno', label: 'S.No', width: '5%', render: (_, index) => index + 1 },
-        { key: 'product', label: 'Product', width: '18%', align: 'left', render: (item) => item.productName || item.name || '' },
-        { key: 'hsn', label: 'HSN\nCode', width: '9%', render: (item) => item.hsnCode || item.hsn || '' },
-        { key: 'sizes', label: 'Sizes/\nPieces', width: '10%', render: (item) => item.sizesOrPieces || '' },
-        { key: 'ratePc', label: 'Rate Per\nPiece', width: '10%', render: (item) => item.ratePerPiece || '' },
-        { key: 'pcsPack', label: 'Pcs in\nPack', width: '8%', render: (item) => item.pcsInPack || '' },
-        { key: 'ratePack', label: 'Rate Per\nPack', width: '11%', render: (item) => toAmount(item.ratePerPack, toAmount(item.price)) },
-        { key: 'packs', label: 'No Of\nPacks', width: '9%', render: (item) => toAmount(item.noOfPacks, toAmount(item.quantity)) },
-        { key: 'amount', label: 'Amount\nRs.', width: '12%', render: (item) => toAmount(item.total, toAmount(item.ratePerPack, toAmount(item.price)) * toAmount(item.noOfPacks, toAmount(item.quantity))) }
+        { key: 'sno', label: 'S.No', width: '6%', render: (_, index) => index + 1 },
+        { key: 'product', label: 'Product\nDescription', width: '20%', align: 'left', render: (item) => item.productName || item.name || '' },
+        { key: 'hsn', label: 'HSN Code', width: '12%', render: (item) => item.hsnCode || item.hsn || '' },
+        { key: 'sizes', label: 'Sizes /\nPieces', width: '12%', render: (item) => item.sizesOrPieces || '' },
+        { key: 'ratePc', label: 'Rate Per\nPiece', width: '12%', render: (item) => item.ratePerPiece || '' },
+        { key: 'packs', label: 'No Of\nPacks', width: '12%', render: (item) => toAmount(item.noOfPacks, toAmount(item.quantity)) },
+        { key: 'amount', label: 'Amount Rs.', width: '26%', align: 'right', render: (item) => toAmount(item.total, toAmount(item.ratePerPiece || item.price, 0) * toAmount(item.noOfPacks, toAmount(item.quantity))) }
     ];
 
     const purchaseColumns = [
@@ -240,7 +238,7 @@ const BillTemplate = ({ bill, settings, forPrint = false }) => {
                                     {columns.map((column) => (
                                         <td
                                             key={`${column.key}-${index}`}
-                                            className={column.align === 'left' ? 'ti-text-left' : ''}
+                                            className={column.align === 'left' ? 'ti-text-left' : column.align === 'right' ? 'ti-text-right' : ''}
                                         >
                                             {column.render(item, index)}
                                         </td>
