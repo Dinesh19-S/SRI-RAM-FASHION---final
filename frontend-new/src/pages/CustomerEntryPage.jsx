@@ -151,157 +151,168 @@ const CustomerEntryPage = () => {
 
     return (
         <div className="space-y-10 animate-fade-in p-2">
-            {/* Customer Header */}
-            <div className="page-header-shell bg-white/40 backdrop-blur-md border border-white/40 shadow-xl shadow-slate-200/20 rounded-3xl p-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-start gap-5">
-                        <div className="w-16 h-16 rounded-3xl bg-linear-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                            <Users size={28} />
+            {/* Header */}
+            <div className="page-header-shell bg-white/60 backdrop-blur-2xl border border-white/50 shadow-premium rounded-[2.5rem] p-10 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-500/5 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl pointer-events-none"></div>
+                
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                    <div className="flex items-start gap-6">
+                        <div className="w-20 h-20 rounded-4xl bg-linear-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-2xl shadow-emerald-500/30 group-hover:scale-105 transition-transform duration-500">
+                            <Users size={32} />
                         </div>
-                        <div className="space-y-1">
-                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Customer List</p>
-                            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Customers</h1>
-                            <p className="text-sm font-bold text-slate-500 pt-1">Manage your network of retail and regular customers.</p>
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Customers</p>
+                            <h1 className="text-5xl font-black text-slate-900 tracking-tighter">Customers</h1>
+                            <p className="text-sm font-bold text-slate-500 pt-1">Manage and track your customers.</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <button
-                            className="btn btn-primary px-8 py-4 rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 border-none bg-emerald-600 text-white"
+                            className="h-16 px-8 rounded-2xl flex items-center gap-3 bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-slate-900/20 transition-all hover:scale-105 active:scale-95"
                             onClick={() => handleOpenModal()}
                         >
                             <Plus size={20} strokeWidth={3} />
-                            <span className="font-black uppercase tracking-widest text-xs">Add Customer</span>
+                            New Customer
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* Search */}
-            <div className="glass-card p-8 border-none">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                    <div className="flex-1 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="glass-card p-10 border-none shadow-premium relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-slate-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>
+                <div className="flex flex-col lg:flex-row lg:items-center gap-8 relative z-10">
+                    <div className="flex-1 relative group/input">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-emerald-600 transition-colors" size={20} />
                         <input
                             type="text"
-                            placeholder="Search by name, mobile, or GSTIN..."
+                            placeholder="Search by name, phone, or GSTIN..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="form-input pl-12 py-4 bg-slate-50 border-none shadow-inner rounded-2xl font-bold"
+                            className="w-full pl-16 pr-8 py-5 bg-slate-50/50 border-none focus:ring-4 focus:ring-emerald-500/5 rounded-3xl font-bold text-slate-900 placeholder:text-slate-400 transition-all"
                         />
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <button
                             onClick={handleSearch}
                             disabled={isLoading}
-                            className="px-8 py-4 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-[11px] flex items-center gap-2 group hover:bg-slate-800 transition-all active:scale-95"
+                            className="h-16 px-10 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-[11px] flex items-center gap-3 group hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-900/10"
                         >
-                            {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={16} className="group-hover:scale-110 transition-transform" />}
+                            {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={18} className="group-hover:scale-110 transition-transform" />}
                             Search
                         </button>
                         <button
                             onClick={() => { setSearchQuery(''); setPagination(p => ({ ...p, page: 1 })); fetchCustomers(); }}
-                            className="p-4 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all"
+                            className="h-16 w-16 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all flex items-center justify-center group"
                         >
-                            <X size={20} />
+                            <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* Customer List */}
-            <div className="glass-card p-0 border-none overflow-hidden">
-                <div className="p-8 pb-4 flex items-center justify-between">
-                    <div className="space-y-1">
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Saved Customers</h3>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Manage your contacts</p>
+            <div className="page-table-card animate-slide-up border-none shadow-premium overflow-hidden rounded-[2.5rem] bg-white/40 backdrop-blur-3xl">
+                <div className="p-10 flex items-center justify-between border-b border-slate-100/50">
+                    <div className="space-y-2">
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tighter">Customer List</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">View all customers</p>
                     </div>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100/50">
-                        <span className="text-[11px] font-black uppercase tracking-widest">{pagination.total} Customers Saved</span>
+                    <div className="px-5 py-2.5 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100/50 flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="text-[11px] font-black uppercase tracking-widest">{pagination.total} Customers</span>
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="page-table w-full border-separate border-spacing-y-2 px-10">
                         <thead>
-                            <tr className="bg-slate-50/50">
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Customer Name</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Contact Details</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">GSTIN</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Region</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
+                            <tr className="text-left">
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">GSTIN</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">State</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y-0">
                             {isLoading ? (
                                 <tr>
                                     <td colSpan="5" className="px-8 py-32">
-                                        <div className="flex flex-col items-center justify-center gap-4">
-                                            <div className="w-12 h-12 border-4 border-slate-100 border-t-emerald-600 rounded-full animate-spin" />
-                                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Loading Customers...</p>
+                                        <div className="flex flex-col items-center justify-center gap-6">
+                                            <div className="w-16 h-16 border-4 border-slate-100 border-t-emerald-600 rounded-full animate-spin" />
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Loading...</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : customers.length === 0 ? (
                                 <tr>
                                     <td colSpan="5" className="px-8 py-32 text-center">
-                                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-dashed border-slate-200">
-                                            <Users size={32} className="text-slate-300" />
+                                        <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-slate-100 shadow-inner">
+                                            <Users size={40} className="text-slate-200" />
                                         </div>
-                                        <h4 className="text-lg font-black text-slate-900 tracking-tight mb-1">No Customers</h4>
-                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Add your first customer to get started</p>
+                                        <h4 className="text-xl font-black text-slate-900 tracking-tight mb-2">No Customers Found</h4>
+                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest max-w-xs mx-auto">Add a new customer to get started.</p>
                                     </td>
                                 </tr>
                             ) : (
                                 customers.map((customer, index) => (
-                                    <tr key={customer._id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-12 h-12 rounded-2xl text-white flex items-center justify-center font-black text-xl shadow-lg transition-transform group-hover:scale-110 ${avatarBg[index % avatarBg.length]}`}>
+                                    <tr key={customer._id} className="group bg-white/50 hover:bg-white hover:shadow-xl hover:shadow-slate-200/20 transition-all duration-300">
+                                        <td className="px-8 py-6 rounded-l-4xl">
+                                            <div className="flex items-center gap-5">
+                                                <div className={`w-14 h-14 rounded-3xl text-white flex items-center justify-center font-black text-2xl shadow-lg transition-all group-hover:scale-110 group-hover:rotate-3 ${avatarBg[index % avatarBg.length]}`}>
                                                     {(customer.companyName || '?').charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-black text-slate-900 tracking-tight">{customer.companyName}</p>
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[200px]">{customer.placeOfSupply || customer.state || 'Geographic Origin'}</p>
+                                                    <p className="text-base font-black text-slate-900 tracking-tight uppercase">{customer.companyName}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">{customer.placeOfSupply || customer.state || 'Global'}</p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <div className="space-y-1.5">
-                                                <div className="flex items-center gap-2 text-slate-900">
-                                                    <Phone size={12} className="text-emerald-500" strokeWidth={3} />
-                                                    <span className="text-xs font-black">{customer.mobile}</span>
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-3 text-slate-900">
+                                                    <div className="w-6 h-6 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                                        <Phone size={12} strokeWidth={3} />
+                                                    </div>
+                                                    <span className="text-sm font-black tracking-tight">{customer.mobile}</span>
                                                 </div>
                                                 {customer.email && (
-                                                    <div className="flex items-center gap-2 text-slate-400">
-                                                        <Mail size={12} strokeWidth={3} />
-                                                        <span className="text-[10px] font-bold">{customer.email}</span>
+                                                    <div className="flex items-center gap-3 text-slate-400">
+                                                        <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center">
+                                                            <Mail size={12} strokeWidth={3} />
+                                                        </div>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest">{customer.email}</span>
                                                     </div>
                                                 )}
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest border border-emerald-100">
-                                                {customer.gstin || 'NOT REGISTERED'}
+                                            <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors ${customer.gstin ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                                {customer.gstin || 'UNREGISTERED'}
                                             </span>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                                                 <span className="text-xs font-black text-slate-900 tracking-tight uppercase">{customer.state || 'Tamilnadu'}</span>
                                             </div>
                                         </td>
-                                        <td className="px-8 py-6">
-                                            <div className="flex justify-end gap-3">
+                                        <td className="px-8 py-6 rounded-r-4xl text-right">
+                                            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
                                                 <button
-                                                    className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                                                    className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                     onClick={() => handleOpenModal(customer)}
+                                                    title="Edit Customer"
                                                 >
                                                     <Pencil size={18} />
                                                 </button>
                                                 <button
-                                                    className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                                                    className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                     onClick={() => handleDeleteClick(customer)}
+                                                    title="Delete Customer"
                                                 >
                                                     <Trash2 size={18} />
                                                 </button>
@@ -314,22 +325,22 @@ const CustomerEntryPage = () => {
                     </table>
                 </div>
 
-                {/* Professional Pagination */}
+                {/* Professional Pagination Shell */}
                 {pagination.pages > 0 && (
-                    <div className="px-8 py-6 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-100">
-                        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
-                            Viewing: <span className="text-slate-900 font-black">{(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-slate-900 font-black">{pagination.total}</span> Customers
+                    <div className="px-10 py-10 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-8 border-t border-slate-100/50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                            Showing <span className="text-slate-900">{(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-slate-900">{pagination.total}</span> Customers
                         </p>
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-3">
                                 <button
                                     onClick={() => handlePageChange(pagination.page - 1)}
                                     disabled={pagination.page <= 1}
-                                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                                    className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300 disabled:opacity-30 transition-all flex items-center justify-center shadow-sm"
                                 >
-                                    <ChevronLeft size={18} />
+                                    <ChevronLeft size={20} />
                                 </button>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-2">
                                     {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
                                         const pageNum = Math.max(1, pagination.page - 2) + i;
                                         if (pageNum > pagination.pages) return null;
@@ -338,7 +349,7 @@ const CustomerEntryPage = () => {
                                             <button
                                                 key={pageNum}
                                                 onClick={() => handlePageChange(pageNum)}
-                                                className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${isActive ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                                className={`w-12 h-12 rounded-2xl text-[11px] font-black transition-all ${isActive ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20 scale-110' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                                             >
                                                 {pageNum}
                                             </button>
@@ -348,18 +359,18 @@ const CustomerEntryPage = () => {
                                 <button
                                     onClick={() => handlePageChange(pagination.page + 1)}
                                     disabled={pagination.page >= pagination.pages}
-                                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                                    className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300 disabled:opacity-30 transition-all flex items-center justify-center shadow-sm"
                                 >
-                                    <ChevronRight size={18} />
+                                    <ChevronRight size={20} />
                                 </button>
                             </div>
-                            <div className="h-8 w-px bg-slate-200 hidden md:block" />
-                            <div className="flex items-center p-1 bg-white border border-slate-200 rounded-xl">
+                            <div className="h-10 w-px bg-slate-200 hidden md:block" />
+                            <div className="flex items-center p-1.5 bg-white/50 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-inner">
                                 {[10, 25, 50].map(limit => (
                                     <button
                                         key={limit}
                                         onClick={() => handleLimitChange(limit)}
-                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${pagination.limit === limit ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                                        className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${pagination.limit === limit ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                                     >
                                         {limit}
                                     </button>

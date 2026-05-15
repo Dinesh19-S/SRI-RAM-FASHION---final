@@ -1,5 +1,6 @@
 import express from 'express';
 import Customer from '../models/Customer.js';
+import { emitEvent } from '../services/socketService.js';
 
 const router = express.Router();
 
@@ -60,6 +61,7 @@ router.post('/', async (req, res) => {
     try {
         const customer = new Customer(req.body);
         await customer.save();
+        emitEvent('customer:created', { data: customer });
         res.status(201).json({ success: true, data: customer });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -77,6 +79,7 @@ router.put('/:id', async (req, res) => {
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found' });
         }
+        emitEvent('customer:updated', { id: req.params.id, data: customer });
         res.json({ success: true, data: customer });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -94,6 +97,7 @@ router.delete('/:id', async (req, res) => {
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found' });
         }
+        emitEvent('customer:deleted', { id: req.params.id });
         res.json({ success: true, message: 'Customer deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

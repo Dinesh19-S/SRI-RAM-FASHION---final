@@ -15,7 +15,7 @@ import {
 import { formatDate } from '../utils/dateUtils';
 import { EmailActionModal, useToast } from '../components/common';
 import { getEmailRecipientValidation, pickDefaultRecipient } from '../utils/emailUtils';
-import { Loader2, Mail, Clock as ClockIcon, LayoutDashboard, IndianRupee, ShoppingCart, Package, Users } from 'lucide-react';
+import { Loader2, Mail, Clock as ClockIcon, LayoutDashboard, IndianRupee, ShoppingCart, Package, Users, TrendingUp } from 'lucide-react';
 
 // Static helpers outside component to prevent recreation
 const formatCurrency = (amount) =>
@@ -283,26 +283,31 @@ const DashboardPage = () => {
     return (
         <div className="space-y-10 animate-fade-in p-2">
             {/* Executive Header */}
-            <div className="page-header-shell bg-white/40 backdrop-blur-md border border-white/40 shadow-xl shadow-slate-200/20 rounded-3xl p-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-start gap-5">
-                        <div className="w-16 h-16 rounded-3xl bg-linear-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-                            <LayoutDashboard size={28} />
+            <div className="page-header-shell bg-white/60 backdrop-blur-2xl border border-white/50 shadow-premium rounded-[2.5rem] p-10 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl pointer-events-none"></div>
+                
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                    <div className="flex items-start gap-6">
+                        <div className="w-20 h-20 rounded-4xl bg-linear-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-2xl shadow-blue-500/20 group-hover:scale-105 transition-transform duration-500">
+                            <LayoutDashboard size={32} />
                         </div>
-                        <div className="space-y-1">
-                            <p className="text-[11px] font-black text-blue-600 uppercase tracking-[0.3em]">Overview</p>
-                            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Dashboard</h1>
-                            <div className="flex items-center gap-3 pt-1">
-                                <p className="text-sm font-bold text-slate-500">Hi, {user?.name?.split(' ')[0] || 'User'}</p>
-                                <span className="w-1 h-1 rounded-full bg-slate-300" />
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em]">Overview</p>
+                            <h1 className="text-5xl font-black text-slate-900 tracking-tighter">Dashboard</h1>
+                            <div className="flex items-center gap-4 pt-1">
+                                <div className="px-4 py-1.5 bg-slate-900 text-white rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Live Session
+                                </div>
                                 <DigitalClock />
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <div className="hidden xl:flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100/50">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Real-time Updates</span>
+                    <div className="flex flex-col items-end gap-3">
+                        <div className="text-right hidden md:block">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User</p>
+                            <p className="text-lg font-black text-slate-900">{user?.name || 'Admin'}</p>
                         </div>
                         <button
                             onClick={handleSendSummary}
@@ -316,18 +321,19 @@ const DashboardPage = () => {
                 </div>
             </div>
 
-            {/* Core Intelligence Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {[
-                    { label: 'Total Sales', value: formatCurrency(stats.totalRevenue), note: 'Monthly Performance', icon: IndianRupee, color: 'blue', trend: '+12.5%' },
-                    { label: 'Active Orders', value: stats.totalOrders || 0, note: `${orderStatusCounts.pending} Pending Bills`, icon: ShoppingCart, color: 'emerald', trend: '+5.2%' },
-                    { label: 'Total Items', value: productCount, note: `${categoryData.length} Categories`, icon: Package, color: 'indigo', trend: 'Optimal' },
-                    { label: 'Customers', value: stats.totalCustomers || 0, note: 'Saved in system', icon: Users, color: 'amber', trend: '+3 new' }
+                    { label: 'Sales', value: formatCurrency(stats.salesRevenue), note: 'Revenue', icon: IndianRupee, color: 'blue', trend: '+12.5%' },
+                    { label: 'Purchases', value: formatCurrency(stats.purchaseExpense), note: 'Cost', icon: ShoppingCart, color: 'emerald', trend: 'Active' },
+                    { label: 'Profit', value: formatCurrency(stats.totalRevenue), note: 'Net', icon: TrendingUp, color: 'purple', trend: 'Healthy' },
+                    { label: 'Items', value: productCount, note: `${categoryData.length} Groups`, icon: Package, color: 'indigo', trend: 'Optimal' },
+                    { label: 'Clients', value: stats.totalCustomers || 0, note: 'Saved', icon: Users, color: 'amber', trend: '+3 new' }
                 ].map((item, i) => (
                     <div key={i} className="glass-card p-8 border-none group hover:translate-y-[-4px] transition-all duration-500">
                         <div className="flex items-start justify-between mb-6">
                             <div className={`w-14 h-14 rounded-2xl bg-${item.color}-50 text-${item.color}-600 flex items-center justify-center border border-${item.color}-100 shadow-sm group-hover:scale-110 transition-transform`}>
-                                <item.icon size={24} />
+                                {item.icon && <item.icon size={24} />}
                             </div>
                             <span className={`text-[10px] font-black px-2 py-1 rounded-lg bg-${item.color}-50 text-${item.color}-700 uppercase tracking-widest`}>
                                 {item.trend}
@@ -335,8 +341,8 @@ const DashboardPage = () => {
                         </div>
                         <div className="space-y-1">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">{item.value}</h2>
-                            <p className="text-xs font-bold text-slate-500 pt-1">{item.note}</p>
+                            <h2 className="text-2xl font-black text-slate-900 tracking-tight">{item.value}</h2>
+                            <p className="text-[10px] font-bold text-slate-500 pt-1 uppercase tracking-widest">{item.note}</p>
                         </div>
                     </div>
                 ))}
@@ -347,8 +353,8 @@ const DashboardPage = () => {
                 <div className="glass-card lg:col-span-2 p-8 border-none flex flex-col">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
                         <div className="space-y-1">
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Sales Analytics</h3>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Revenue & Sales Trends</p>
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Sales</h3>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Revenue Overview</p>
                         </div>
                         <div className="flex p-1.5 bg-slate-100/50 rounded-2xl backdrop-blur-sm border border-slate-200/50">
                             {['week', 'month', 'year'].map((p) => (
@@ -447,7 +453,7 @@ const DashboardPage = () => {
                 </div>
             </div>
 
-            {/* Tactical Grid */}
+            {/* Stock and Transactions */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="glass-card p-8 border-none flex flex-col">
                     <div className="flex items-center justify-between mb-8">

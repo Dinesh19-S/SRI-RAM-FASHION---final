@@ -99,6 +99,11 @@ export const ENDPOINTS = {
     backup: {
         export: '/backup/export',
         import: '/backup/import'
+    },
+    fabricPurchases: {
+        list: '/fabric-purchases',
+        byId: (id) => `/fabric-purchases/${encodeId(id)}`,
+        search: '/fabric-purchases/search'
     }
 };
 

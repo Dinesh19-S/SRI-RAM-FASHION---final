@@ -1,10 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { createPortal } from 'react-dom';
 import { ShoppingCart, Plus, Search, Eye, Trash2, X, Save, Building2, Calendar, FileText, IndianRupee, Package, Trash, Edit, CheckCircle2, Printer, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
-import { purchaseEntriesAPI, suppliersAPI, productsAPI } from '../services/api';
+import { motion, AnimatePresence } from 'framer-motion';
+import { fabricPurchasesAPI, suppliersAPI, productsAPI } from '../services/api';
+import { 
+    fetchFabricPurchases, 
+    createFabricPurchase, 
+    deleteFabricPurchase, 
+    updateFabricPurchase 
+} from '../store/slices/fabricPurchasesSlice';
+import { fetchSettings } from '../store/slices/settingsSlice';
 import { useToast } from '../components/common';
 import BillTemplate from '../components/BillTemplate';
-import { fetchSettings } from '../store/slices/settingsSlice';
 
 const avatarBg = ['bg-indigo-500', 'bg-blue-500', 'bg-emerald-500', 'bg-teal-500', 'bg-slate-500'];
 
@@ -12,57 +20,37 @@ const PurchaseEntryPage = () => {
     const toast = useToast();
     const dispatch = useDispatch();
     const settings = useSelector((state) => state.settings.data);
+    const { items: entries, isLoading, pagination } = useSelector((state) => state.fabricPurchases);
     const resolvedSettings = settings || { company: {}, bank: {}, tax: { cgstRate: 0, sgstRate: 0 } };
-    const [entries, setEntries] = useState([]);
+    
     const [suppliers, setSuppliers] = useState([]);
     const [products, setProducts] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [editingId, setEditingId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedEntry, setSelectedEntry] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
+    const [currentPage, setCurrentPage] = useState(1);
 
     const [formData, setFormData] = useState({
-        supplier: '',
-        billNumber: '',
-        date: new Date().toISOString().split('T')[0],
-        items: [{ product: '', quantity: '', rate: '', total: 0 }],
-        totalAmount: 0,
-        paymentStatus: 'pending',
-        notes: ''
+        supplier_name: '',
+        invoice_number: '',
+        invoice_date: new Date().toISOString().split('T')[0],
+        items: [{ fabric_name: '', weight_kg: '', rate_per_kg: '', color: '', gsm: '', roll_no: '' }],
+        transport: '',
+        vehicle_number: '',
+        lr_number: '',
+        gstin: '',
+        mobile: ''
     });
 
     useEffect(() => {
         dispatch(fetchSettings());
-        fetchEntries();
+        dispatch(fetchFabricPurchases({ page: currentPage, search: searchQuery }));
         fetchSuppliers();
         fetchProducts();
-    }, [pagination.page, pagination.limit]);
-
-    const fetchEntries = async () => {
-        setIsLoading(true);
-        try {
-            const response = await purchaseEntriesAPI.getAll({
-                search: searchQuery,
-                page: pagination.page,
-                limit: pagination.limit
-            });
-            setEntries(response.data.data || []);
-            setPagination(prev => ({
-                ...prev,
-                total: response.data.pagination?.total || 0,
-                pages: response.data.pagination?.pages || 0
-            }));
-        } catch (error) {
-            console.error('Error fetching entries:', error);
-            toast.error('Error: Could not load purchase history');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    }, [dispatch, currentPage, searchQuery]);
 
     const fetchSuppliers = async () => {
         try {
@@ -83,8 +71,8 @@ const PurchaseEntryPage = () => {
     };
 
     const handleSearch = () => {
-        setPagination(prev => ({ ...prev, page: 1 }));
-        fetchEntries();
+        setCurrentPage(1);
+        dispatch(fetchFabricPurchases({ page: 1, search: searchQuery }));
     };
 
     const handleInputChange = (e) => {
@@ -95,102 +83,175 @@ const PurchaseEntryPage = () => {
     const handleItemChange = (index, field, value) => {
         const newItems = [...formData.items];
         newItems[index][field] = value;
-
-        if (field === 'quantity' || field === 'rate') {
-            const qty = parseFloat(newItems[index].quantity) || 0;
-            const rate = parseFloat(newItems[index].rate) || 0;
-            newItems[index].total = qty * rate;
-        }
-
-        const total = newItems.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
-        setFormData(prev => ({ ...prev, items: newItems, totalAmount: total }));
+        setFormData(prev => ({ ...prev, items: newItems }));
     };
 
     const addItem = () => {
         setFormData(prev => ({
             ...prev,
-            items: [...prev.items, { product: '', quantity: '', rate: '', total: 0 }]
+            items: [...prev.items, { fabric_name: '', weight_kg: '', rate_per_kg: '', color: '', gsm: '', roll_no: '' }]
         }));
     };
 
     const removeItem = (index) => {
         if (formData.items.length === 1) return;
         const newItems = formData.items.filter((_, i) => i !== index);
-        const total = newItems.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
-        setFormData(prev => ({ ...prev, items: newItems, totalAmount: total }));
+        setFormData(prev => ({ ...prev, items: newItems }));
     };
 
     const handleSave = async () => {
-        if (!formData.supplier || !formData.billNumber || formData.items.some(item => !item.product || !item.quantity || !item.rate)) {
-            toast.warning('Error: Please fill all fields');
+        // Basic validation
+        if (!formData.supplier_name) {
+            toast.warning('Please enter supplier name');
+            return;
+        }
+        if (!formData.invoice_number) {
+            toast.warning('Please enter invoice number');
+            return;
+        }
+        if (formData.items.some(item => !item.fabric_name || !item.weight_kg || !item.rate_per_kg)) {
+            toast.warning('Please fill fabric details (name, weight, and rate)');
             return;
         }
 
         setIsSubmitting(true);
+        const toastId = toast.loading('Saving purchase record...');
+
         try {
-            const response = await purchaseEntriesAPI.create(formData);
-            if (response.data.success) {
-                const newEntryId = response.data.data._id;
-                if (selectedFile) {
-                    try {
-                        await purchaseEntriesAPI.uploadBillPdf(newEntryId, selectedFile);
-                    } catch (uploadError) {
-                        toast.error('Saved: Purchase added, but file upload failed');
-                    }
-                }
-                toast.success('Success: Purchase record added');
-                setShowModal(false);
-                resetForm();
-                fetchEntries();
+            // Ensure numbers are numbers
+            const formattedData = {
+                ...formData,
+                items: formData.items.map(item => ({
+                    ...item,
+                    weight_kg: Number(item.weight_kg),
+                    rate_per_kg: Number(item.rate_per_kg),
+                    gsm: item.gsm ? Number(item.gsm) : undefined,
+                    amount: Number(item.weight_kg) * Number(item.rate_per_kg)
+                }))
+            };
+
+            if (editingId) {
+                await dispatch(updateFabricPurchase({ id: editingId, data: formattedData })).unwrap();
+                toast.update(toastId, { 
+                    message: 'Purchase record updated successfully', 
+                    type: 'success',
+                    duration: 3000 
+                });
+            } else {
+                await dispatch(createFabricPurchase(formattedData)).unwrap();
+                toast.update(toastId, { 
+                    message: 'Purchase record saved successfully', 
+                    type: 'success',
+                    duration: 3000 
+                });
             }
+            setShowModal(false);
+            resetForm();
+            setEditingId(null);
         } catch (error) {
-            toast.error('System Error: ' + (error.response?.data?.message || error.message));
+            toast.update(toastId, { 
+                message: 'Failed to save: ' + error, 
+                type: 'error',
+                duration: 5000 
+            });
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const resetForm = () => {
+        setEditingId(null);
         setFormData({
-            supplier: '',
-            billNumber: '',
-            date: new Date().toISOString().split('T')[0],
-            items: [{ product: '', quantity: '', rate: '', total: 0 }],
-            totalAmount: 0,
-            paymentStatus: 'pending',
-            notes: ''
+            supplier_name: '',
+            invoice_number: '',
+            invoice_date: new Date().toISOString().split('T')[0],
+            items: [{ fabric_name: '', weight_kg: '', rate_per_kg: '', color: '', gsm: '', roll_no: '' }],
+            transport: '',
+            vehicle_number: '',
+            lr_number: '',
+            gstin: '',
+            mobile: ''
         });
-        setSelectedFile(null);
     };
 
-    const handleViewEntry = (entry) => {
-        setSelectedEntry(entry);
-        setShowViewModal(true);
+    const handleViewEntry = async (entry) => {
+        const toastId = toast.loading('Loading invoice details...');
+        try {
+            const response = await fabricPurchasesAPI.getById(entry._id);
+            setSelectedEntry(response.data.data);
+            setShowViewModal(true);
+            toast.update(toastId, { message: 'Loaded successfully', type: 'success', duration: 1000 });
+        } catch (error) {
+            toast.update(toastId, { message: 'Failed to load details', type: 'error', duration: 3000 });
+        }
+    };
+
+    const handleEdit = async (entry) => {
+        const toastId = toast.loading('Fetching details...');
+        try {
+            const response = await fabricPurchasesAPI.getById(entry._id);
+            const fullEntry = response.data.data;
+            
+            setEditingId(fullEntry._id);
+            setFormData({
+                supplier_name: fullEntry.supplier_name,
+                gstin: fullEntry.gstin || '',
+                mobile: fullEntry.mobile || '',
+                invoice_number: fullEntry.invoice_number,
+                invoice_date: fullEntry.invoice_date ? new Date(fullEntry.invoice_date).toISOString().split('T')[0] : '',
+                transport: fullEntry.transport || '',
+                vehicle_number: fullEntry.vehicle_number || '',
+                lr_number: fullEntry.lr_number || '',
+                items: fullEntry.items?.map(item => ({
+                    fabric_name: item.fabric_name,
+                    weight_kg: item.weight_kg,
+                    rate_per_kg: item.rate_per_kg,
+                    color: item.color || '',
+                    gsm: item.gsm || '',
+                    roll_no: item.roll_no || ''
+                })) || [{ fabric_name: '', weight_kg: '', rate_per_kg: '', color: '', gsm: '', roll_no: '' }]
+            });
+            
+            toast.update(toastId, { message: 'Details loaded', type: 'success', duration: 1000 });
+            setShowModal(true);
+        } catch (error) {
+            toast.update(toastId, { message: 'Failed to load details', type: 'error', duration: 3000 });
+        }
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm('Are you sure you want to delete this record?')) return;
+        
+        const toastId = toast.loading('Removing record...');
         try {
-            await purchaseEntriesAPI.delete(id);
-            toast.success('Deleted: Purchase record removed');
-            fetchEntries();
+            await dispatch(deleteFabricPurchase(id)).unwrap();
+            toast.update(toastId, { 
+                message: 'Purchase record removed', 
+                type: 'success',
+                duration: 3000 
+            });
         } catch (error) {
-            toast.error('Error: Could not delete record');
+            toast.update(toastId, { 
+                message: 'Error: Could not delete record', 
+                type: 'error',
+                duration: 5000 
+            });
+            dispatch(fetchFabricPurchases());
         }
     };
 
     const formatCurrency = (a) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(a) || 0);
 
     const metrics = useMemo(() => {
-        const totalValue = entries.reduce((sum, e) => sum + (e.totalAmount || 0), 0);
-        const pendingValue = entries.filter(e => e.paymentStatus === 'pending').reduce((sum, e) => sum + (e.totalAmount || 0), 0);
-        const paidCount = entries.filter(e => e.paymentStatus === 'paid').length;
-        const totalCount = entries.length;
+        const totalValue = (entries || []).reduce((sum, e) => sum + (e.total_amount || 0), 0);
+        const totalWeight = (entries || []).reduce((sum, e) => sum + (e.total_weight || 0), 0);
+        const totalRolls = (entries || []).reduce((sum, e) => sum + (e.total_rolls || 0), 0);
+        const totalCount = entries?.length || 0;
 
         return {
             totalValue,
-            pendingValue,
-            paidPercent: totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0,
+            totalWeight,
+            totalRolls,
             avgBill: totalCount > 0 ? Math.round(totalValue / totalCount) : 0
         };
     }, [entries]);
@@ -198,144 +259,130 @@ const PurchaseEntryPage = () => {
     return (
         <div className="space-y-10 animate-fade-in p-2 pb-20">
             {/* Elite Procurement Header */}
-            <div className="page-header-shell bg-white/40 backdrop-blur-md border border-white/40 shadow-xl shadow-slate-200/20 rounded-3xl p-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-start gap-5">
-                        <div className="w-16 h-16 rounded-3xl bg-linear-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                            <ShoppingCart size={28} />
+            <div className="page-header-shell bg-white/60 backdrop-blur-2xl border border-white/50 shadow-premium rounded-[2.5rem] p-10 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>
+                
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                    <div className="flex items-start gap-6">
+                        <div className="w-20 h-20 rounded-4xl bg-linear-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-2xl shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-500">
+                            <ShoppingCart size={32} />
                         </div>
-                        <div className="space-y-1">
-                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Purchase History</p>
-                            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Purchase List</h1>
-                            <p className="text-sm font-bold text-slate-500 pt-1">Track all your stock purchases and vendor bills.</p>
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Purchase</p>
+                            <h1 className="text-5xl font-black text-slate-900 tracking-tighter">New Purchase</h1>
+                            <p className="text-sm font-bold text-slate-500 pt-1">Manage your fabric purchases.</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <button
-                            className="btn btn-secondary px-6 py-4 rounded-2xl flex items-center gap-2 group"
-                            onClick={() => fetchEntries()}
+                            onClick={() => dispatch(fetchFabricPurchases({ page: currentPage, search: searchQuery }))}
+                            className="btn btn-secondary px-8 py-4 rounded-2xl flex items-center gap-3 group border-none bg-slate-100 hover:bg-slate-200 transition-all"
                         >
-                            <Zap size={18} className="text-emerald-500 group-hover:animate-pulse" />
-                            <span className="font-black uppercase tracking-widest text-[11px]">Refresh</span>
+                            <Zap size={20} className="text-emerald-500 group-hover:animate-pulse" />
+                            <span className="font-black uppercase tracking-widest text-[11px] text-slate-700">Refresh Data</span>
                         </button>
                         <button
-                            className="btn btn-primary px-8 py-4 rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 border-none bg-emerald-600 text-white"
                             onClick={() => setShowModal(true)}
+                            className="btn btn-primary px-8 py-4 rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 border-none bg-emerald-600 text-white"
                         >
                             <Plus size={20} strokeWidth={3} />
-                            <span className="font-black uppercase tracking-widest text-xs">New Purchase</span>
+                            <span className="font-black uppercase tracking-widest text-[11px]">New Purchase</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Strategic Intelligence Dashboard */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="glass-card p-6 border-none group hover:scale-[1.02] transition-all">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Purchase Value</p>
-                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{formatCurrency(metrics.totalValue)}</h3>
+            {/* Stats Dashboard */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="glass-card p-8 group hover:shadow-glow-blue border-none">
+                    <div className="flex items-start justify-between mb-6">
+                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-500">
+                            <IndianRupee size={24} />
                         </div>
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
-                            <TrendingUp size={24} />
-                        </div>
+                        <div className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[9px] font-black rounded-lg uppercase tracking-widest">Invoiced</div>
                     </div>
-                    <div className="mt-6 flex items-center gap-2">
-                        <div className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[9px] font-black rounded-lg uppercase">Active</div>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{entries.length} Invoices Tracked</p>
-                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total Procurement</p>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{formatCurrency(metrics.totalValue)}</h3>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pt-4">{entries?.length || 0} Invoices</p>
                 </div>
 
-                <div className="glass-card p-6 border-none group hover:scale-[1.02] transition-all border-l-4 border-amber-400">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Pending Payments</p>
-                            <h3 className="text-3xl font-black text-amber-600 tracking-tighter">{formatCurrency(metrics.pendingValue)}</h3>
+                <div className="glass-card p-8 group hover:shadow-glow-blue border-none border-l-4 border-amber-500">
+                    <div className="flex items-start justify-between mb-6">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-600 group-hover:text-white transition-all duration-500">
+                            <Package size={24} />
                         </div>
-                        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                            <AlertTriangle size={24} />
-                        </div>
+                        <div className="px-2 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-lg uppercase tracking-widest">Weight</div>
                     </div>
-                    <div className="mt-6">
-                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div className="bg-amber-400 h-full" style={{ width: `${100 - metrics.paidPercent}%` }}></div>
-                        </div>
-                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total Net Weight</p>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{metrics.totalWeight.toFixed(2)} <span className="text-xs text-slate-400 uppercase">Kg</span></h3>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pt-4">Consolidated Stock Inflow</p>
                 </div>
 
-                <div className="glass-card p-6 border-none group hover:scale-[1.02] transition-all border-l-4 border-indigo-400">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Payment Progress</p>
-                            <h3 className="text-3xl font-black text-indigo-600 tracking-tighter">{metrics.paidPercent}%</h3>
-                        </div>
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div className="glass-card p-8 group hover:shadow-glow-blue border-none border-l-4 border-indigo-500">
+                    <div className="flex items-start justify-between mb-6">
+                        <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
                             <CheckCircle2 size={24} />
                         </div>
+                        <div className="px-2 py-1 bg-indigo-100 text-indigo-700 text-[9px] font-black rounded-lg uppercase tracking-widest">Units</div>
                     </div>
-                    <div className="mt-6 flex items-center gap-2">
-                         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{entries.filter(e => e.paymentStatus === 'paid').length} Invoices Cleared</p>
-                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total Rolls</p>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{metrics.totalRolls} <span className="text-xs text-slate-400 uppercase">Units</span></h3>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pt-4">Fabric Bundles Received</p>
                 </div>
 
-                <div className="glass-card p-6 border-none group hover:scale-[1.02] transition-all">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">Average Purchase</p>
-                            <h3 className="text-3xl font-black text-slate-700 tracking-tighter">{formatCurrency(metrics.avgBill)}</h3>
-                        </div>
-                        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                <div className="glass-card p-8 group hover:shadow-glow-blue border-none">
+                    <div className="flex items-start justify-between mb-6">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-600 flex items-center justify-center border border-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all duration-500">
                             <FileText size={24} />
                         </div>
+                        <div className="px-2 py-1 bg-slate-100 text-slate-600 text-[9px] font-black rounded-lg uppercase tracking-widest">Average</div>
                     </div>
-                    <div className="mt-6 flex items-center gap-2">
-                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Optimized Order Volume</span>
-                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Avg Invoice Value</p>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{formatCurrency(metrics.avgBill)}</h3>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pt-4">Procurement Efficiency</p>
                 </div>
             </div>
 
-            {/* Procurement Intelligence Filters */}
-            <div className="glass-card p-8 border-none">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                    <div className="flex-1 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search by Bill #, Supplier, or Date..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="form-input pl-12 py-4 bg-slate-50 border-none shadow-inner rounded-2xl font-bold"
-                        />
+            {/* Filters */}
+            <div className="glass-card p-10 border-none relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-emerald-500 to-teal-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="flex flex-col lg:flex-row lg:items-end gap-8">
+                    <div className="flex-1 space-y-3">
+                        <label className="form-label">Search</label>
+                        <div className="relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Search by Invoice #, Supplier, or Fabric..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                className="form-input pl-12 py-4 bg-slate-50/50 border-slate-100 hover:bg-white transition-all font-bold w-full"
+                            />
+                        </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <select className="px-6 py-4 rounded-2xl bg-slate-100 border-none font-black uppercase tracking-widest text-[11px] outline-none">
-                            <option value="">All Payment Status</option>
-                            <option value="paid">Paid Bills</option>
-                            <option value="pending">Unpaid Bills</option>
-                        </select>
+                    <div className="flex items-center gap-4">
                         <button
                             onClick={handleSearch}
                             disabled={isLoading}
-                            className="px-8 py-4 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-[11px] flex items-center gap-2 group hover:bg-slate-800 transition-all active:scale-95"
+                            className="px-10 py-4 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-[0.2em] text-[10px] flex items-center gap-3 group hover:bg-emerald-600 transition-all active:scale-95 shadow-xl shadow-slate-900/10 hover:shadow-emerald-500/20"
                         >
-                            {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={16} className="group-hover:scale-110 transition-transform" />}
+                            {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={18} className="group-hover:scale-110 transition-transform" />}
                             Search
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Purchase Ledger Table */}
+            {/* Purchase List Table */}
             <div className="glass-card p-0 border-none overflow-hidden">
                 <div className="p-8 pb-4 flex items-center justify-between">
                     <div className="space-y-1">
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight">All Purchases</h3>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">History</p>
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Purchases</h3>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Purchase List</p>
                     </div>
                     <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100/50">
-                        <span className="text-[11px] font-black uppercase tracking-widest">{pagination.total} Purchase Records</span>
+                        <span className="text-[11px] font-black uppercase tracking-widest">{pagination?.total || 0} Records</span>
                     </div>
                 </div>
 
@@ -344,10 +391,10 @@ const PurchaseEntryPage = () => {
                         <thead>
                             <tr className="bg-slate-50/50">
                                 <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Date</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Bill Number</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Supplier Name</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Invoice #</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Supplier</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Weight (Kg)</th>
                                 <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Amount</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Status</th>
                                 <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
@@ -357,18 +404,18 @@ const PurchaseEntryPage = () => {
                                     <td colSpan="6" className="px-8 py-32 text-center">
                                         <div className="flex flex-col items-center justify-center gap-4">
                                             <div className="w-12 h-12 border-4 border-slate-100 border-t-emerald-600 rounded-full animate-spin" />
-                                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Loading Data...</p>
+                                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Loading Purchases...</p>
                                         </div>
                                     </td>
                                 </tr>
-                            ) : entries.length === 0 ? (
+                            ) : !entries || entries.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="px-8 py-32 text-center">
                                         <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-dashed border-slate-200">
                                             <ShoppingCart size={32} className="text-slate-300" />
                                         </div>
-                                        <h4 className="text-lg font-black text-slate-900 tracking-tight mb-1">No Records</h4>
-                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">No purchases found.</p>
+                                        <h4 className="text-lg font-black text-slate-900 tracking-tight mb-1">No Fabric Records</h4>
+                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Start by adding your first fabric purchase.</p>
                                     </td>
                                 </tr>
                             ) : (
@@ -377,63 +424,57 @@ const PurchaseEntryPage = () => {
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex flex-col items-center justify-center shadow-sm group-hover:border-emerald-200 transition-all">
-                                                    <span className="text-[10px] font-black text-slate-500 leading-none uppercase">{new Date(entry.date).toLocaleString('default', { month: 'short' })}</span>
-                                                    <span className="text-xl font-black text-slate-900 leading-none mt-1">{new Date(entry.date).getDate()}</span>
+                                                    <span className="text-[10px] font-black text-slate-500 leading-none uppercase">{new Date(entry.invoice_date).toLocaleString('default', { month: 'short' })}</span>
+                                                    <span className="text-xl font-black text-slate-900 leading-none mt-1">{new Date(entry.invoice_date).getDate()}</span>
                                                 </div>
-                                                <span className="text-[11px] font-bold text-slate-500">{new Date(entry.date).getFullYear()}</span>
+                                                <span className="text-[11px] font-bold text-slate-500">{new Date(entry.invoice_date).getFullYear()}</span>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-black text-slate-900 tracking-tight uppercase group-hover:text-emerald-700 transition-colors">{entry.billNumber}</span>
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">ID: {entry._id.slice(-8)}</span>
+                                                <span className="text-sm font-black text-slate-900 tracking-tight uppercase group-hover:text-emerald-700 transition-colors">{entry.invoice_number}</span>
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Rolls: {entry.total_rolls}</span>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-xl text-white flex items-center justify-center font-black text-xs shadow-lg ${avatarBg[index % avatarBg.length]}`}>
-                                                    {entry.supplier?.companyName?.charAt(0) || 'V'}
+                                                    {entry.supplier_name?.charAt(0) || 'V'}
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-black text-slate-900 tracking-tight">{entry.supplier?.companyName || 'Unknown Vendor'}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase">{entry.supplier?.mobile || 'No Profile'}</span>
+                                                    <span className="text-sm font-black text-slate-900 tracking-tight">{entry.supplier_name}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase">{entry.gstin || 'No GSTIN'}</span>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
                                             <div className="flex flex-col">
-                                                <span className="text-base font-black text-slate-900 tracking-tighter">{formatCurrency(entry.totalAmount)}</span>
-                                                <span className="text-[9px] text-emerald-600 font-black uppercase tracking-widest">Incl. 5% GST</span>
+                                                <span className="text-base font-black text-slate-900 tracking-tighter">{entry.total_weight.toFixed(2)} Kg</span>
+                                                <span className="text-[9px] text-amber-600 font-black uppercase tracking-widest">Fabric Weight</span>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border-2 flex items-center gap-2 w-fit ${
-                                                entry.paymentStatus === 'paid' 
-                                                ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
-                                                : 'bg-amber-50 border-amber-100 text-amber-700'
-                                            }`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${entry.paymentStatus === 'paid' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                                                {entry.paymentStatus}
-                                            </span>
+                                            <div className="flex flex-col">
+                                                <span className="text-base font-black text-slate-900 tracking-tighter">{formatCurrency(entry.total_amount)}</span>
+                                                <span className="text-[9px] text-emerald-600 font-black uppercase tracking-widest">Total Invoice</span>
+                                            </div>
                                         </td>
-                                        <td className="px-8 py-6">
+                                        <td className="px-8 py-6 text-right">
                                             <div className="flex justify-end gap-3">
                                                 <button
                                                     className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                     onClick={() => handleViewEntry(entry)}
+                                                    title="View Details"
                                                 >
                                                     <Eye size={18} />
                                                 </button>
-                                                {entry.billPdf && (
-                                                    <a
-                                                        href={`http://localhost:5000/${entry.billPdf}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
-                                                    >
-                                                        <FileText size={18} />
-                                                    </a>
-                                                )}
+                                                <button
+                                                    className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                                                    onClick={() => handleEdit(entry)}
+                                                    title="Edit Record"
+                                                >
+                                                    <Edit size={18} />
+                                                </button>
                                                 <button
                                                     className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                     onClick={() => handleDelete(entry._id)}
@@ -452,98 +493,116 @@ const PurchaseEntryPage = () => {
                 {/* Professional Pagination */}
                 <div className="px-8 py-6 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-100">
                     <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
-                        Purchase Entries: <span className="text-slate-900 font-black">{(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-slate-900 font-black">{pagination.total}</span> Records
+                        Page <span className="text-slate-900 font-black">{pagination?.page || 1}</span> of <span className="text-slate-900 font-black">{pagination?.pages || 1}</span>
                     </p>
-                    {pagination.pages > 1 && (
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-                                    disabled={pagination.page <= 1}
-                                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
-                                >
-                                    <ChevronLeft size={18} />
-                                </button>
-                                <div className="flex items-center gap-1">
-                                    {Array.from({ length: pagination.pages }, (_, i) => {
-                                        const pageNum = i + 1;
-                                        const isActive = pagination.page === pageNum;
-                                        return (
-                                            <button
-                                                key={pageNum}
-                                                onClick={() => setPagination(p => ({ ...p, page: pageNum }))}
-                                                className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${isActive ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <button
-                                    onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-                                    disabled={pagination.page >= pagination.pages}
-                                    className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
-                                >
-                                    <ChevronRight size={18} />
-                                </button>
-                            </div>
+                    {pagination?.pages > 1 && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(p => p - 1)}
+                                disabled={currentPage <= 1}
+                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                            >
+                                <ChevronLeft size={18} />
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(p => p + 1)}
+                                disabled={currentPage >= (pagination?.pages || 1)}
+                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
+                            >
+                                <ChevronRight size={18} />
+                            </button>
                         </div>
                     )}
                 </div>
             </div>
 
             {/* High-Performance Recording Modal */}
-            {showModal && (
-                <div className="modal-overlay bg-slate-900/60 p-4" onClick={() => !isSubmitting && setShowModal(false)}>
-                    <div className="modal-content max-w-6xl border-none animate-slide-up rounded-4xl" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-8 border-b flex items-center justify-between bg-emerald-50/50 rounded-t-4xl">
+            {showModal && createPortal(
+                <div className="modal-overlay" onClick={() => !isSubmitting && setShowModal(false)}>
+                    <div className="modal-content max-w-7xl w-[95vw] lg:w-full border-none shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-emerald-50/30">
                             <div className="flex items-center gap-5">
                                 <div className="w-16 h-16 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
                                     <ShoppingCart size={32} />
                                 </div>
                                 <div>
-                                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter">New Purchase Record</h3>
+                                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter">New Fabric Purchase</h3>
                                     <div className="flex items-center gap-2 mt-1">
                                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Entry Session</span>
+                                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Active Entry Session</span>
                                     </div>
                                 </div>
-                            </div>
-                            <button className="p-4 rounded-2xl hover:bg-white text-slate-400 transition-all" onClick={() => setShowModal(false)}><X size={24} /></button>
                         </div>
+                        <button className="w-12 h-12 rounded-2xl hover:bg-white hover:shadow-sm text-slate-400 hover:text-slate-900 transition-all flex items-center justify-center" onClick={() => setShowModal(false)}><X size={24} /></button>
+                    </div>
 
-                        <div className="p-10 space-y-10 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                        <div className="p-10 space-y-12 max-h-[80vh] overflow-y-auto custom-scrollbar bg-white">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                                 <div className="space-y-2 md:col-span-2">
-                                    <label className="form-label">Select Supplier *</label>
-                                    <select
-                                        name="supplier"
-                                        className="form-input py-4 px-6 font-black text-lg"
-                                        value={formData.supplier}
-                                        onChange={handleInputChange}
-                                    >
-                                        <option value="">Select Supplier...</option>
-                                        {suppliers.map(s => <option key={s._id} value={s._id}>{s.companyName}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="form-label">Bill Number</label>
+                                    <label className="form-label text-[11px] font-black text-slate-500 uppercase tracking-widest">Supplier Name *</label>
                                     <input
                                         type="text"
-                                        name="billNumber"
-                                        className="form-input py-4 px-6 font-mono font-black uppercase tracking-widest"
-                                        placeholder="BILL-IDENTIFIER"
-                                        value={formData.billNumber}
+                                        name="supplier_name"
+                                        className="form-input py-4 px-6 font-black text-lg bg-slate-50 border-none shadow-inner rounded-2xl w-full"
+                                        placeholder="Enter Supplier Name"
+                                        value={formData.supplier_name}
                                         onChange={handleInputChange}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="form-label">Date</label>
+                                    <label className="form-label text-[11px] font-black text-slate-500 uppercase tracking-widest">Invoice Number *</label>
+                                    <input
+                                        type="text"
+                                        name="invoice_number"
+                                        className="form-input py-4 px-6 font-mono font-black uppercase tracking-widest bg-slate-50 border-none shadow-inner rounded-2xl w-full"
+                                        placeholder="INV/2024/001"
+                                        value={formData.invoice_number}
+                                        onChange={handleInputChange}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="form-label text-[11px] font-black text-slate-500 uppercase tracking-widest">Invoice Date</label>
                                     <input
                                         type="date"
-                                        name="date"
-                                        className="form-input py-4 px-6 font-black"
-                                        value={formData.date}
+                                        name="invoice_date"
+                                        className="form-input py-4 px-6 font-black bg-slate-50 border-none shadow-inner rounded-2xl w-full"
+                                        value={formData.invoice_date}
+                                        onChange={handleInputChange}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-2">
+                                    <label className="form-label text-[11px] font-black text-slate-500 uppercase tracking-widest">GSTIN</label>
+                                    <input
+                                        type="text"
+                                        name="gstin"
+                                        className="form-input py-4 px-6 font-black bg-slate-50 border-none shadow-inner rounded-2xl w-full"
+                                        placeholder="33XXXXXXXXXXXXX"
+                                        value={formData.gstin}
+                                        onChange={handleInputChange}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="form-label text-[11px] font-black text-slate-500 uppercase tracking-widest">Mobile Number</label>
+                                    <input
+                                        type="text"
+                                        name="mobile"
+                                        className="form-input py-4 px-6 font-black bg-slate-50 border-none shadow-inner rounded-2xl w-full"
+                                        placeholder="10-digit mobile"
+                                        value={formData.mobile}
+                                        onChange={handleInputChange}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="form-label text-[11px] font-black text-slate-500 uppercase tracking-widest">Transport</label>
+                                    <input
+                                        type="text"
+                                        name="transport"
+                                        className="form-input py-4 px-6 font-black bg-slate-50 border-none shadow-inner rounded-2xl w-full"
+                                        placeholder="Transport Name"
+                                        value={formData.transport}
                                         onChange={handleInputChange}
                                     />
                                 </div>
@@ -551,152 +610,166 @@ const PurchaseEntryPage = () => {
 
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Purchase Items</h4>
+                                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Fabric Items (Weight-Based)</h4>
                                     <button onClick={addItem} className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/10">
-                                        <Plus size={14} strokeWidth={3} /> Add Line Item
+                                        <Plus size={14} strokeWidth={3} /> Add Fabric Roll
                                     </button>
                                 </div>
 
                                 <div className="space-y-4">
-                                    {formData.items.map((item, index) => (
-                                        <div key={index} className="grid grid-cols-12 gap-6 items-center p-6 rounded-3xl bg-slate-50 border border-slate-100 group hover:border-emerald-200 hover:bg-white hover:shadow-2xl transition-all animate-fade-in">
-                                            <div className="col-span-12 md:col-span-5">
-                                                <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block">Select Product</label>
-                                                <select
-                                                    className="w-full bg-white border border-slate-200 rounded-xl py-4 px-5 font-black text-slate-900 outline-none focus:border-emerald-500 transition-all"
-                                                    value={item.product}
-                                                    onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                                                >
-                                                    <option value="">Choose item...</option>
-                                                    {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.size || 'N/A'})</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="col-span-4 md:col-span-2">
-                                                <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-center">Quantity</label>
-                                                <input
-                                                    type="number"
-                                                    className="w-full bg-white border border-slate-200 rounded-xl py-4 px-5 text-center font-black text-emerald-700 outline-none focus:border-emerald-500 transition-all"
-                                                    value={item.quantity}
-                                                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="col-span-4 md:col-span-2">
-                                                <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-right">Unit Rate</label>
-                                                <input
-                                                    type="number"
-                                                    className="w-full bg-white border border-slate-200 rounded-xl py-4 px-5 text-right font-black text-slate-900 outline-none focus:border-emerald-500 transition-all"
-                                                    value={item.rate}
-                                                    onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="col-span-3 md:col-span-2">
-                                                <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-right">Subtotal</label>
-                                                <div className="py-4 text-right font-black text-slate-900 text-lg tracking-tight">
-                                                    {formatCurrency(item.total)}
+                                    <AnimatePresence>
+                                        {formData.items.map((item, index) => (
+                                            <motion.div 
+                                                key={index}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, x: -20 }}
+                                                className="grid grid-cols-12 gap-4 items-center p-6 rounded-3xl bg-slate-50 border border-slate-100 group hover:border-emerald-200 hover:bg-white hover:shadow-2xl transition-all"
+                                            >
+                                                <div className="col-span-12 md:col-span-3">
+                                                    <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block">Fabric Name *</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g. Cotton Single Jersey"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl py-4 px-5 font-black text-slate-900 outline-none focus:border-emerald-500 transition-all"
+                                                        value={item.fabric_name}
+                                                        onChange={(e) => handleItemChange(index, 'fabric_name', e.target.value)}
+                                                    />
                                                 </div>
-                                            </div>
-                                            <div className="col-span-1 flex justify-center">
-                                                <button
-                                                    onClick={() => removeItem(index)}
-                                                    className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                                >
-                                                    <Trash2 size={20} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                                <div className="col-span-6 md:col-span-2">
+                                                    <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-center">Color / GSM</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Color"
+                                                            className="w-1/2 bg-white border border-slate-200 rounded-xl py-4 px-3 text-center font-bold text-slate-700 outline-none focus:border-emerald-500 transition-all"
+                                                            value={item.color}
+                                                            onChange={(e) => handleItemChange(index, 'color', e.target.value)}
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            placeholder="GSM"
+                                                            className="w-1/2 bg-white border border-slate-200 rounded-xl py-4 px-3 text-center font-bold text-slate-700 outline-none focus:border-emerald-500 transition-all"
+                                                            value={item.gsm}
+                                                            onChange={(e) => handleItemChange(index, 'gsm', e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="col-span-6 md:col-span-2">
+                                                    <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-center">Roll No / Wt (Kg) *</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Roll #"
+                                                            className="w-1/2 bg-white border border-slate-200 rounded-xl py-4 px-3 text-center font-bold text-slate-700 outline-none focus:border-emerald-500 transition-all"
+                                                            value={item.roll_no}
+                                                            onChange={(e) => handleItemChange(index, 'roll_no', e.target.value)}
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            placeholder="Kg"
+                                                            className="w-1/2 bg-white border border-slate-200 rounded-xl py-4 px-3 text-center font-black text-emerald-700 outline-none focus:border-emerald-500 transition-all"
+                                                            value={item.weight_kg}
+                                                            onChange={(e) => handleItemChange(index, 'weight_kg', e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="col-span-8 md:col-span-2">
+                                                    <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-right">Rate / Kg *</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full bg-white border border-slate-200 rounded-xl py-4 px-5 text-right font-black text-slate-900 outline-none focus:border-emerald-500 transition-all"
+                                                        value={item.rate_per_kg}
+                                                        onChange={(e) => handleItemChange(index, 'rate_per_kg', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="col-span-3 md:col-span-2">
+                                                    <label className="text-[11px] font-black text-slate-500 uppercase mb-2 block text-right">Amount</label>
+                                                    <div className="py-4 text-right font-black text-slate-900 text-lg tracking-tight">
+                                                        {formatCurrency((parseFloat(item.weight_kg) || 0) * (parseFloat(item.rate_per_kg) || 0))}
+                                                    </div>
+                                                </div>
+                                                <div className="col-span-1 flex justify-center">
+                                                    <button
+                                                        onClick={() => removeItem(index)}
+                                                        className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                    >
+                                                        <Trash2 size={20} />
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-10 border-t border-slate-100">
-                                <div className="space-y-10">
-                                    <div className="space-y-4">
-                                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest block">Payment Status</label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {['pending', 'paid'].map(status => (
-                                                <button
-                                                    key={status}
-                                                    onClick={() => setFormData(p => ({ ...p, paymentStatus: status }))}
-                                                    className={`py-6 rounded-3xl border-2 font-black uppercase tracking-widest text-[11px] transition-all flex items-center justify-center gap-3 ${
-                                                        formData.paymentStatus === status 
-                                                        ? (status === 'paid' ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-500/20' : 'bg-amber-500 border-amber-500 text-white shadow-xl shadow-amber-500/20')
-                                                        : 'bg-white border-slate-100 text-slate-400 grayscale hover:grayscale-0 hover:border-slate-300'
-                                                    }`}
-                                                >
-                                                    {status === 'paid' ? <ShieldCheck size={18} /> : <AlertTriangle size={18} />}
-                                                    {status === 'paid' ? 'Paid' : 'Pending'}
-                                                </button>
-                                            ))}
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest block">Vehicle Number</label>
+                                            <input
+                                                type="text"
+                                                name="vehicle_number"
+                                                className="form-input py-4 px-6 font-black bg-slate-50 border-none shadow-inner rounded-2xl w-full"
+                                                placeholder="TN-XX-XXXX"
+                                                value={formData.vehicle_number}
+                                                onChange={handleInputChange}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest block">LR Number</label>
+                                            <input
+                                                type="text"
+                                                name="lr_number"
+                                                className="form-input py-4 px-6 font-black bg-slate-50 border-none shadow-inner rounded-2xl w-full"
+                                                placeholder="LR/123456"
+                                                value={formData.lr_number}
+                                                onChange={handleInputChange}
+                                            />
                                         </div>
                                     </div>
-                                    
-                                    <div className="space-y-4">
-                                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest block">Upload Bill (PDF)</label>
-                                        <div className="relative group">
-                                            <input
-                                                type="file"
-                                                accept="application/pdf,image/*"
-                                                onChange={(e) => setSelectedFile(e.target.files[0])}
-                                                className="hidden"
-                                                id="bill-upload-elite"
-                                            />
-                                            <label
-                                                htmlFor="bill-upload-elite"
-                                                className="flex flex-col items-center justify-center gap-4 py-12 px-10 border-2 border-dashed border-slate-200 rounded-4xl text-[11px] font-black text-slate-500 hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50/30 transition-all bg-slate-50/50 cursor-pointer group"
-                                            >
-                                                {selectedFile ? (
-                                                    <div className="text-center">
-                                                        <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600 shadow-lg">
-                                                            <FileText size={32} />
-                                                        </div>
-                                                        <span className="block text-emerald-900 font-black text-xs truncate max-w-[250px] mb-1">{selectedFile.name}</span>
-                                                        <span className="text-[8px] uppercase tracking-widest text-emerald-500">File Selected - Click to change</span>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-xl border border-slate-100 group-hover:scale-110 transition-transform">
-                                                            <UploadCloud size={28} className="text-emerald-500" />
-                                                        </div>
-                                                        <div className="text-center">
-                                                            <span className="uppercase tracking-[0.3em] block mb-2">Upload Bill File</span>
-                                                            <span className="text-[8px] font-bold text-slate-300">Format: PDF / JPEG / PNG • Max: 50MB</span>
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </label>
+                                    <div className="p-8 bg-indigo-50/50 rounded-4xl border border-indigo-100/50">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <ShieldCheck className="text-indigo-600" size={20} />
+                                            <h5 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest">Note</h5>
                                         </div>
+                                        <p className="text-[10px] font-bold text-indigo-700 leading-relaxed uppercase">All fabric entries are automatically synced with inventory. Weights are recorded in Kilograms (Kg) for precision billing.</p>
                                     </div>
                                 </div>
 
                                 <div className="bg-slate-900 rounded-4xl p-12 text-white relative overflow-hidden shadow-2xl shadow-slate-900/40 flex flex-col justify-between border border-white/5">
                                     <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-400/5 rounded-full -translate-y-1/2 translate-x-1/3"></div>
-                                    <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-400/5 rounded-full translate-y-1/3 -translate-x-1/2"></div>
                                     
                                     <div className="relative z-10 space-y-8">
                                         <div className="flex items-center justify-between">
                                             <div className="space-y-1">
-                                                <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.4em]">Bill Summary</h4>
-                                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.2em]">Total Amount</p>
+                                                <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.4em]">Summary</h4>
+                                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.2em]">Automatic Calculation</p>
                                             </div>
                                             <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/10 backdrop-blur-md">
-                                                <IndianRupee size={16} className="text-emerald-400" />
+                                                <Package size={16} className="text-emerald-400" />
                                             </div>
                                         </div>
                                         
                                         <div className="space-y-6">
                                             <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 text-[11px] font-black uppercase tracking-widest">Net Value</span>
-                                                <span className="font-black text-xl tracking-tight">{formatCurrency(formData.totalAmount / 1.05)}</span>
+                                                <span className="text-slate-400 text-[11px] font-black uppercase tracking-widest">Total Weight</span>
+                                                <span className="font-black text-xl tracking-tight text-amber-400">
+                                                    {formData.items.reduce((sum, item) => sum + (parseFloat(item.weight_kg) || 0), 0).toFixed(2)} Kg
+                                                </span>
                                             </div>
                                             <div className="flex justify-between items-center">
-                                                <span className="text-slate-400 text-[11px] font-black uppercase tracking-widest">Input GST (5%)</span>
-                                                <span className="font-black text-xl tracking-tight text-emerald-400">+{formatCurrency(formData.totalAmount - (formData.totalAmount / 1.05))}</span>
+                                                <span className="text-slate-400 text-[11px] font-black uppercase tracking-widest">Total Rolls</span>
+                                                <span className="font-black text-xl tracking-tight">
+                                                    {formData.items.length} Units
+                                                </span>
                                             </div>
                                             <div className="h-px bg-white/10" />
                                             <div className="space-y-2">
-                                                <span className="text-emerald-500 text-[11px] font-black uppercase tracking-[0.3em]">Total Amount</span>
+                                                <span className="text-emerald-500 text-[11px] font-black uppercase tracking-[0.3em]">Estimated Total</span>
                                                 <div className="text-6xl font-black tracking-tighter text-white drop-shadow-2xl">
-                                                    {formatCurrency(formData.totalAmount)}
+                                                    {formatCurrency(formData.items.reduce((sum, item) => sum + (parseFloat(item.weight_kg) || 0) * (parseFloat(item.rate_per_kg) || 0), 0))}
                                                 </div>
                                             </div>
                                         </div>
@@ -722,23 +795,24 @@ const PurchaseEntryPage = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Authoritative View Modal */}
-            {showViewModal && selectedEntry && (
-                <div className="modal-overlay backdrop-blur-xl bg-slate-900/60 p-4" onClick={() => setShowViewModal(false)}>
-                    <div className="modal-content max-w-5xl border-none animate-scale-up" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-10 border-b flex items-center justify-between bg-slate-900 text-white rounded-t-4xl">
+            {showViewModal && selectedEntry && createPortal(
+                <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
+                    <div className="modal-content max-w-6xl w-[95vw] lg:w-full border-none shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+                        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white">
                             <div className="flex items-center gap-6">
                                 <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 shadow-2xl shadow-emerald-500/5">
                                     <FileText size={32} />
                                 </div>
                                 <div>
-                                    <h3 className="text-3xl font-black tracking-tighter">Purchase Bill</h3>
+                                    <h3 className="text-3xl font-black tracking-tighter">Fabric Invoice</h3>
                                     <div className="flex items-center gap-3 mt-1">
-                                        <span className="px-3 py-1 bg-white/5 rounded-lg text-[11px] font-black uppercase tracking-widest text-slate-300 border border-white/5">Bill #: {selectedEntry.billNumber}</span>
-                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Purchase Record</span>
+                                        <span className="px-3 py-1 bg-white/5 rounded-lg text-[11px] font-black uppercase tracking-widest text-slate-300 border border-white/5">INV #: {selectedEntry.invoice_number}</span>
+                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Verified Procurement</span>
                                     </div>
                                 </div>
                             </div>
@@ -762,29 +836,38 @@ const PurchaseEntryPage = () => {
                                 <BillTemplate
                                     bill={{
                                         ...selectedEntry,
+                                        billNumber: selectedEntry.invoice_number,
+                                        date: selectedEntry.invoice_date,
                                         billType: 'PURCHASE',
-                                        customer: selectedEntry.supplier,
+                                        customer: {
+                                            name: selectedEntry.supplier_name,
+                                            gstin: selectedEntry.gstin,
+                                            mobile: selectedEntry.mobile,
+                                            address: selectedEntry.address || ''
+                                        },
                                         items: selectedEntry.items?.map(item => ({
                                             ...item,
-                                            productName: item.product?.name || item.name || 'N/A',
-                                            hsnCode: item.product?.hsn || item.hsnCode || '',
-                                            designColor: item.product?.size || '',
-                                            weightKg: item.quantity,
-                                            ratePerKg: item.rate,
-                                            total: item.total
+                                            productName: item.fabric_name,
+                                            hsnCode: '',
+                                            designColor: `${item.color || ''} ${item.gsm ? `(${item.gsm} GSM)` : ''}`,
+                                            weightKg: item.weight_kg,
+                                            ratePerKg: item.rate_per_kg,
+                                            total: item.amount
                                         })),
-                                        subtotal: selectedEntry.totalAmount / 1.05,
-                                        totalTax: selectedEntry.totalAmount - (selectedEntry.totalAmount / 1.05),
-                                        grandTotal: selectedEntry.totalAmount
+                                        subtotal: selectedEntry.total_amount,
+                                        totalTax: 0,
+                                        grandTotal: selectedEntry.total_amount,
+                                        totalPacks: selectedEntry.total_rolls,
+                                        fromText: selectedEntry.transport
                                     }}
                                     settings={resolvedSettings}
                                 />
                             </div>
                         </div>
-                        <div className="px-10 py-8 bg-white border-t border-slate-100 flex justify-between items-center rounded-b-[2.5rem]">
+                        <div className="px-10 py-8 bg-white border-t border-slate-100 flex justify-between items-center">
                             <div className="flex items-center gap-3">
                                 <ShieldCheck size={20} className="text-emerald-500" />
-                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Verified Record</span>
+                                <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Verified Stock Record</span>
                             </div>
                             <button 
                                 onClick={() => setShowViewModal(false)} 
@@ -794,7 +877,8 @@ const PurchaseEntryPage = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

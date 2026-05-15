@@ -1,5 +1,6 @@
 import express from 'express';
 import Supplier from '../models/Supplier.js';
+import { emitEvent } from '../services/socketService.js';
 
 const router = express.Router();
 
@@ -60,6 +61,7 @@ router.post('/', async (req, res) => {
     try {
         const supplier = new Supplier(req.body);
         await supplier.save();
+        emitEvent('supplier:created', { data: supplier });
         res.status(201).json({ success: true, data: supplier });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -77,6 +79,7 @@ router.put('/:id', async (req, res) => {
         if (!supplier) {
             return res.status(404).json({ success: false, message: 'Supplier not found' });
         }
+        emitEvent('supplier:updated', { id: req.params.id, data: supplier });
         res.json({ success: true, data: supplier });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -94,6 +97,7 @@ router.delete('/:id', async (req, res) => {
         if (!supplier) {
             return res.status(404).json({ success: false, message: 'Supplier not found' });
         }
+        emitEvent('supplier:deleted', { id: req.params.id });
         res.json({ success: true, message: 'Supplier deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

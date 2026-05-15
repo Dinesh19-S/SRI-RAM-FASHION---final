@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from './components/layout/MainLayout';
+import GlobalLoadingBar from './components/common/GlobalLoadingBar';
 import useSocketSync from './hooks/useSocketSync';
 
 import { setOnlineStatus } from './store/slices/appSlice';
@@ -24,6 +25,7 @@ const StockReportsPage = lazy(() => import('./pages/StockReportsPage'));
 const CustomerEntryPage = lazy(() => import('./pages/CustomerEntryPage'));
 const ItemsPage = lazy(() => import('./pages/ItemsPage'));
 const SupplierEntryPage = lazy(() => import('./pages/SupplierEntryPage'));
+const CategoryPage = lazy(() => import('./pages/CategoryPage'));
 
 // Full-screen loading spinner shown while checking auth
 const FullScreenLoader = () => (
@@ -109,6 +111,7 @@ function App() {
 
   return (
     <Suspense fallback={<FullScreenLoader />}>
+      <GlobalLoadingBar />
       <AnimatePresence mode="wait">
         <Routes>
           <Route path="/" element={<PublicRoute><HomePage /></PublicRoute>} />
@@ -127,6 +130,7 @@ function App() {
             <Route path="master/customers" element={<CustomerEntryPage />} />
             <Route path="master/items" element={<ItemsPage />} />
             <Route path="master/suppliers" element={<SupplierEntryPage />} />
+            <Route path="master/categories" element={<CategoryPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

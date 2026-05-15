@@ -1,41 +1,49 @@
+import { useMemo } from 'react';
 import './BillTemplate.css';
 
 // Convert number to words in Indian format
 const numberToWords = (num) => {
-    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
     const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const scales = ['', 'Thousand', 'Lakh', 'Crore'];
 
     if (num === 0) return 'Zero';
-    if (num < 0) return 'Minus ' + numberToWords(-num);
 
-    num = Math.floor(num);
-    let words = '';
-
-    if (Math.floor(num / 10000000) > 0) {
-        words += numberToWords(Math.floor(num / 10000000)) + ' Crore ';
-        num %= 10000000;
-    }
-    if (Math.floor(num / 100000) > 0) {
-        words += numberToWords(Math.floor(num / 100000)) + ' Lakh ';
-        num %= 100000;
-    }
-    if (Math.floor(num / 1000) > 0) {
-        words += numberToWords(Math.floor(num / 1000)) + ' Thousand ';
-        num %= 1000;
-    }
-    if (Math.floor(num / 100) > 0) {
-        words += numberToWords(Math.floor(num / 100)) + ' Hundred ';
-        num %= 100;
-    }
-    if (num > 0) {
-        if (words !== '') words += 'and ';
-        if (num < 20) words += ones[num];
-        else {
-            words += tens[Math.floor(num / 10)];
-            if (num % 10 > 0) words += ' ' + ones[num % 10];
+    const convertChunk = (n) => {
+        let str = '';
+        if (n >= 100) {
+            str += units[Math.floor(n / 100)] + ' Hundred ';
+            n %= 100;
         }
+        if (n >= 20) {
+            str += tens[Math.floor(n / 10)] + ' ';
+            n %= 10;
+        }
+        if (n > 0) {
+            str += units[n] + ' ';
+        }
+        return str;
+    };
+
+    let result = '';
+    let scaleIdx = 0;
+    let n = Math.floor(num);
+    
+    // First chunk (hundreds)
+    result = convertChunk(n % 1000) + result;
+    n = Math.floor(n / 1000);
+    scaleIdx = 1;
+
+    while (n > 0) {
+        const chunk = n % 100;
+        if (chunk > 0) {
+            result = convertChunk(chunk) + (scales[scaleIdx] || '') + ' ' + result;
+        }
+        n = Math.floor(n / 100);
+        scaleIdx++;
     }
-    return words.trim();
+
+    return result.trim() + ' Only';
 };
 
 const toAmount = (value, fallback = 0) => {
@@ -44,312 +52,284 @@ const toAmount = (value, fallback = 0) => {
 };
 
 const BillTemplate = ({ bill, settings, forPrint = false }) => {
-    if (!bill || !settings) return null;
+    if (!bill) return null;
 
     const formatDate = (date) => {
         if (!date) return '';
         const d = new Date(date);
-        const day = d.getDate().toString().padStart(2, '0');
-        const month = (d.getMonth() + 1).toString().padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
+        return d.toLocaleDateString('en-GB');
     };
 
-    const isPurchase = bill.billType === 'PURCHASE';
     const items = bill.items || [];
     const productAmt = toAmount(bill.subtotal);
     const discount = toAmount(bill.discountAmount);
     const taxableAmt = toAmount(bill.taxableAmount, productAmt - discount);
-    const fallbackCgstRate = settings?.tax?.cgstRate || 2.5;
-    const fallbackSgstRate = settings?.tax?.sgstRate || 2.5;
-    const cgstAmt = toAmount(
-        bill.cgst,
-        isPurchase ? 0 : (taxableAmt * fallbackCgstRate) / 100
-    );
-    const sgstAmt = toAmount(
-        bill.sgst,
-        isPurchase ? 0 : (taxableAmt * fallbackSgstRate) / 100
-    );
+    const cgstAmt = toAmount(bill.cgst);
+    const sgstAmt = toAmount(bill.sgst);
     const igstAmt = toAmount(bill.igst);
     const totalGst = toAmount(bill.totalTax, cgstAmt + sgstAmt + igstAmt);
-    const rawTotal = taxableAmt + totalGst;
-    const totalAmt = toAmount(bill.grandTotal, Math.round(rawTotal));
-    const roundOff = toAmount(bill.roundOff, totalAmt - rawTotal);
-    const cgstRate = taxableAmt > 0 && cgstAmt > 0 ? (cgstAmt * 100) / taxableAmt : (isPurchase ? 0 : fallbackCgstRate);
-    const sgstRate = taxableAmt > 0 && sgstAmt > 0 ? (sgstAmt * 100) / taxableAmt : (isPurchase ? 0 : fallbackSgstRate);
-    const totalQuantity = isPurchase
-        ? (bill.totalPacks || items.reduce((sum, item) => sum + toAmount(item.weightKg, toAmount(item.quantity)), 0) || 0)
-        : (bill.totalPacks || items.reduce((sum, item) => sum + toAmount(item.noOfPacks, toAmount(item.quantity)), 0) || 0);
-    const numBundles = bill.numOfBundles || 1;
-    const purchaseInvoiceNumber = bill.referenceInvoiceNumber || bill.fromText || '';
+    const finalAmt = toAmount(bill.grandTotal, Math.round(taxableAmt + totalGst));
+    const totalPacks = bill.totalPacks || items.reduce((sum, item) => sum + toAmount(item.quantity || item.noOfPacks), 0);
+    const numBundles = bill.numOfBundles || 0;
 
-    // Company details
+    // Company details from settings or fallback
     const companyName = settings?.company?.name || 'SRI RAM FASHIONS';
     const companyGstin = settings?.company?.gstin || '33AZRPM4425F2ZA';
-    const companyAddress1 = settings?.company?.address1 || 'OFF : 61C9, Anupparpalayam Puthur, Tirupur - 641652';
-    const companyAddress2 = settings?.company?.address2 || 'OFF : 81K, Madurai Road, Sankernager, Tirunelveli Dt - 627357';
-    const companyState = settings?.company?.state || 'Tamilnadu';
-    const companyStateCode = settings?.company?.stateCode || '33';
-    const companyEmail = settings?.company?.email || 'sriramfashionstrp@gmail.com';
-    const companyPhone = settings?.company?.phone || '9080573831';
-    const companyMob = settings?.company?.phone2 || settings?.company?.mob || '8248893759';
-
-    // Bank details
-    const bankName = settings?.bank?.bankName || settings?.bank?.name || 'SOUTH INDIAN BANK';
-    const bankAccount = settings?.bank?.accountNumber || settings?.bank?.account || '0338073000002328';
-    const bankBranch = settings?.bank?.branchName || settings?.bank?.branch || 'TIRUPUR';
-    const bankIfsc = settings?.bank?.ifscCode || settings?.bank?.ifsc || 'SIBL0000338';
-    const bankAccName = settings?.bank?.accountHolderName || companyName;
-
-    const salesColumns = [
-        { key: 'sno', label: 'S.No', width: '6%', render: (_, index) => index + 1 },
-        { key: 'product', label: 'Product\nDescription', width: '20%', align: 'left', render: (item) => item.productName || item.name || '' },
-        { key: 'hsn', label: 'HSN Code', width: '12%', render: (item) => item.hsnCode || item.hsn || '' },
-        { key: 'sizes', label: 'Sizes /\nPieces', width: '12%', render: (item) => item.sizesOrPieces || '' },
-        { key: 'ratePc', label: 'Rate Per\nPiece', width: '12%', render: (item) => item.ratePerPiece || '' },
-        { key: 'packs', label: 'No Of\nPacks', width: '12%', render: (item) => toAmount(item.noOfPacks, toAmount(item.quantity)) },
-        { key: 'amount', label: 'Amount Rs.', width: '26%', align: 'right', render: (item) => toAmount(item.total, toAmount(item.ratePerPiece || item.price, 0) * toAmount(item.noOfPacks, toAmount(item.quantity))) }
-    ];
-
-    const purchaseColumns = [
-        { key: 'sno', label: 'S.No', width: '6%', render: (_, index) => index + 1 },
-        { key: 'particular', label: 'Particular', width: '30%', align: 'left', render: (item) => item.productName || item.name || '' },
-        { key: 'hsn', label: 'HSN\nCode', width: '12%', render: (item) => item.hsnCode || item.hsn || '' },
-        { key: 'design', label: 'Design /\nColor', width: '16%', render: (item) => item.designColor || item.sizesOrPieces || '' },
-        { key: 'weight', label: 'Weight\n(KG)', width: '12%', render: (item) => toAmount(item.weightKg, toAmount(item.quantity)) },
-        { key: 'rateKg', label: 'Rate Per\nKG', width: '12%', render: (item) => toAmount(item.ratePerKg, toAmount(item.price)) },
-        { key: 'amount', label: 'Amount\nRs.', width: '12%', render: (item) => toAmount(item.total, toAmount(item.weightKg, toAmount(item.quantity)) * toAmount(item.ratePerKg, toAmount(item.price))) }
-    ];
-
-    const columns = isPurchase ? purchaseColumns : salesColumns;
-    const minRows = 20;
-    const emptyRowsCount = Math.max(0, minRows - items.length);
-
-    const detailRows = isPurchase
-        ? [
-            { label: 'Bill Number', value: bill.billNumber || '' },
-            { label: 'Bill Date', value: formatDate(bill.date || bill.createdAt) },
-            { label: 'Purchase Inv No', value: purchaseInvoiceNumber },
-            { label: 'Total Weight', value: `${totalQuantity}` }
-        ]
-        : [
-            { label: 'Invoice Number', value: bill.billNumber || '' },
-            { label: 'Invoice Date', value: formatDate(bill.date || bill.createdAt) },
-            { label: 'From', value: bill.fromText || bill.fromDate || '' },
-            { label: 'To', value: bill.toText || bill.toDate || '' }
-        ];
-
-    const buyerHeading = isPurchase ? 'Supplier Copy' : 'Consigner Copy';
-    const leftPrimaryLabel = isPurchase ? 'SUPPLIER:' : 'BUYER:';
-    const leftTertiaryLabel = isPurchase ? 'ADDRESS:' : 'TRANSPORT:';
-    const leftTertiaryValue = isPurchase ? (bill.customer?.address || '') : (bill.transport || '');
-    const rightBottomLabel = isPurchase ? 'INV NO:' : 'CODE:';
-    const rightBottomValue = isPurchase ? purchaseInvoiceNumber : (bill.customer?.stateCode || '33');
-    const quantityLabel = isPurchase ? 'Total Weight' : 'Total Packs';
-    const titleText = isPurchase ? 'PURCHASE INVOICE' : 'TAX INVOICE';
-
+    
     return (
-        <div className={`bill-template-tax ${forPrint ? 'for-print' : ''}`} id="bill-template">
-            <div className="tax-invoice-page">
-                <div className="ti-header-row">
-                    <div className="ti-company-name">
-                        {companyName}
-                    </div>
-                    <div className="ti-gstin-header">GSTIN: {companyGstin}</div>
-                </div>
-
-                <div className="ti-info-row">
-                    <div className="ti-company-address">
-                        <div>{companyAddress1}</div>
-                        <div>{companyAddress2}</div>
-                        <div>State : {companyState} (Code {companyStateCode})</div>
-                        <div>Email : {companyEmail}</div>
-                        <div>Mob : {companyPhone}</div>
-                    </div>
-                    <div className="ti-invoice-details">
-                        {detailRows.map((row) => (
-                            <div className="ti-detail-row" key={row.label}>
-                                <span className="ti-detail-label">{row.label}</span>
-                                <span className="ti-detail-sep">:</span>
-                                <span className="ti-detail-value">{row.value}</span>
-                            </div>
-                        ))}
+        <div className={`w-[210mm] min-h-[297mm] bg-white border border-gray-200 overflow-hidden text-black font-sans ${forPrint ? 'print:m-0 print:w-full print:border-none' : 'shadow-2xl'}`} id="invoice-paper">
+            {/* Main Header */}
+            <div className="bg-blue-900 text-white p-4 flex justify-between items-center border-b-2 border-black">
+                <div className="flex-1">
+                    <h1 className="text-4xl font-extrabold tracking-tighter uppercase leading-none">{companyName}</h1>
+                    <div className="text-xs mt-1 flex items-center space-x-4 opacity-90">
+                        <span className="font-bold">GSTIN: {companyGstin}</span>
                     </div>
                 </div>
-
-                <div className="ti-title-row">
-                    <span className="ti-title-text">{titleText}</span>
-                </div>
-
-                <div className="ti-buyer-row">
-                    <div className="ti-buyer-left">
-                        <div className="ti-buyer-heading">{buyerHeading}</div>
-                        <div className="ti-buyer-field">
-                            <span className="ti-buyer-label">{leftPrimaryLabel}</span>
-                            <span className="ti-buyer-value">{bill.customer?.name || ''}</span>
-                        </div>
-                        <div className="ti-buyer-field">
-                            <span className="ti-buyer-label">STATE:</span>
-                            <span className="ti-buyer-value">{bill.customer?.state || 'Tamilnadu'}</span>
-                        </div>
-                        <div className="ti-buyer-field">
-                            <span className="ti-buyer-label">{leftTertiaryLabel}</span>
-                            <span className="ti-buyer-value">{leftTertiaryValue}</span>
-                        </div>
-                    </div>
-                    <div className="ti-buyer-right">
-                        <div className="ti-detail-row">
-                            <span className="ti-detail-label">MOB:</span>
-                            <span className="ti-detail-sep"></span>
-                            <span className="ti-detail-value">{bill.customer?.phone || companyMob}</span>
-                        </div>
-                        <div className="ti-detail-row">
-                            <span className="ti-detail-label">GSTIN:</span>
-                            <span className="ti-detail-sep"></span>
-                            <span className="ti-detail-value">{bill.customer?.gstin || ''}</span>
-                        </div>
-                        <div className="ti-detail-row">
-                            <span className="ti-detail-label">{rightBottomLabel}</span>
-                            <span className="ti-detail-sep"></span>
-                            <span className="ti-detail-value">{rightBottomValue}</span>
+                <div className="text-right flex flex-col items-end">
+                    <div className="flex flex-col items-center">
+                        <svg width="60" height="60" viewBox="0 0 100 100" className="mb-1 bg-white p-1 rounded-full border-2 border-blue-900 overflow-visible shadow-sm">
+                            <circle cx="50" cy="50" r="46" fill="white" stroke="#1e3a8a" strokeWidth="2" />
+                            <path 
+                                d="M35 25 H55 C65 25 75 30 75 42.5 C75 55 65 60 55 60 H45 V75 M45 60 L75 75" 
+                                fill="none" 
+                                stroke="#1e3a8a" 
+                                strokeWidth="8" 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                            />
+                            <circle cx="50" cy="50" r="38" fill="none" stroke="#1e3a8a" strokeWidth="1" strokeDasharray="4 4" />
+                        </svg>
+                        <div className="flex flex-col items-center leading-none">
+                            <span className="font-black tracking-widest text-[9px] text-white uppercase">Rugged & Urban</span>
+                            <div className="w-full h-px bg-white/40"></div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div className="ti-table-container">
-                    <table className="ti-items-table">
-                        <thead>
-                            <tr>
-                                {columns.map((column) => (
-                                    <th key={column.key} style={{ width: column.width }}>
-                                        {column.label.split('\n').map((line, index) => (
-                                            <span key={`${column.key}-${index}`}>
-                                                {line}
-                                                {index < column.label.split('\n').length - 1 ? <br /> : null}
-                                            </span>
-                                        ))}
-                                    </th>
-                                ))}
+            {/* Addresses & Contact */}
+            <div className="grid grid-cols-2 text-[10px] border-b border-black divide-x divide-black">
+                <div className="p-3 space-y-1">
+                    <p><span className="font-bold">OFF :</span> 61C9, Anupparpalayam Puthur, Tirupur. 641652</p>
+                    <p><span className="font-bold">OFF :</span> 81 K, Madurai Road, SankerNager, Tirunelveli Dt. 627357</p>
+                    <p><span className="font-bold">State :</span> Tamilnadu (Code 33)</p>
+                    <p><span className="font-bold">Email :</span> sriramfashionstrp@gmail.com</p>
+                    <p><span className="font-bold">Mob :</span> 9080573831</p>
+                </div>
+                <div className="p-3 grid grid-cols-2 gap-x-2 h-full">
+                    <div className="space-y-1">
+                        <p className="font-bold uppercase">Invoice Number</p>
+                        <p className="font-bold uppercase">Invoice Date</p>
+                        <p className="font-bold uppercase">From</p>
+                        <p className="font-bold uppercase">To</p>
+                    </div>
+                    <div className="space-y-1 text-right">
+                        <p className="font-bold flex items-center justify-end"><span className="mr-1">:</span> {bill.billNumber || '---'}</p>
+                        <p className="font-bold flex items-center justify-end"><span className="mr-1">:</span> {formatDate(bill.date || bill.createdAt)}</p>
+                        <p className="font-bold flex items-center justify-end"><span className="mr-1">:</span> {bill.fromText || 'TIRUPPUR'}</p>
+                        <p className="font-bold flex items-center justify-end"><span className="mr-1">:</span> {bill.toText || '---'}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Tax Invoice Label */}
+            <div className="bg-white border-b border-black py-1 text-center">
+                <h2 className="text-2xl font-bold text-blue-800 tracking-[0.2em] relative inline-block">
+                    TAX INVOICE
+                    <div className="absolute -bottom-1 left-0 w-full border-t border-blue-800"></div>
+                    <div className="absolute -bottom-[2px] left-0 w-full border-t border-blue-800"></div>
+                </h2>
+            </div>
+
+            {/* Buyer Info */}
+            <div className="grid grid-cols-2 text-[11px] border-b border-black divide-x divide-black uppercase">
+                <div className="p-3 space-y-2">
+                    <p className="text-[9px] font-bold text-gray-500 mb-1">Consignee Copy</p>
+                    <div className="flex items-start">
+                        <span className="w-20 font-bold">BUYER</span>
+                        <span className="mx-2">:</span>
+                        <span className="flex-1 font-bold">{bill.customer?.name || "____________________"}</span>
+                    </div>
+                    <div className="flex items-start">
+                        <span className="w-20 font-bold text-[9px]">ADDRESS</span>
+                        <span className="mx-2 text-[9px]">:</span>
+                        <span className="flex-1 text-[9px] lowercase leading-tight">{bill.customer?.address || "---"}</span>
+                    </div>
+                    <div className="flex items-start">
+                        <span className="w-20 font-bold">STATE</span>
+                        <span className="mx-2">:</span>
+                        <span className="flex-1">{bill.customer?.state || 'TAMILNADU'}</span>
+                    </div>
+                    <div className="flex items-start">
+                        <span className="w-20 font-bold">TRANSPORT</span>
+                        <span className="mx-2">:</span>
+                        <span className="flex-1">{bill.transport || "---"}</span>
+                    </div>
+                </div>
+                <div className="p-3 space-y-2 pt-6">
+                    <div className="flex items-start">
+                        <span className="w-16 font-bold uppercase">Mob</span>
+                        <span className="mx-2">:</span>
+                        <span className="flex-1">{bill.customer?.phone || "---"}</span>
+                    </div>
+                    <div className="flex items-start">
+                        <span className="w-16 font-bold uppercase">Gstin</span>
+                        <span className="mx-2">:</span>
+                        <span className="flex-1">{bill.customer?.gstin || "---"}</span>
+                    </div>
+                    <div className="flex items-start">
+                        <span className="w-16 font-bold uppercase">Code</span>
+                        <span className="mx-2">:</span>
+                        <span className="flex-1">{bill.customer?.stateCode || '33'}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Product Table */}
+            <div className="border-b border-black min-h-[450px]">
+                <table className="w-full border-collapse text-[10px]">
+                    <thead>
+                        <tr className="border-b border-black text-center font-bold divide-x divide-black uppercase">
+                            <th className="py-2 w-10">S.No</th>
+                            <th className="py-2 px-2 text-left">Product Description</th>
+                            <th className="py-2 w-32 px-1">Sizes / Pieces</th>
+                            <th className="py-2 w-24">HSN Code</th>
+                            <th className="py-2 w-24 text-right pr-2">Rate Per Piece</th>
+                            <th className="py-2 w-20">No Of Packs</th>
+                            <th className="py-2 w-24 text-right pr-2">Amount Rs.</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black">
+                        {items.map((item, idx) => (
+                            <tr key={idx} className="divide-x divide-black h-8 align-middle">
+                                <td className="text-center font-bold py-1">{idx + 1}</td>
+                                <td className="px-2 font-bold uppercase">{item.productName || item.name}</td>
+                                <td className="px-1 text-center font-bold">{item.sizesOrPieces || '---'}</td>
+                                <td className="text-center font-bold">{item.hsnCode || '61034300'}</td>
+                                <td className="text-right pr-2 font-bold">{toAmount(item.ratePerPiece, item.price).toFixed(2)}</td>
+                                <td className="text-center font-bold">{toAmount(item.noOfPacks, item.quantity)}</td>
+                                <td className="text-right pr-2 font-bold">{toAmount(item.total, toAmount(item.ratePerPiece, item.price) * toAmount(item.noOfPacks, item.quantity)).toFixed(2)}</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {items.map((item, index) => (
-                                <tr key={index}>
-                                    {columns.map((column) => (
-                                        <td
-                                            key={`${column.key}-${index}`}
-                                            className={column.align === 'left' ? 'ti-text-left' : column.align === 'right' ? 'ti-text-right' : ''}
-                                        >
-                                            {column.render(item, index)}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                            {Array.from({ length: emptyRowsCount }).map((_, rowIndex) => (
-                                <tr key={`empty-${rowIndex}`} className="ti-empty-row">
-                                    {columns.map((column) => (
-                                        <td key={`${column.key}-empty-${rowIndex}`}>&nbsp;</td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                        ))}
+                        {/* Spacer rows */}
+                        {items.length < 15 && Array.from({ length: 15 - items.length }).map((_, idx) => (
+                            <tr key={`spacer-${idx}`} className="divide-x divide-black h-8">
+                                <td colSpan={7}></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
 
-                <div className="ti-summary-row">
-                    <div className="ti-summary-left">
-                        <div className="ti-summary-field">
-                            <span className="ti-summary-label">{quantityLabel}</span>
-                            <span className="ti-summary-sep">:</span>
-                            <span className="ti-summary-value">{totalQuantity}</span>
-                        </div>
-                        <div className="ti-summary-field">
-                            <span className="ti-summary-label">Bill Amount</span>
-                            <span className="ti-summary-sep">:</span>
-                            <span className="ti-summary-value">{totalAmt}</span>
-                        </div>
-                        <div className="ti-summary-field">
-                            <span className="ti-summary-label">In words</span>
-                            <span className="ti-summary-sep">:</span>
-                            <span className="ti-summary-value ti-words">Rupees {numberToWords(totalAmt)} Only</span>
-                        </div>
+            {/* Totals Section */}
+            <div className="grid grid-cols-12 border-b border-black divide-x divide-black">
+                {/* Left Summary */}
+                <div className="col-span-4 p-2 text-[10px] space-y-2">
+                    <div className="flex items-center text-xs font-bold">
+                        <span className="w-24 uppercase">Total Packs</span>
+                        <span className="mx-2">:</span>
+                        <span>{totalPacks}</span>
                     </div>
-
-                    <div className="ti-summary-middle">
-                        <div className="ti-bundles-box">
-                            <span className="ti-bundles-label">NUM OF BUNDLES :</span>
-                            <span className="ti-bundles-value">{numBundles}</span>
-                        </div>
-                        <div className="ti-gst-box">
-                            <span className="ti-gst-label">TOTAL GST</span>
-                            <span className="ti-gst-value">{totalGst.toFixed(0)}</span>
-                        </div>
+                    <div className="flex items-center text-xs font-bold">
+                        <span className="w-24 uppercase">Bill Amount</span>
+                        <span className="mx-2">:</span>
+                        <span className="border-b border-black min-w-[60px]">{finalAmt.toFixed(2)}</span>
                     </div>
-
-                    <div className="ti-summary-right">
-                        <div className="ti-tax-row">
-                            <span>Product Amt</span>
-                            <span>{productAmt.toFixed(2)}</span>
-                        </div>
-                        <div className="ti-tax-row">
-                            <span>Discount</span>
-                            <span>{discount.toFixed(2)}</span>
-                        </div>
-                        <div className="ti-tax-row">
-                            <span>Taxable Amt</span>
-                            <span>{taxableAmt.toFixed(2)}</span>
-                        </div>
-                        {igstAmt > 0 ? (
-                            <div className="ti-tax-row ti-tax-highlight">
-                                <span>IGST @{(igstAmt * 100 / taxableAmt).toFixed(2).replace(/\.00$/, '')}%</span>
-                                <span>{igstAmt.toFixed(2)}</span>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="ti-tax-row ti-tax-highlight">
-                                    <span>CGST @{cgstRate.toFixed(2).replace(/\.00$/, '')}%</span>
-                                    <span>{cgstAmt.toFixed(2)}</span>
-                                </div>
-                                <div className="ti-tax-row ti-tax-highlight">
-                                    <span>SGST @{sgstRate.toFixed(2).replace(/\.00$/, '')}%</span>
-                                    <span>{sgstAmt.toFixed(2)}</span>
-                                </div>
-                            </>
-                        )}
-                        <div className="ti-tax-row">
-                            <span>Round Off</span>
-                            <span>{roundOff.toFixed(2)}</span>
-                        </div>
-                        <div className="ti-tax-row ti-tax-total">
-                            <span>Total Amt</span>
-                            <span>{totalAmt.toFixed(2)}</span>
-                        </div>
+                    <div className="flex items-start">
+                        <span className="w-20 font-bold whitespace-nowrap uppercase">In words</span>
+                        <span className="mx-1">:</span>
+                        <span className="text-[9px] font-bold italic border-b border-dotted border-black flex-1 min-h-[40px]">
+                            Rupees {numberToWords(finalAmt)}
+                        </span>
                     </div>
                 </div>
 
-                <div className="ti-footer-row">
-                    <div className="ti-footer-left">
-                        <div className="ti-terms-title">Terms and Conditions</div>
-                        <div className="ti-terms-text">
-                            Subject to Tirupur Jurisdiction.<br />
-                            Payment by Cheque/DD only.<br />
-                            Cheques made in favour of {companyName}.
-                        </div>
-                        <div className="ti-bank-box">
-                            <div className="ti-bank-title">Bank Details:</div>
-                            <div className="ti-bank-info">
-                                <div>ACC NAME: {bankAccName}</div>
-                                <div>BANK: {bankName}</div>
-                                <div>ACC NUM: {bankAccount} | BRANCH: {bankBranch} | IFSC: {bankIfsc}</div>
+                {/* Middle Stats */}
+                <div className="col-span-4 p-2 border-r border-black flex flex-col justify-between">
+                    <div className="flex items-center justify-between font-bold text-[11px] mb-4">
+                        <span className="uppercase">Num Of Bundles</span>
+                        <span className="mx-2">:</span>
+                        <span className="border border-black px-4 py-1">{numBundles}</span>
+                    </div>
+
+                    <div className="border border-red-500 p-2 flex items-center justify-between rounded-sm">
+                        <span className="text-red-600 font-extrabold text-lg tracking-widest uppercase">Total GST</span>
+                        <span className="text-red-600 font-extrabold text-2xl">5%</span>
+                    </div>
+                </div>
+
+                {/* Right Calc */}
+                <div className="col-span-4 text-[11px] font-bold flex flex-col divide-y divide-black">
+                    <div className="grid grid-cols-2 p-1 px-2">
+                        <span>Product Amt</span>
+                        <span className="text-right">{productAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="grid grid-cols-2 p-1 px-2">
+                        <span>Discount</span>
+                        <span className="text-right">{discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="grid grid-cols-2 p-1 px-2">
+                        <span>Taxable Amt</span>
+                        <span className="text-right">{taxableAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="grid grid-cols-2 p-1 px-2 text-red-600 font-bold">
+                        <span>CGST @ 2.50%</span>
+                        <span className="text-right">{cgstAmt.toFixed(2)}</span>
+                    </div>
+                    <div className="grid grid-cols-2 p-1 px-2 text-red-600 font-bold">
+                        <span>SGST @ 2.50%</span>
+                        <span className="text-right">{sgstAmt.toFixed(2)}</span>
+                    </div>
+                    <div className="grid grid-cols-2 p-1 px-2">
+                        <span>Round Off</span>
+                        <span className="text-right">{toAmount(bill.roundOff).toFixed(2)}</span>
+                    </div>
+                    <div className="grid grid-cols-2 p-1 px-2 text-sm bg-gray-50 uppercase font-black border-t border-black">
+                        <span>Total Amt</span>
+                        <span className="text-right">{finalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Terms and Bottom */}
+            <div className="grid grid-cols-2 text-[8px] border-b border-black divide-x divide-black">
+                <div className="p-3 space-y-1">
+                    <h3 className="font-bold border-b border-black w-fit mb-1 uppercase">Terms And Conditions</h3>
+                    <ol className="list-decimal pl-4 space-y-0.5">
+                        <li>Subject to Tirupur Jurisdiction.</li>
+                        <li>Payment by Cheque/DD only, payable at Tirupur.</li>
+                        <li>Cheques made in favour of {companyName} to be sent to Tirunelveli Address</li>
+                        <li>All disputes are subjected to Tirunelveli Jurisdiction</li>
+                    </ol>
+                    
+                    <div className="mt-4 border border-orange-200 p-2 rounded-sm text-[9px] bg-orange-50/30">
+                        <h4 className="text-red-600 font-black mb-1 italic">Bank Details:</h4>
+                        <div className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-0.5 uppercase">
+                            <span className="font-bold">ACC NAME</span>
+                            <span>: {companyName}</span>
+                            <span className="font-bold">BANK</span>
+                            <span>: SOUTH INDIAN BANK</span>
+                            <span className="font-bold">ACC NUM</span>
+                            <span>: 0338073000002328</span>
+                            <span className="font-bold">BRANCH</span>
+                            <div className="flex justify-between">
+                                <span>: TIRUPUR</span>
+                                <div className="flex">
+                                    <span className="font-bold mr-1">IFSC :</span>
+                                    <span>SIBL0000338</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div className="ti-footer-right">
-                        <div className="ti-certified">
-                            Certified that above particulars are true<br />and correct
-                        </div>
-                        <div className="ti-signature">
-                            For {companyName}
+                </div>
+                <div className="p-3 flex flex-col justify-between items-center text-center">
+                    <p className="italic font-bold">Certified that above particulars are true and correct</p>
+                    <div className="mt-auto space-y-12 w-full">
+                        <p className="text-blue-900 font-black uppercase text-xs">For {companyName}</p>
+                        <div className="flex flex-col items-center">
+                            <div className="w-40 border-t border-black"></div>
+                            <p className="font-bold mt-1 uppercase text-[9px]">Authorized Signature</p>
                         </div>
                     </div>
                 </div>

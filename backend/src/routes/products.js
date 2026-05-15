@@ -1,6 +1,7 @@
 import express from 'express';
 import Product from '../models/Product.js';
 import StockMovement from '../models/StockMovement.js';
+import { emitEvent } from '../services/socketService.js';
 
 const router = express.Router();
 
@@ -78,6 +79,7 @@ router.post('/', async (req, res) => {
     try {
         const product = new Product(req.body);
         await product.save();
+        emitEvent('product:created', { data: product });
         res.status(201).json({ success: true, data: product });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -95,6 +97,7 @@ router.put('/:id', async (req, res) => {
         if (!product) {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
+        emitEvent('product:updated', { id: req.params.id, data: product });
         res.json({ success: true, data: product });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -112,6 +115,7 @@ router.delete('/:id', async (req, res) => {
         if (!product) {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
+        emitEvent('product:deleted', { id: req.params.id });
         res.json({ success: true, message: 'Product deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -152,6 +156,8 @@ router.post('/:id/stock', async (req, res) => {
         // Check for low stock and notify if necessary
         const { checkAndNotifyLowStock } = await import('../services/emailService.js');
         checkAndNotifyLowStock(product).catch(err => console.error('Low stock alert error:', err));
+
+        emitEvent('product:updated', { id: req.params.id, data: product });
 
         res.json({ success: true, data: product });
     } catch (error) {

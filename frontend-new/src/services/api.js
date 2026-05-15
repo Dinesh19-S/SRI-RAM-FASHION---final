@@ -166,27 +166,24 @@ const prepareCustomerData = (data) => {
     };
 };
 
-const preparePurchaseData = (data) => {
+const prepareFabricPurchaseData = (data) => {
     return {
-        invoiceNumber: data.invoiceNumber || data.billNumber || '',
-        date: data.date || new Date(),
-        supplier: {
-            name: data.supplier?.name || data.supplier || '',
-            mobile: data.supplier?.mobile || '',
-            gstin: data.supplier?.gstin || '',
-            address: data.supplier?.address || ''
-        },
+        supplier_name: data.supplier_name,
+        gstin: data.gstin || '',
+        mobile: data.mobile || '',
+        invoice_number: data.invoice_number,
+        invoice_date: data.invoice_date,
+        transport: data.transport || '',
+        vehicle_number: data.vehicle_number || '',
+        lr_number: data.lr_number || '',
         items: Array.isArray(data.items) ? data.items.map(item => ({
-            particular: item.particular || item.name || '',
-            hsnCode: item.hsnCode || '',
-            designColor: item.designColor || '',
-            weightKg: Number(item.weightKg || 0),
-            ratePerKg: Number(item.ratePerKg || 0),
-            amount: Number(item.amount || 0),
-            total: Number(item.total || 0)
-        })) : [],
-        notes: data.notes || '',
-        status: data.status || 'completed'
+            fabric_name: item.fabric_name,
+            color: item.color || '',
+            gsm: Number(item.gsm || 0),
+            roll_no: item.roll_no || '',
+            weight_kg: Number(item.weight_kg || 0),
+            rate_per_kg: Number(item.rate_per_kg || 0)
+        })) : []
     };
 };
 
@@ -614,7 +611,7 @@ export const categoriesAPI = {
             const response = await api.get(ENDPOINTS.categories.list);
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     create: async (data) => {
@@ -622,7 +619,7 @@ export const categoriesAPI = {
             const response = await api.post(ENDPOINTS.categories.list, data);
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     update: async (id, data) => {
@@ -630,7 +627,7 @@ export const categoriesAPI = {
             const response = await api.put(ENDPOINTS.categories.byId(id), data);
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     delete: async (id) => {
@@ -638,7 +635,7 @@ export const categoriesAPI = {
             const response = await api.delete(ENDPOINTS.categories.byId(id));
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
 };
@@ -1123,7 +1120,7 @@ export const purchaseEntriesAPI = {
             const response = await api.put(ENDPOINTS.purchaseEntries.byId(id), entryData);
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     delete: async (id) => {
@@ -1131,7 +1128,7 @@ export const purchaseEntriesAPI = {
             const response = await api.delete(ENDPOINTS.purchaseEntries.byId(id));
             return response;
         } catch (error) {
-            return handleApiError(error);
+            throw handleError(error);
         }
     },
     uploadBillPdf: async (id, file) => {
@@ -1213,6 +1210,57 @@ export const backupAPI = {
         try {
             const response = await api.post(ENDPOINTS.backup.import, { backupData });
             return response.data;
+        } catch (error) {
+            throw handleError(error);
+        }
+    }
+};
+
+export const fabricPurchasesAPI = {
+    getAll: async (params) => {
+        try {
+            const response = await api.get(ENDPOINTS.fabricPurchases.list, { params });
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    getById: async (id) => {
+        try {
+            const response = await api.get(ENDPOINTS.fabricPurchases.byId(id));
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    create: async (data) => {
+        try {
+            const response = await api.post(ENDPOINTS.fabricPurchases.list, prepareFabricPurchaseData(data));
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    update: async (id, data) => {
+        try {
+            const response = await api.put(ENDPOINTS.fabricPurchases.byId(id), prepareFabricPurchaseData(data));
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    delete: async (id) => {
+        try {
+            const response = await api.delete(ENDPOINTS.fabricPurchases.byId(id));
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
+    search: async (q) => {
+        try {
+            const response = await api.get(ENDPOINTS.fabricPurchases.search, { params: { q } });
+            return response;
         } catch (error) {
             throw handleError(error);
         }

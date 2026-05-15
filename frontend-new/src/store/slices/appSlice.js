@@ -5,6 +5,8 @@ const initialState = {
     syncError: null,
     isOnline: typeof window !== 'undefined' ? window.navigator.onLine : true,
     lastSyncedAt: null,
+    loadingCount: 0,
+    isLoading: false,
 };
 
 const appSlice = createSlice({
@@ -22,9 +24,17 @@ const appSlice = createSlice({
         },
         setLastSynced: (state, action) => {
             state.lastSyncedAt = action.payload || new Date().toISOString();
+        },
+        startLoading: (state) => {
+            state.loadingCount += 1;
+            state.isLoading = true;
+        },
+        stopLoading: (state) => {
+            state.loadingCount = Math.max(0, state.loadingCount - 1);
+            state.isLoading = state.loadingCount > 0;
         }
     },
 });
 
-export const { setSyncStatus, setSyncError, setOnlineStatus, setLastSynced } = appSlice.actions;
+export const { setSyncStatus, setSyncError, setOnlineStatus, setLastSynced, startLoading, stopLoading } = appSlice.actions;
 export default appSlice.reducer;

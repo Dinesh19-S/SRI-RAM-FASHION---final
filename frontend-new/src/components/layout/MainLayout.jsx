@@ -26,6 +26,7 @@ import {
     RefreshCw,
     Wifi,
     WifiOff,
+    Grid,
 } from 'lucide-react';
 
 import logoImage from '../../assets/logo.jpg';
@@ -42,19 +43,19 @@ const navigationSections = [
         title: 'MAIN',
         items: [
             { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-            { name: 'Bill List', href: '/dashboard/billing', icon: Receipt },
-            { name: 'Create Bill', href: '/dashboard/billing?view=create', icon: Plus },
-            { name: 'Purchase List', href: '/dashboard/purchase/billing', icon: Calculator },
-            { name: 'Add Purchase', href: '/dashboard/purchase/entry', icon: Calculator },
-            { name: 'Inventory', href: '/dashboard/inventory', icon: Package },
+            { name: 'Sales', href: '/dashboard/billing', icon: Receipt },
+            { name: 'New Sale', href: '/dashboard/billing?view=create', icon: Plus },
+            { name: 'Purchases', href: '/dashboard/purchase/billing', icon: Calculator },
+            { name: 'New Purchase', href: '/dashboard/purchase/entry', icon: Calculator },
+            { name: 'Stock', href: '/dashboard/inventory', icon: Package },
         ]
     },
     {
         title: 'REPORTS',
         items: [
-            { name: 'Sell Reports', href: '/dashboard/reports/sales', icon: TrendingUp },
-            { name: 'Buy Reports', href: '/dashboard/reports/purchase', icon: Calculator },
-            { name: 'Stock Reports', href: '/dashboard/reports/stock', icon: Package },
+            { name: 'Sales Report', href: '/dashboard/reports/sales', icon: TrendingUp },
+            { name: 'Purchase Report', href: '/dashboard/reports/purchase', icon: Calculator },
+            { name: 'Stock Report', href: '/dashboard/reports/stock', icon: Package },
         ]
     },
     {
@@ -63,6 +64,7 @@ const navigationSections = [
             { name: 'Customers', href: '/dashboard/master/customers', icon: Users },
             { name: 'Suppliers', href: '/dashboard/master/suppliers', icon: Truck },
             { name: 'Items', href: '/dashboard/master/items', icon: Package },
+            { name: 'Categories', href: '/dashboard/master/categories', icon: Grid },
         ]
     },
     {
@@ -86,6 +88,7 @@ const searchSuggestions = [
     { label: 'Suppliers', path: '/dashboard/master/suppliers', keywords: ['supplier', 'vendor', 'entry', 'master'] },
     { label: 'Customers', path: '/dashboard/master/customers', keywords: ['customer', 'entry', 'master', 'company'] },
     { label: 'Items', path: '/dashboard/master/items', keywords: ['items', 'hsn', 'product', 'master'] },
+    { label: 'Categories', path: '/dashboard/master/categories', keywords: ['category', 'group', 'master', 'hierarchy'] },
     { label: 'Settings', path: '/dashboard/settings', keywords: ['settings', 'config', 'preferences'] },
 ];
 
@@ -336,11 +339,9 @@ const MainLayout = () => {
 
             {/* Sidebar */}
             <aside
-                className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                className={`fixed inset-y-0 left-0 z-50 lg:z-40 w-72 transform transition-transform duration-500 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} glass-sidebar`}
                 style={{
-                    background: 'linear-gradient(180deg, #0b1b36 0%, #0a1844 50%, #07112e 100%)',
-                    borderRight: '1px solid rgba(255,255,255,0.08)',
-                    boxShadow: '4px 0 18px rgba(0,0,0,0.25)'
+                    boxShadow: '10px 0 30px rgba(0,0,0,0.15)'
                 }}
             >
                 {/* Logo */}
@@ -359,18 +360,20 @@ const MainLayout = () => {
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex flex-col py-4 px-3 space-y-1 overflow-y-auto h-[calc(100vh-140px)]">
+                <nav className="flex flex-col py-6 px-4 space-y-1.5 overflow-y-auto h-[calc(100vh-160px)] custom-scrollbar">
                     {navigationSections.map((section, sectionIndex) => (
-                        <div key={sectionIndex} className={sectionIndex > 0 ? 'mt-4' : ''}>
+                        <div key={sectionIndex} className={sectionIndex > 0 ? 'mt-6' : ''}>
                             <button
                                 onClick={() => toggleSection(section.title)}
-                                className="flex items-center justify-between w-full text-xs font-bold text-[#e6d8c5]/70 uppercase tracking-wider mb-2 px-3 py-1 hover:text-white transition-colors"
-                                style={{ color: '#dbeafe' }}
+                                className="flex items-center justify-between w-full text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-3 px-3 py-1 hover:text-white transition-all group"
                             >
-                                {section.title}
+                                <span className="relative">
+                                    {section.title}
+                                    <span className="absolute -bottom-1 left-0 w-0 h-px bg-blue-500 transition-all group-hover:w-full"></span>
+                                </span>
                                 <ChevronRight
-                                    size={14}
-                                    className={`transition-transform duration-200 ${!collapsedSections[section.title] ? 'rotate-90' : ''}`}
+                                    size={12}
+                                    className={`transition-transform duration-300 ${!collapsedSections[section.title] ? 'rotate-90 text-blue-400' : 'text-slate-600'}`}
                                 />
                             </button>
 
@@ -380,8 +383,8 @@ const MainLayout = () => {
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: 'auto', opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="overflow-hidden space-y-0.5"
+                                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                        className="overflow-hidden space-y-1"
                                     >
                                         {section.items.map((item) => (
                                             <NavLink
@@ -389,21 +392,28 @@ const MainLayout = () => {
                                                 to={item.href}
                                                 end={item.href === '/dashboard'}
                                                 className={({ isActive }) => `
-                                                    flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group
+                                                    flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group relative
                                                     ${isActive
-                                                        ? 'bg-white/10 text-white shadow-inner border border-white/10'
-                                                        : 'text-[#e0e7ff]/80 hover:bg-white/5 hover:text-white'}
+                                                        ? 'bg-blue-600/10 text-white shadow-[inset_0_0_12px_rgba(37,99,235,0.1)]'
+                                                        : 'text-slate-400 hover:bg-white/5 hover:text-white'}
                                                 `}
                                                 onClick={() => setSidebarOpen(false)}
                                             >
                                                 {({ isActive }) => (
                                                     <>
+                                                        {isActive && (
+                                                            <motion.div 
+                                                                layoutId="active-indicator"
+                                                                className="absolute left-0 w-1 h-5 bg-blue-500 rounded-r-full"
+                                                                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                                            />
+                                                        )}
                                                         <item.icon
                                                             size={18}
-                                                            className={`transition-colors ${isActive ? 'text-[#93c5fd]' : 'text-[#cbd5f5]/80 group-hover:text-[#bfdbfe]'}`}
-                                                            strokeWidth={2}
+                                                            className={`transition-all duration-300 ${isActive ? 'text-blue-400 scale-110' : 'text-slate-500 group-hover:text-blue-300 group-hover:translate-x-0.5'}`}
+                                                            strokeWidth={isActive ? 2.5 : 2}
                                                         />
-                                                        <span className="text-sm font-medium">{item.name}</span>
+                                                        <span className={`text-sm tracking-tight transition-colors ${isActive ? 'font-bold' : 'font-medium'}`}>{item.name}</span>
                                                     </>
                                                 )}
                                             </NavLink>
@@ -428,11 +438,11 @@ const MainLayout = () => {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col min-h-screen lg:ml-64 transition-all duration-300">
+            <div className="flex-1 flex flex-col min-h-screen lg:ml-72 lg:z-50 transition-all duration-500 ease-in-out relative">
                 {/* Header */}
                 <header
-                    className="h-16 flex items-center justify-between px-4 lg:px-8 py-3 sticky top-0 z-30"
-                    style={{ backgroundColor: 'rgba(243, 247, 255, 0.9)', borderBottom: '1px solid var(--border-soft)', backdropFilter: 'blur(6px)' }}
+                    className="h-20 flex items-center justify-between px-4 lg:px-10 py-3 sticky top-0 z-30"
+                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)', borderBottom: '1px solid rgba(241, 245, 249, 0.8)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
                 >
                     <div className="flex items-center gap-4 flex-1">
                         <button

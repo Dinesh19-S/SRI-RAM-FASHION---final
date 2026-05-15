@@ -1,6 +1,7 @@
 import express from 'express';
 import Category from '../models/Category.js';
 import Product from '../models/Product.js';
+import { emitEvent } from '../services/socketService.js';
 
 const router = express.Router();
 
@@ -28,6 +29,7 @@ router.post('/', async (req, res) => {
     try {
         const category = new Category(req.body);
         await category.save();
+        emitEvent('category:created', { data: category });
         res.status(201).json({ success: true, data: category });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -42,6 +44,9 @@ router.put('/:id', async (req, res) => {
             req.body,
             { new: true }
         );
+        if (category) {
+            emitEvent('category:updated', { id: req.params.id, data: category });
+        }
         res.json({ success: true, data: category });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -52,6 +57,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         await Category.findByIdAndUpdate(req.params.id, { isActive: false });
+        emitEvent('category:deleted', { id: req.params.id });
         res.json({ success: true, message: 'Category deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

@@ -112,6 +112,19 @@ const useSocketSync = () => {
             dispatch(fetchBills());
         });
 
+        // --- Category Sync ---
+        socket.on('category:created', () => dispatch(fetchProducts()));
+        socket.on('category:updated', () => dispatch(fetchProducts()));
+        socket.on('category:deleted', () => dispatch(fetchProducts()));
+
+        // --- Customer Sync ---
+        socket.on('customer:created', () => { /* Future: dispatch(fetchCustomers()) */ });
+        socket.on('customer:updated', () => { /* Future: dispatch(fetchCustomers()) */ });
+
+        // --- Supplier Sync ---
+        socket.on('supplier:created', () => { /* Future: dispatch(fetchSuppliers()) */ });
+        socket.on('supplier:updated', () => { /* Future: dispatch(fetchSuppliers()) */ });
+
         // Clean up listeners on unmount
         return () => {
             socket.off('bill:created');
@@ -123,6 +136,13 @@ const useSocketSync = () => {
             socket.off('purchase:created');
             socket.off('purchase:updated');
             socket.off('purchase:deleted');
+            socket.off('category:created');
+            socket.off('category:updated');
+            socket.off('category:deleted');
+            socket.off('customer:created');
+            socket.off('customer:updated');
+            socket.off('supplier:created');
+            socket.off('supplier:updated');
         };
     }, [dispatch]);
 

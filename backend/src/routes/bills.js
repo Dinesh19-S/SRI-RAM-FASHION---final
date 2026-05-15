@@ -4,6 +4,7 @@ import Bill from '../models/Bill.js';
 import Product from '../models/Product.js';
 import StockMovement from '../models/StockMovement.js';
 import { sendBillNotification } from '../services/emailService.js';
+import { emitEvent } from '../services/socketService.js';
 
 const router = express.Router();
 
@@ -300,6 +301,11 @@ router.post('/', async (req, res) => {
             });
         }
 
+        // Emit real-time update
+        emitEvent('bill:created', { data: normalizeBillType(createdBill.toObject()) });
+        // Also emit product update since stock changed
+        emitEvent('product:updated', { multi: true });
+
         res.status(201).json({ success: true, data: normalizeBillType(createdBill.toObject()) });
     } catch (error) {
         res.status(error.statusCode || 500).json({ success: false, message: error.message });
@@ -322,6 +328,11 @@ router.put('/:id', async (req, res) => {
             { new: true }
         );
         const billData = bill ? normalizeBillType(bill.toObject()) : bill;
+        
+        if (billData) {
+            emitEvent('bill:updated', { id: req.params.id, data: billData });
+        }
+
         res.json({ success: true, data: billData });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -382,6 +393,9 @@ router.delete('/:id', async (req, res) => {
             message: 'Bill deleted and linked stock restored',
             data: { billNumber: deletedBillNumber }
         });
+        
+        emitEvent('bill:deleted', { id: req.params.id });
+        emitEvent('product:updated', { multi: true });
     } catch (error) {
         res.status(error.statusCode || 500).json({ success: false, message: error.message });
     } finally {

@@ -103,17 +103,17 @@ const RegisterPage = () => {
 
     return (
         <div className="min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden font-sans bg-slate-950">
-            {/* Elite Background Architecture */}
+            {/* Background */}
             <div className="absolute inset-0 z-0">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse"></div>
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]"></div>
             </div>
 
-            {/* Auth Shell */}
+            {/* Form Shell */}
             <div className="relative z-10 w-full max-w-[540px] animate-scale-up">
                 <div className="glass-card p-10 md:p-14 border-white/10 shadow-2xl backdrop-blur-2xl bg-white/5 overflow-hidden">
-                    {/* Security Badge */}
+                    {/* Security Icon */}
                     <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-40 transition-opacity">
                         <ShieldCheck size={120} className="text-white -rotate-12 translate-x-12 -translate-y-12" />
                     </div>
@@ -127,7 +127,7 @@ const RegisterPage = () => {
                                 className="relative w-full h-full object-cover rounded-3xl border border-white/20 shadow-2xl"
                             />
                         </div>
-                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em] mb-3">Join the System</p>
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em] mb-3">Join us</p>
                         <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Sign Up</h1>
                         <p className="text-sm font-bold text-slate-400">Create your account to start managing business.</p>
                     </div>
@@ -234,7 +234,7 @@ const RegisterPage = () => {
                             )}
                         </div>
 
-                        {/* Password Entropy */}
+                        {/* Password Strength */}
                         {formData.password && (
                             <div className="bg-white/5 p-4 rounded-2xl border border-white/10 animate-fade-in">
                                 <div className="flex gap-1.5 mb-2">

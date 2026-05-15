@@ -142,7 +142,7 @@ const SettingsPage = () => {
 
     return (
         <div className="space-y-10 animate-fade-in p-2 pb-20">
-            {/* Elite Settings Header */}
+            {/* Settings Header */}
             <div className="page-header-shell bg-white/40 backdrop-blur-md border border-white/40 shadow-xl shadow-slate-200/20 rounded-3xl p-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex items-start gap-5">
@@ -159,10 +159,10 @@ const SettingsPage = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Tactical Navigation Sidebar */}
+                {/* Navigation Sidebar */}
                 <div className="lg:col-span-3 space-y-4">
                     <div className="glass-card p-4 border-none space-y-2">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-4 py-2">Settings Sections</p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-4 py-2">Categories</p>
                         {tabs.map((tab) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
@@ -193,13 +193,13 @@ const SettingsPage = () => {
                         <ShieldCheck size={48} className="text-emerald-400/20 absolute -bottom-4 -right-4" />
                         <div className="relative z-10 space-y-3">
                             <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Security Status</p>
-                            <h4 className="text-lg font-black tracking-tight">System Secure</h4>
+                            <h4 className="text-lg font-black tracking-tight">Status</h4>
                             <p className="text-[10px] font-bold text-emerald-100/60 leading-relaxed uppercase tracking-widest">Your data is safe and system is monitoring for any issues.</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Dynamic Configuration Panel */}
+                {/* Configuration Panel */}
                 <div className="lg:col-span-9">
                     <div className="glass-card border-none min-h-[600px] animate-scale-up overflow-hidden p-0">
                         {(() => {
@@ -261,7 +261,7 @@ const SettingsPage = () => {
                                                     className="form-input pl-12 font-mono font-black uppercase tracking-widest"
                                                     value={formData.company?.gstin || ''}
                                                     onChange={(e) => setFormData({ ...formData, company: { ...formData.company, gstin: e.target.value } })}
-                                                    placeholder="GSTIN IDENTIFIER"
+                                                    placeholder="GST Number"
                                                 />
                                             </div>
                                         </div>
@@ -273,7 +273,7 @@ const SettingsPage = () => {
                                             className="form-input min-h-[120px] py-4 font-bold"
                                             value={formData.company?.address || ''}
                                             onChange={(e) => setFormData({ ...formData, company: { ...formData.company, address: e.target.value } })}
-                                            placeholder="Official physical location..."
+                                            placeholder="Company Address"
                                         />
                                     </div>
 
@@ -327,7 +327,7 @@ const SettingsPage = () => {
                                             {(formData.profile?.name || '?').charAt(0).toUpperCase()}
                                         </div>
                                         <div>
-                                            <h4 className="text-xl font-black text-slate-900 tracking-tight">{formData.profile?.name || 'Authorized User'}</h4>
+                                            <h4 className="text-xl font-black text-slate-900 tracking-tight">{formData.profile?.name || 'User Name'}</h4>
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Admin User</p>
                                         </div>
                                     </div>
@@ -580,7 +580,7 @@ const SettingsPage = () => {
                                 </div>
                             )}
 
-                            {/* Infrastructure & Backups */}
+                            {/* Backup & Restore */}
                             {activeTab === 'data' && (
                                 <div className="space-y-10 animate-fade-in">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -588,7 +588,7 @@ const SettingsPage = () => {
                                             <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-8 shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
                                                 <Download size={32} />
                                             </div>
-                                            <h4 className="text-xl font-black text-slate-900 tracking-tight mb-2">Export Backup</h4>
+                                            <h4 className="text-xl font-black text-slate-900 tracking-tight mb-2">Export Data</h4>
                                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed mb-10">
                                                 Download all your business data including customer list, stock details, and sales history for safety.
                                             </p>
@@ -616,7 +616,7 @@ const SettingsPage = () => {
                                             <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md text-white flex items-center justify-center mb-8 shadow-xl group-hover:scale-110 transition-transform border border-white/5">
                                                 <Upload size={32} />
                                             </div>
-                                            <h4 className="text-xl font-black tracking-tight mb-2">Restore Database</h4>
+                                            <h4 className="text-xl font-black tracking-tight mb-2">Restore Data</h4>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-10">
                                                 Upload a previously saved database file to restore your business records.
                                             </p>
@@ -644,7 +644,7 @@ const SettingsPage = () => {
                                                 <Trash2 size={40} />
                                             </div>
                                             <div className="space-y-2">
-                                                <h4 className="text-2xl font-black text-rose-900 tracking-tighter">Reset System</h4>
+                                                <h4 className="text-2xl font-black text-rose-900 tracking-tighter">Delete All Data</h4>
                                                 <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest max-w-sm leading-relaxed">
                                                     Permanently delete all records from the database. This cannot be undone.
                                                 </p>
@@ -654,7 +654,7 @@ const SettingsPage = () => {
                                             className="px-10 py-5 bg-rose-500 text-white rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95"
                                             onClick={() => setShowFlashConfirm(true)}
                                         >
-                                            Reset Now
+                                            Delete Now
                                         </button>
                                     </div>
                                 </div>
@@ -664,7 +664,7 @@ const SettingsPage = () => {
                 </div>
             </div>
 
-            {/* Critical Flash Confirmation */}
+            {/* Delete Confirmation */}
             {showFlashConfirm && (
                 <div className="modal-overlay bg-slate-900/80 backdrop-blur-xl p-4" onClick={() => setShowFlashConfirm(false)}>
                     <div className="modal-content max-w-md border-none animate-slide-up" onClick={(e) => e.stopPropagation()}>
@@ -685,7 +685,7 @@ const SettingsPage = () => {
                                     onClick={handleFlash}
                                     disabled={isFlashing}
                                 >
-                                    {isFlashing ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Reset'}
+                                    {isFlashing ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Delete'}
                                 </button>
                             </div>
                         </div>

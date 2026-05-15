@@ -63,7 +63,7 @@ const HomePage = () => {
 
     return (
         <div className="home-root">
-            {/* ===== ELITE NAVIGATION ===== */}
+            {/* NAVIGATION */}
             <nav className="home-navbar animate-fade-in">
                 <div className="home-navbar-brand">
                     <img src={logoImage} alt="Sri Ram Fashions" className="home-navbar-logo" />
@@ -85,12 +85,12 @@ const HomePage = () => {
                 </div>
             </nav>
 
-            {/* ===== SUPREME HERO ===== */}
+            {/* HERO SECTION */}
             <section className="home-hero">
                 <div className="home-hero-inner">
                     <div className="home-hero-badge">
                         <span className="home-hero-badge-dot"></span>
-                        Business Management v4.0
+                        Shop Management v4.0
                     </div>
 
                     <h1 className="home-hero-title">
@@ -130,7 +130,7 @@ const HomePage = () => {
                 </div>
             </section>
 
-            {/* ===== STRATEGIC METRICS ===== */}
+            {/* STATS */}
             <section className="home-stats">
                 <div className="home-stats-inner">
                     <div className="home-stat-item">
@@ -154,10 +154,10 @@ const HomePage = () => {
                 </div>
             </section>
 
-            {/* ===== CORE INTELLIGENCE ===== */}
+            {/* FEATURES */}
             <section className="home-features">
                 <div className="home-features-inner">
-                    <p className="home-section-label">Operational Core</p>
+                    <p className="home-section-label">Features</p>
                     <h2 className="home-section-title">All-in-One Management</h2>
 
                     <div className="home-features-grid">
@@ -179,7 +179,7 @@ const HomePage = () => {
                 </div>
             </section>
 
-            {/* ===== PREVIEW ARCHITECTURE ===== */}
+            {/* PREVIEW */}
             <section className="home-preview-section">
                 <div className="home-preview-container">
                     <div className="home-preview-text">
@@ -255,7 +255,7 @@ const HomePage = () => {
                 </div>
             </section>
 
-            {/* ===== INSTITUTIONAL FOOTER ===== */}
+            {/* FOOTER */}
             <footer className="home-footer">
                 <div className="max-w-7xl mx-auto flex flex-col items-center gap-8">
                     <img src={logoImage} alt="Sri Ram Fashions" className="w-12 h-12 rounded-xl opacity-50 grayscale" />

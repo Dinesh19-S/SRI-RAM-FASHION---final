@@ -116,23 +116,43 @@ const billsSlice = createSlice({
                 state.error = action.payload;
             })
             // Create Bill
-            .addCase(createBill.pending, (state) => {
+            .addCase(createBill.pending, (state, action) => {
                 state.isLoading = true;
+                // Add a temporary optimistic bill if possible
+                const tempBill = {
+                    ...action.meta.arg,
+                    _id: 'temp-' + Date.now(),
+                    billNumber: 'PREPARING...',
+                    date: new Date().toISOString(),
+                    isOptimistic: true
+                };
+                state.items.unshift(tempBill);
             })
             .addCase(createBill.fulfilled, (state, action) => {
                 state.isLoading = false;
+                // Remove temp bills
+                state.items = state.items.filter(b => !b.isOptimistic);
                 state.items.unshift(action.payload);
                 state.currentBill = action.payload;
             })
             .addCase(createBill.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
+                // Remove temp bills
+                state.items = state.items.filter(b => !b.isOptimistic);
             })
             // Fetch Bill by ID
             .addCase(fetchBillById.fulfilled, (state, action) => {
                 state.currentBill = action.payload;
             })
             // Update Bill Status
+            .addCase(updateBillStatus.pending, (state, action) => {
+                const { id, status } = action.meta.arg;
+                const index = state.items.findIndex(b => (b._id || b.id) === id);
+                if (index !== -1) {
+                    state.items[index].paymentStatus = status;
+                }
+            })
             .addCase(updateBillStatus.fulfilled, (state, action) => {
                 const index = state.items.findIndex(b => b._id === action.payload._id);
                 if (index !== -1) {
@@ -140,8 +160,16 @@ const billsSlice = createSlice({
                 }
             })
             // Delete Bill
+            .addCase(deleteBill.pending, (state, action) => {
+                const id = action.meta.arg;
+                state.items = state.items.filter(b => (b._id || b.id) !== id);
+            })
             .addCase(deleteBill.fulfilled, (state, action) => {
-                state.items = state.items.filter(b => b._id !== action.payload);
+                state.isLoading = false;
+            })
+            .addCase(deleteBill.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
             });
     },
 });

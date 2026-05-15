@@ -3,6 +3,8 @@ import Bill from '../models/Bill.js';
 import Product from '../models/Product.js';
 import StockMovement from '../models/StockMovement.js';
 import PurchaseEntry from '../models/PurchaseEntry.js';
+import FabricPurchase from '../models/FabricPurchase.js';
+import FabricPurchaseItem from '../models/FabricPurchaseItem.js';
 
 const router = express.Router();
 
@@ -229,32 +231,43 @@ router.get('/sales-report', async (req, res) => {
     }
 });
 
-// Purchase report (linked to PurchaseEntry)
+// Purchase report (consolidated PurchaseEntry and FabricPurchase)
 router.get('/purchase-report', async (req, res) => {
     try {
-        const { fromDate, toDate, supplier } = req.query;
+        const { fromDate, toDate, supplier, invNo } = req.query;
 
-        const query = {};
+        const dateQuery = {};
         if (fromDate && toDate) {
-            query.date = { $gte: new Date(fromDate), $lte: new Date(toDate) };
+            dateQuery.date = { $gte: new Date(fromDate), $lte: new Date(toDate) };
         }
-        if (supplier) {
-            query['supplier.name'] = { $regex: supplier, $options: 'i' };
+        
+        const fabricDateQuery = {};
+        if (fromDate && toDate) {
+            fabricDateQuery.invoice_date = { $gte: new Date(fromDate), $lte: new Date(toDate) };
         }
 
-        const entries = await PurchaseEntry.find(query)
-            .sort({ date: 1 })
-            .lean();
+        const entryQuery = { ...dateQuery };
+        if (supplier) entryQuery['supplier.name'] = { $regex: supplier, $options: 'i' };
+        if (invNo) entryQuery.invoiceNumber = { $regex: invNo, $options: 'i' };
 
-        // Flatten items for report
+        const fabricQuery = { ...fabricDateQuery };
+        if (supplier) fabricQuery.supplier_name = { $regex: supplier, $options: 'i' };
+        if (invNo) fabricQuery.invoice_number = { $regex: invNo, $options: 'i' };
+
+        const [entries, fabricPurchases] = await Promise.all([
+            PurchaseEntry.find(entryQuery).sort({ date: 1 }).lean(),
+            FabricPurchase.find(fabricQuery).sort({ invoice_date: 1 }).lean()
+        ]);
+
         const reportData = [];
         let sno = 1;
 
+        // Add regular purchase entries
         entries.forEach(entry => {
             entry.items.forEach(item => {
                 reportData.push({
                     sno: sno++,
-                    date: entry.date.toISOString().split('T')[0],
+                    date: entry.date,
                     invNo: entry.invoiceNumber,
                     item: item.particular,
                     rate: item.ratePerKg || item.rate,
@@ -263,10 +276,36 @@ router.get('/purchase-report', async (req, res) => {
                     cgst: item.cgst || 0,
                     sgst: item.sgst || 0,
                     igst: item.igst || 0,
-                    total: item.total || (item.weightKg || item.quantity) * (item.ratePerKg || item.rate)
+                    total: item.total || ((item.weightKg || item.quantity) * (item.ratePerKg || item.rate))
                 });
             });
         });
+
+        // Add fabric purchases
+        for (const fp of fabricPurchases) {
+            const items = await FabricPurchaseItem.find({ purchase_id: fp._id }).lean();
+            items.forEach(item => {
+                reportData.push({
+                    sno: sno++,
+                    date: fp.invoice_date,
+                    invNo: fp.invoice_number,
+                    item: `FABRIC: ${item.fabric_name}`,
+                    rate: item.rate_per_kg,
+                    qty: item.weight_kg,
+                    taxableAmount: item.amount,
+                    cgst: 0,
+                    sgst: 0,
+                    igst: 0,
+                    total: item.amount
+                });
+            });
+        }
+
+        // Sort by date
+        reportData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // Re-assign S.No after sorting
+        reportData.forEach((item, index) => { item.sno = index + 1; });
 
         res.json({ success: true, data: reportData });
     } catch (error) {
@@ -334,29 +373,60 @@ router.get('/auditor-sales', async (req, res) => {
     }
 });
 
-// Auditor Purchase Report (GST breakdown)
+// Auditor Purchase Report (consolidated)
 router.get('/auditor-purchase', async (req, res) => {
     try {
         const { fromDate, toDate } = req.query;
 
-        const query = {};
+        const dateQuery = {};
         if (fromDate && toDate) {
-            query.date = { $gte: new Date(fromDate), $lte: new Date(toDate) };
+            dateQuery.date = { $gte: new Date(fromDate), $lte: new Date(toDate) };
         }
 
-        const entries = await PurchaseEntry.find(query).sort({ date: 1 }).lean();
+        const fabricDateQuery = {};
+        if (fromDate && toDate) {
+            fabricDateQuery.invoice_date = { $gte: new Date(fromDate), $lte: new Date(toDate) };
+        }
 
-        const reportData = entries.map(entry => ({
-            companyName: entry.supplier.name,
-            gstin: entry.supplier.gstin || 'N/A',
-            date: entry.date.toISOString().split('T')[0],
-            invNo: entry.invoiceNumber,
-            taxableAmount: entry.subtotal,
-            cgst: entry.totalCgst,
-            sgst: entry.totalSgst,
-            igst: entry.totalIgst || 0,
-            total: entry.grandTotal
-        }));
+        const [entries, fabricPurchases] = await Promise.all([
+            PurchaseEntry.find(dateQuery).sort({ date: 1 }).lean(),
+            FabricPurchase.find(fabricDateQuery).sort({ invoice_date: 1 }).lean()
+        ]);
+
+        const reportData = [];
+
+        // Add regular purchase entries
+        entries.forEach(entry => {
+            reportData.push({
+                companyName: entry.supplier.name,
+                gstin: entry.supplier.gstin || 'N/A',
+                date: entry.date,
+                invNo: entry.invoiceNumber,
+                taxableAmount: entry.subtotal,
+                cgst: entry.totalCgst,
+                sgst: entry.totalSgst,
+                igst: entry.totalIgst || 0,
+                total: entry.grandTotal
+            });
+        });
+
+        // Add fabric purchases
+        fabricPurchases.forEach(fp => {
+            reportData.push({
+                companyName: fp.supplier_name,
+                gstin: fp.gstin || 'N/A',
+                date: fp.invoice_date,
+                invNo: fp.invoice_number,
+                taxableAmount: fp.total_amount,
+                cgst: 0,
+                sgst: 0,
+                igst: 0,
+                total: fp.total_amount
+            });
+        });
+
+        // Sort by date
+        reportData.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         res.json({ success: true, data: reportData });
     } catch (error) {

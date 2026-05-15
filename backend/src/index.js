@@ -13,6 +13,7 @@ import { API_BASES, API_CONTRACT } from './config/apiContract.js';
 import { initScheduler } from './services/schedulerService.js';
 import { authenticateToken } from './middleware/auth.js';
 import { cacheMiddleware, cachePolicies } from './middleware/cache.js';
+import { initSocket } from './services/socketService.js';
 
 // Import Routes
 import authRoutes from './routes/auth.js';
@@ -32,6 +33,7 @@ import purchaseEntriesRoutes from './routes/purchaseEntries.js';
 // import aiRoutes from './routes/ai.js'; // Commented out - AI services not available
 import emailRoutes from './routes/email.js';
 import backupRoutes from './routes/backup.js';
+import fabricPurchaseRoutes from './routes/fabricPurchases.js';
 
 const app = express();
 const REQUIRED_ENV_VARS = ['MONGODB_URI', 'JWT_SECRET'];
@@ -178,6 +180,7 @@ const createApiRouter = () => {
     // router.use('/ai', authenticateToken, aiRoutes); // Commented out - AI services not available
     router.use('/email', authenticateToken, emailRoutes);
     router.use('/backup', authenticateToken, backupRoutes);
+    router.use('/fabric-purchases', authenticateToken, fabricPurchaseRoutes);
 
     return router;
 };
@@ -274,6 +277,9 @@ const startServer = async () => {
                 pingTimeout: 60000,
                 pingInterval: 25000
             });
+
+            // Initialize global socket service
+            initSocket(io);
 
             // Socket.io Events
             io.on('connection', (socket) => {

@@ -4,6 +4,7 @@ import productsReducer from './slices/productsSlice';
 import billsReducer from './slices/billsSlice';
 import settingsReducer from './slices/settingsSlice';
 import appReducer from './slices/appSlice';
+import fabricPurchasesReducer from './slices/fabricPurchasesSlice';
 
 export const store = configureStore({
     reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
         bills: billsReducer,
         settings: settingsReducer,
         app: appReducer,
+        fabricPurchases: fabricPurchasesReducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

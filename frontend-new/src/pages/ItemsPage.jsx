@@ -253,180 +253,189 @@ const ItemsPage = () => {
 
     return (
         <div className="space-y-10 animate-fade-in p-2 pb-20">
-            {/* Product Header */}
-            <div className="page-header-shell bg-white/40 backdrop-blur-md border border-white/40 shadow-xl shadow-slate-200/20 rounded-3xl p-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-start gap-5">
-                        <div className="w-16 h-16 rounded-3xl bg-linear-to-br from-indigo-600 to-slate-800 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-                            <Layers size={28} />
+            {/* Header */}
+            <div className="page-header-shell bg-white/60 backdrop-blur-2xl border border-white/50 shadow-premium rounded-[2.5rem] p-10 relative overflow-hidden group text-left">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full translate-y-1/2 -translate-x-1/3 blur-3xl pointer-events-none"></div>
+                
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                    <div className="flex items-start gap-6">
+                        <div className="w-20 h-20 rounded-4xl bg-linear-to-br from-indigo-600 to-slate-800 flex items-center justify-center text-white shadow-2xl shadow-indigo-500/30 group-hover:scale-105 transition-transform duration-500">
+                            <Layers size={32} />
                         </div>
-                        <div className="space-y-1">
-                            <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.3em]">Items</p>
-                            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Products</h1>
-                            <p className="text-sm font-bold text-slate-500 pt-1">Manage your shop items.</p>
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.4em]">Items</p>
+                            <h1 className="text-5xl font-black text-slate-900 tracking-tighter">Items</h1>
+                            <p className="text-sm font-bold text-slate-500 pt-1">Manage your product list and stock.</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <button
                             onClick={() => handleOpenModal()}
-                            className="btn bg-indigo-600 text-white hover:bg-indigo-700 px-8 py-4 rounded-2xl flex items-center gap-3 group shadow-xl shadow-indigo-500/20 transition-all active:scale-95 border-none"
+                            className="h-16 px-8 rounded-2xl flex items-center gap-3 bg-slate-900 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-slate-900/20 transition-all hover:scale-105 active:scale-95"
                         >
-                            <Plus size={20} />
-                            <span className="font-black uppercase tracking-widest text-[11px]">New Item</span>
+                            <Plus size={20} strokeWidth={3} />
+                            New Item
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Search & Filters */}
-            <div className="glass-card p-8 border-none">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-                    <div className="md:col-span-2 space-y-2">
-                        <label className="form-label">Search by Name</label>
+            {/* Search */}
+            <div className="glass-card p-10 border-none shadow-premium relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-slate-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+                    <div className="md:col-span-2 space-y-3 group/input">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Name</label>
                         <div className="relative">
-                            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <Search size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-indigo-600 transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Enter product name..."
-                                className="form-input pl-11 font-bold"
+                                placeholder="Search inventory..."
+                                className="w-full pl-16 pr-8 py-5 bg-slate-50/50 border-none focus:ring-4 focus:ring-indigo-500/5 rounded-3xl font-bold text-slate-900 placeholder:text-slate-400 transition-all"
                                 value={searchName}
                                 onChange={(e) => setSearchName(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             />
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <label className="form-label">HSN Code</label>
+                    <div className="space-y-3 group/input">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">HSN Code</label>
                         <div className="relative">
-                            <Tag size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <Tag size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-indigo-600 transition-colors" />
                             <input
                                 type="text"
-                                placeholder="e.g. 6106"
-                                className="form-input pl-11 font-black uppercase tracking-widest text-xs"
+                                placeholder="HSN Code"
+                                className="w-full pl-16 pr-8 py-5 bg-slate-50/50 border-none focus:ring-4 focus:ring-indigo-500/5 rounded-3xl font-black text-slate-900 placeholder:text-slate-400 transition-all uppercase tracking-widest"
                                 value={searchHSN}
                                 onChange={(e) => setSearchHSN(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             />
                         </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-4 items-end">
                         <button
                             onClick={handleSearch}
                             disabled={isLoading}
-                            className="flex-1 px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 hover:bg-slate-800 transition-all active:scale-95"
+                            className="h-16 flex-1 px-8 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-3 group hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-900/10"
                         >
-                            {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={16} />}
-                            <span className="font-black">Search</span>
+                            {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={18} className="group-hover:scale-110 transition-transform" />}
+                            Search
                         </button>
                         <button
                             onClick={() => { setSearchName(''); setSearchHSN(''); clearAPICache(); setRefreshKey(prev => prev + 1); }}
-                            className="p-4 bg-slate-100 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all"
+                            className="h-16 w-16 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all flex items-center justify-center group"
                         >
-                            <X size={20} />
+                            <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Product Table */}
-            <div className="glass-card p-0 border-none overflow-hidden">
-                <div className="p-8 pb-4 flex items-center justify-between bg-white/40 border-b border-slate-100">
-                    <div className="space-y-1">
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Active Products</h3>
-                        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest italic">Real-time updates</p>
+            {/* Item List */}
+            <div className="page-table-card animate-slide-up border-none shadow-premium overflow-hidden rounded-[2.5rem] bg-white/40 backdrop-blur-3xl">
+                <div className="p-10 flex items-center justify-between border-b border-slate-100/50">
+                    <div className="space-y-2">
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tighter text-left">Item List</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] text-left">View all items</p>
+                    </div>
+                    <div className="px-5 py-2.5 bg-indigo-50 text-indigo-700 rounded-2xl border border-indigo-100/50 flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+                        <span className="text-[11px] font-black uppercase tracking-widest">{pagination.total} Items</span>
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="page-table w-full border-separate border-spacing-y-2 px-10">
                         <thead>
-                            <tr className="bg-slate-50/50">
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Product Name</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Category</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">HSN / GST</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Stock</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Selling Price</th>
-                                <th className="px-8 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
+                            <tr className="text-left">
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Product</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">HSN & Tax</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Stock</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Price</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y-0">
                             {isLoading ? (
                                 <tr>
                                     <td colSpan="6" className="px-8 py-32 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-4">
-                                            <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
-                                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Loading Products...</p>
+                                        <div className="flex flex-col items-center justify-center gap-6">
+                                            <div className="w-16 h-16 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Loading Items...</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : items.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="px-8 py-32 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-4">
-                                            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-dashed border-slate-200">
-                                                <Archive size={32} className="text-slate-300" />
-                                            </div>
-                                            <h4 className="text-lg font-black text-slate-900 tracking-tight">No Products Found</h4>
-                                            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Add your first product to get started</p>
+                                        <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-slate-100 shadow-inner">
+                                            <Archive size={40} className="text-slate-200" />
                                         </div>
+                                        <h4 className="text-xl font-black text-slate-900 tracking-tight mb-2">No Items Found</h4>
+                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest max-w-xs mx-auto">Add a new item to get started.</p>
                                     </td>
                                 </tr>
                             ) : (
                                 items.map((item, index) => {
                                     const status = getStockStatus(item);
                                     return (
-                                        <tr key={item._id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all border border-slate-200 shadow-sm">
-                                                        <Box size={22} />
+                                        <tr key={item._id} className="group bg-white/50 hover:bg-white hover:shadow-xl hover:shadow-slate-200/20 transition-all duration-300">
+                                            <td className="px-8 py-6 rounded-l-4xl">
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-14 h-14 rounded-3xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:rotate-3 transition-all duration-300 border border-slate-100 shadow-sm">
+                                                        <Box size={24} />
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-black text-slate-900 tracking-tight">{item.name}</p>
-                                                        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Size: {item.size || 'N/A'}</p>
+                                                    <div className="text-left">
+                                                        <p className="text-base font-black text-slate-900 tracking-tight uppercase leading-none">{item.name}</p>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1.5">Size Specification: <span className="text-slate-900">{item.size || 'N/A'}</span></p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
-                                                <span className={`px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-widest border ${categoryColors[index % categoryColors.length]}`}>
-                                                    {item.category?.name || 'Unassigned'}
+                                                <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors ${categoryColors[index % categoryColors.length]}`}>
+                                                    {item.category?.name || 'GENERIC'}
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-xs font-black font-mono text-slate-900">{item.hsn || '-'}</span>
-                                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">{item.gstRate}% GST</span>
+                                                <div className="flex flex-col gap-1.5 text-left">
+                                                    <span className="text-xs font-black font-mono text-slate-900 tracking-widest uppercase">{item.hsn || 'HSN-PENDING'}</span>
+                                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md w-fit">{item.gstRate}% TAX RATE</span>
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <span className="text-sm font-black text-slate-900 tracking-tighter">{item.stock} <span className="text-[8px] text-slate-400 uppercase font-bold tracking-widest ml-1">{item.unit || 'PCS'}</span></span>
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-md font-black uppercase tracking-widest border inline-block w-fit ${status.class}`}>
+                                                <div className="flex flex-col gap-2 text-left">
+                                                    <div className="flex items-baseline gap-1.5">
+                                                        <span className="text-base font-black text-slate-900 tracking-tighter">{item.stock}</span>
+                                                        <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest">{item.unit || 'UNITS'}</span>
+                                                    </div>
+                                                    <span className={`text-[9px] px-3 py-1 rounded-lg font-black uppercase tracking-widest border w-fit shadow-xs ${status.class}`}>
                                                         {status.label}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-black text-indigo-600 tracking-tighter">{formatCurrency(item.sellingPrice || 0)}</span>
-                                                    {item.costPrice > 0 && <span className="text-[9px] text-slate-400 line-through font-bold">Cost: {formatCurrency(item.costPrice)}</span>}
+                                                <div className="flex flex-col text-left">
+                                                    <span className="text-base font-black text-indigo-600 tracking-tighter">{formatCurrency(item.sellingPrice || 0)}</span>
+                                                    {item.costPrice > 0 && <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest mt-0.5">Procurement: {formatCurrency(item.costPrice)}</span>}
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6 text-right">
-                                                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <td className="px-8 py-6 rounded-r-4xl text-right">
+                                                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
                                                     <button
-                                                        className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center shadow-sm border border-blue-100"
+                                                        className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                         onClick={() => handleOpenModal(item)}
-                                                        title="Edit"
+                                                        title="Edit Item"
                                                     >
-                                                        <Edit size={16} />
+                                                        <Edit size={18} />
                                                     </button>
                                                     <button
-                                                        className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shadow-sm border border-red-100"
+                                                        className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                         onClick={() => handleDeleteClick(item)}
-                                                        title="Remove"
+                                                        title="Delete Item"
                                                     >
-                                                        <Trash2 size={16} />
+                                                        <Trash2 size={18} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -438,20 +447,20 @@ const ItemsPage = () => {
                     </table>
                 </div>
 
-                {/* Professional Pagination */}
+                {/* Professional Pagination Shell */}
                 {pagination.pages > 1 && (
-                    <div className="px-8 py-6 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-slate-100">
-                        <div className="flex items-center gap-6">
-                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
-                                Showing <span className="text-slate-900 font-black">{(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-slate-900 font-black">{pagination.total}</span> Products
+                    <div className="px-10 py-10 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-8 border-t border-slate-100/50">
+                        <div className="flex items-center gap-8">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                                Showing <span className="text-slate-900">{(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-slate-900">{pagination.total}</span> Items
                             </p>
-                            <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
-                            <div className="flex items-center gap-2">
+                            <div className="h-10 w-px bg-slate-200 hidden md:block" />
+                            <div className="flex items-center p-1.5 bg-white/50 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-inner">
                                 {[10, 25, 50].map(limit => (
                                     <button
                                         key={limit}
                                         onClick={() => handleLimitChange(limit)}
-                                        className={`px-3 py-1 text-[10px] font-black rounded-lg transition-all ${pagination.limit === limit ? 'bg-slate-900 text-white shadow-lg' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-100'}`}
+                                        className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${pagination.limit === limit ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                                     >
                                         {limit}
                                     </button>
@@ -459,36 +468,39 @@ const ItemsPage = () => {
                             </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => handlePageChange(pagination.page - 1)}
-                                disabled={pagination.page <= 1}
-                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
-                            >
-                                <ChevronLeft size={18} />
-                            </button>
-                            <div className="flex items-center gap-1">
-                                {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                                    const pageNum = Math.max(1, pagination.page - 2) + i;
-                                    if (pageNum > pagination.pages) return null;
-                                    return (
-                                        <button
-                                            key={pageNum}
-                                            onClick={() => handlePageChange(pageNum)}
-                                            className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${pagination.page === pageNum ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                                        >
-                                            {pageNum}
-                                        </button>
-                                    );
-                                })}
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => handlePageChange(pagination.page - 1)}
+                                    disabled={pagination.page <= 1}
+                                    className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300 disabled:opacity-30 transition-all flex items-center justify-center shadow-sm"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+                                <div className="flex items-center gap-2">
+                                    {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                                        const pageNum = Math.max(1, pagination.page - 2) + i;
+                                        if (pageNum > pagination.pages) return null;
+                                        const isActive = pagination.page === pageNum;
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => handlePageChange(pageNum)}
+                                                className={`w-12 h-12 rounded-2xl text-[11px] font-black transition-all ${isActive ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20 scale-110' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={() => handlePageChange(pagination.page + 1)}
+                                    disabled={pagination.page >= pagination.pages}
+                                    className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300 disabled:opacity-30 transition-all flex items-center justify-center shadow-sm"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => handlePageChange(pagination.page + 1)}
-                                disabled={pagination.page >= pagination.pages}
-                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all flex items-center justify-center"
-                            >
-                                <ChevronRight size={18} />
-                            </button>
                         </div>
                     </div>
                 )}
@@ -663,7 +675,7 @@ const ItemsPage = () => {
                         <div className="px-10 py-8 bg-white flex items-center justify-between border-t border-slate-100 rounded-b-4xl">
                             <div className="flex items-center gap-3 text-emerald-500">
                                 <ShieldCheck size={18} />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Safe Data Transfer</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest">Data Protected</span>
                             </div>
                             <div className="flex gap-4">
                                 <button

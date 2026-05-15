@@ -157,9 +157,9 @@ const LoginPage = () => {
                                 className="relative w-full h-full object-cover rounded-3xl border border-white/20 shadow-2xl"
                             />
                         </div>
-                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em] mb-3">Enter the System</p>
-                        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Sign In</h1>
-                        <p className="text-sm font-bold text-slate-400">Access your business dashboard to manage operations.</p>
+                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em] mb-3">Login</p>
+                        <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Login</h1>
+                        <p className="text-sm font-bold text-slate-400">Login to access your dashboard.</p>
                     </div>
 
                     {error && (
@@ -220,7 +220,7 @@ const LoginPage = () => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full py-3 px-6 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-black rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
+                            className="w-full py-3 px-6 bg-linear-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-black rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
                         >
                             {isLoading ? (
                                 <>
@@ -240,7 +240,7 @@ const LoginPage = () => {
                                 <div className="w-full border-t border-white/10"></div>
                             </div>
                             <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
-                                <span className="px-4 bg-slate-950 text-white/40">Or Continue With</span>
+                                <span className="px-4 bg-slate-950 text-white/40">OR</span>
                             </div>
                         </div>
 
@@ -348,7 +348,7 @@ const LoginPage = () => {
 
                             {forgotStep === 'email' && (
                                 <div className="space-y-6">
-                                    <p className="text-slate-500 text-sm font-medium">Provide your work email to initiate recovery.</p>
+                                    <p className="text-slate-500 text-sm font-medium">Enter your email to reset your password.</p>
                                     <input
                                         type="email"
                                         className="form-input"
@@ -368,7 +368,7 @@ const LoginPage = () => {
 
                             {forgotStep === 'code' && (
                                 <div className="space-y-6">
-                                    <p className="text-slate-500 text-sm font-medium">Validation code dispatched to your inbox.</p>
+                                    <p className="text-slate-500 text-sm font-medium">Enter the code sent to your email.</p>
                                     <div className="flex justify-center gap-2">
                                         {resetCode.map((digit, index) => (
                                             <input
@@ -399,8 +399,8 @@ const LoginPage = () => {
                                     <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
                                         <CheckCircle size={32} />
                                     </div>
-                                    <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Security Updated</h4>
-                                    <p className="text-slate-500 text-sm font-medium">Your credentials have been successfully recovered.</p>
+                                    <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Password Reset Successful</h4>
+                                    <p className="text-slate-500 text-sm font-medium">Your password has been reset successfully.</p>
                                     <button className="w-full btn btn-primary py-4" onClick={closeForgotModal}>Go Back to Sign In</button>
                                 </div>
                             )}

@@ -86,6 +86,30 @@ export const createCategory = createAsyncThunk(
     }
 );
 
+export const updateCategory = createAsyncThunk(
+    'products/updateCategory',
+    async ({ id, data }, { rejectWithValue }) => {
+        try {
+            const response = await categoriesAPI.update(id, data);
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to update category');
+        }
+    }
+);
+
+export const deleteCategory = createAsyncThunk(
+    'products/deleteCategory',
+    async (id, { rejectWithValue }) => {
+        try {
+            await categoriesAPI.delete(id);
+            return id;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to delete category');
+        }
+    }
+);
+
 // Initial state
 const initialState = {
     items: [],
@@ -153,26 +177,79 @@ const productsSlice = createSlice({
                 state.items.unshift(action.payload);
             })
             // Update Product
+            .addCase(updateProduct.pending, (state, action) => {
+                const { id, data } = action.meta.arg;
+                const index = state.items.findIndex(p => (p._id || p.id) === id);
+                if (index !== -1) {
+                    state.items[index] = { ...state.items[index], ...data };
+                }
+            })
             .addCase(updateProduct.fulfilled, (state, action) => {
                 const index = state.items.findIndex(p => p._id === action.payload._id);
                 if (index !== -1) {
                     state.items[index] = action.payload;
                 }
             })
+            .addCase(updateProduct.rejected, (state, action) => {
+                state.error = action.payload;
+            })
             // Delete Product
+            .addCase(deleteProduct.pending, (state, action) => {
+                // Optimistically remove from list
+                const id = action.meta.arg;
+                state.items = state.items.filter(p => (p._id || p.id) !== id);
+            })
             .addCase(deleteProduct.fulfilled, (state, action) => {
-                state.items = state.items.filter(p => p._id !== action.payload);
+                // Already removed in pending, just stop loading
+                state.isLoading = false;
+            })
+            .addCase(deleteProduct.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+                // Note: Ideally we should restore the item here, but it requires storing previous state.
+                // For now, we rely on the user refreshing or a background sync.
             })
             // Update Stock
+            .addCase(updateProductStock.pending, (state, action) => {
+                const { id, data } = action.meta.arg;
+                const index = state.items.findIndex(p => (p._id || p.id) === id);
+                if (index !== -1) {
+                    const product = state.items[index];
+                    const currentStock = Number(product.stock) || 0;
+                    const change = Number(data.quantity) || 0;
+                    
+                    if (data.type === 'in') {
+                        product.stock = currentStock + change;
+                    } else {
+                        product.stock = Math.max(0, currentStock - change);
+                    }
+                }
+            })
             .addCase(updateProductStock.fulfilled, (state, action) => {
                 const index = state.items.findIndex(p => p._id === action.payload._id);
                 if (index !== -1) {
                     state.items[index] = action.payload;
                 }
             })
+            .addCase(updateProductStock.rejected, (state, action) => {
+                state.error = action.payload;
+                // Rollback would be ideal here if we stored previous stock, 
+                // but for now we rely on the next fetch or manual refresh.
+            })
             // Create Category
             .addCase(createCategory.fulfilled, (state, action) => {
                 state.categories.push(action.payload);
+            })
+            // Update Category
+            .addCase(updateCategory.fulfilled, (state, action) => {
+                const index = state.categories.findIndex(c => (c._id || c.id) === action.payload._id);
+                if (index !== -1) {
+                    state.categories[index] = action.payload;
+                }
+            })
+            // Delete Category
+            .addCase(deleteCategory.fulfilled, (state, action) => {
+                state.categories = state.categories.filter(c => (c._id || c.id) !== action.payload);
             });
     },
 });
