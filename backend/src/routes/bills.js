@@ -27,6 +27,21 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+// Parse sizesOrPieces string like "S/10,M/10,L/5,XL/5" → total pieces = 30
+const parseTotalPieces = (sizesOrPieces) => {
+    if (!sizesOrPieces || typeof sizesOrPieces !== 'string') return 0;
+    let total = 0;
+    const entries = sizesOrPieces.split(',').map(e => e.trim()).filter(Boolean);
+    for (const entry of entries) {
+        const parts = entry.split('/');
+        if (parts.length === 2) {
+            const pcs = parseInt(parts[1], 10);
+            if (!isNaN(pcs) && pcs > 0) total += pcs;
+        }
+    }
+    return total;
+};
+
 const createHttpError = (statusCode, message) => {
     const error = new Error(message);
     error.statusCode = statusCode;
@@ -185,8 +200,18 @@ router.post('/', async (req, res) => {
                     throw createHttpError(404, `Product not found: ${item.productId}`);
                 }
 
-                if (product.stock < quantity) {
-                    throw createHttpError(400, `Insufficient stock for ${product.name}`);
+                // Calculate stock deduction from sizesOrPieces (e.g. S/10,M/10 = 20 pcs)
+                const sizesOrPieces = item.sizesOrPieces || '';
+                const piecesFromSizes = parseTotalPieces(sizesOrPieces);
+                // Stock deduction = total pieces from sizes if available, otherwise pcsInPack × noOfPacks
+                const pcsInPack = toNumber(item.pcsInPack, 1);
+                const noOfPacks = toNumber(item.noOfPacks, quantity);
+                const stockDeduction = piecesFromSizes > 0
+                    ? piecesFromSizes * noOfPacks
+                    : pcsInPack * noOfPacks;
+
+                if (product.stock < stockDeduction) {
+                    throw createHttpError(400, `Insufficient stock for ${product.name}. Need ${stockDeduction} pcs, have ${product.stock}`);
                 }
 
                 const itemSubtotal = price * quantity;
@@ -201,14 +226,15 @@ router.post('/', async (req, res) => {
                     sku: product.sku,
                     hsn: product.hsn,
                     hsnCode: item.hsnCode || product.hsn,
-                    sizesOrPieces: item.sizesOrPieces || '',
+                    sizesOrPieces,
                     quantity,
                     mrp: product.mrp,
                     price,
                     ratePerPiece: toNumber(item.ratePerPiece, price),
-                    pcsInPack: toNumber(item.pcsInPack, 1),
+                    pcsInPack,
                     ratePerPack: price,
-                    noOfPacks: toNumber(item.noOfPacks, quantity),
+                    noOfPacks,
+                    stockDeducted: stockDeduction,
                     discount: billDiscountRate,
                     gstRate,
                     gstAmount,
@@ -220,16 +246,16 @@ router.post('/', async (req, res) => {
                 totalTax += gstAmount;
 
                 const previousStock = product.stock;
-                product.stock = previousStock - quantity;
+                product.stock = previousStock - stockDeduction;
                 await product.save({ session });
 
                 stockMovements.push({
                     product: product._id,
                     type: 'out',
-                    quantity,
+                    quantity: stockDeduction,
                     previousStock,
                     newStock: product.stock,
-                    reason: `Sold - Bill #${billNumber}`,
+                    reason: `Sold - Bill #${billNumber} (${sizesOrPieces || noOfPacks + ' packs'})`,
                     reference: `bill:${billId.toString()}`,
                     createdBy: req.user?.id
                 });
@@ -359,8 +385,21 @@ router.delete('/:id', async (req, res) => {
                     continue;
                 }
 
-                const quantity = toNumber(item.quantity, 0);
-                if (quantity <= 0) {
+                // Restore by the exact amount that was deducted (stored in stockDeducted)
+                // Fallback: re-parse sizesOrPieces, then pcsInPack × noOfPacks, then quantity
+                let restoreQty = toNumber(item.stockDeducted, 0);
+                if (restoreQty <= 0) {
+                    const piecesFromSizes = parseTotalPieces(item.sizesOrPieces);
+                    const pcsInPack = toNumber(item.pcsInPack, 1);
+                    const noOfPacks = toNumber(item.noOfPacks, toNumber(item.quantity, 0));
+                    restoreQty = piecesFromSizes > 0
+                        ? piecesFromSizes * noOfPacks
+                        : pcsInPack * noOfPacks;
+                }
+                if (restoreQty <= 0) {
+                    restoreQty = toNumber(item.quantity, 0);
+                }
+                if (restoreQty <= 0) {
                     continue;
                 }
 
@@ -370,13 +409,13 @@ router.delete('/:id', async (req, res) => {
                 }
 
                 const previousStock = product.stock;
-                product.stock = previousStock + quantity;
+                product.stock = previousStock + restoreQty;
                 await product.save({ session });
 
                 await new StockMovement({
                     product: product._id,
                     type: 'in',
-                    quantity,
+                    quantity: restoreQty,
                     previousStock,
                     newStock: product.stock,
                     reason: `Rollback - Deleted Bill #${bill.billNumber}`,

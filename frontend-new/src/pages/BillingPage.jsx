@@ -272,6 +272,22 @@ const BillingPage = () => {
                 if (field === 'pcsInPack') {
                     updatedItem.ratePerPack = toAmount(updatedItem.ratePerPiece, 0) * value;
                 }
+                // Auto-parse sizesOrPieces: "S/10,M/10,L/5,XL/5" → pcsInPack = 30
+                if (field === 'sizesOrPieces' && value) {
+                    const entries = value.split(',').map(e => e.trim()).filter(Boolean);
+                    let totalPcs = 0;
+                    entries.forEach(entry => {
+                        const parts = entry.split('/');
+                        if (parts.length === 2) {
+                            const pcs = parseInt(parts[1], 10);
+                            if (!isNaN(pcs)) totalPcs += pcs;
+                        }
+                    });
+                    if (totalPcs > 0) {
+                        updatedItem.pcsInPack = totalPcs;
+                        updatedItem.ratePerPack = toAmount(updatedItem.ratePerPiece, 0) * totalPcs;
+                    }
+                }
                 return updatedItem;
             }
             return item;
@@ -814,10 +830,10 @@ const BillingPage = () => {
                                                             {/* Row 2: Size | Rate/Pc | Pcs/Pack | Rate/Pack | No. Packs */}
                                                             <div className="grid grid-cols-5 gap-2">
                                                                 <div>
-                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Size</label>
+                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Sizes / Pieces</label>
                                                                     <input 
                                                                         className="w-full h-8 px-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition-all" 
-                                                                        placeholder="e.g. L" 
+                                                                        placeholder="S/10,M/10" 
                                                                         value={item.sizesOrPieces} 
                                                                         onChange={(e) => updateItemField(item.uniqueId, 'sizesOrPieces', e.target.value)} 
                                                                     />

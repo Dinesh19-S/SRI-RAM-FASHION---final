@@ -225,7 +225,7 @@ const InvoiceTemplate = forwardRef(function InvoiceTemplate(
               <td className="center-cell">{row.hsnCode}</td>
               <td className="number-cell">{row.ratePerPiece}</td>
               <td className="center-cell">{row.noOfPacks}</td>
-              <td className="number-cell">{row.amount}</td>
+              <td className="center-cell">{row.amount}</td>
             </tr>
           ))}
         </tbody>
