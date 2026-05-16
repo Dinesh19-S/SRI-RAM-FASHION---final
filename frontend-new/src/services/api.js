@@ -12,9 +12,12 @@ const resolveApiUrl = () => {
         return normalizeBaseUrl(explicitUrl);
     }
 
+    // Check if running in Electron desktop app (file: or srf: protocol, or electron API)
+    if (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.protocol === 'srf:' || window.electronAPI?.isElectron || window.navigator.userAgent.includes('Electron'))) {
+        return 'http://localhost:5000/api/v1';
+    }
+
     // If running in a browser and NOT on localhost, use the same origin + /api.
-    // This matches Vercel and other serverless environments where the API is hosted
-    // on the same domain as the frontend.
     const isLocalHost = typeof window !== 'undefined' &&
         (window.location.hostname === 'localhost' ||
             window.location.hostname === '127.0.0.1' ||

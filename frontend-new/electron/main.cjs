@@ -1,10 +1,27 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, protocol, net } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const url = require('url');
 
 // Keep a global reference so the window isn't garbage-collected
 let mainWindow = null;
 
 const isDev = !app.isPackaged;
+
+// Register srf protocol as secure and privileged before app is ready
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'srf',
+        privileges: {
+            secure: true,
+            standard: true,
+            supportFetchAPI: true,
+            bypassCSP: true,
+            corsEnabled: true,
+            allowServiceWorkers: true
+        }
+    }
+]);
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -13,7 +30,9 @@ function createWindow() {
         minWidth: 900,
         minHeight: 600,
         title: 'Sri Ram Fashions',
-        icon: path.join(__dirname, '..', 'src', 'assets', 'logo.jpg'),
+        icon: isDev 
+            ? path.join(__dirname, '..', 'src', 'assets', 'logo.jpg') 
+            : path.join(__dirname, '..', 'dist', 'logo.jpg'),
         autoHideMenuBar: true,
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
@@ -43,15 +62,36 @@ function createWindow() {
     if (isDev) {
         mainWindow.loadURL('http://localhost:5173');
     } else {
-        mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
-        // Open DevTools to debug white screen in production
-        mainWindow.webContents.openDevTools();
+        // Use custom secure scheme for production SPA bundle
+        mainWindow.loadURL('srf://app/index.html');
     }
 
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
 }
+
+// Handler for srf custom protocol
+app.whenReady().then(() => {
+    protocol.handle('srf', (request) => {
+        const urlObj = new URL(request.url);
+        let relativePath = decodeURIComponent(urlObj.pathname);
+        if (relativePath.startsWith('/')) {
+            relativePath = relativePath.slice(1);
+        }
+
+        let absolutePath = path.join(__dirname, '..', 'dist', relativePath);
+
+        // If file doesn't exist or is directory, serve index.html (SPA routing support)
+        if (!fs.existsSync(absolutePath) || fs.statSync(absolutePath).isDirectory()) {
+            absolutePath = path.join(__dirname, '..', 'dist', 'index.html');
+        }
+
+        return net.fetch(url.pathToFileURL(absolutePath).toString());
+    });
+
+    createWindow();
+});
 
 // macOS: re-create window when dock icon is clicked and no windows are open
 app.on('activate', () => {
@@ -66,5 +106,3 @@ app.on('window-all-closed', () => {
         app.quit();
     }
 });
-
-app.whenReady().then(createWindow);
