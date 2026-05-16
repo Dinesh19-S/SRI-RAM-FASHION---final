@@ -254,29 +254,8 @@
 .number-cell { text-align: right; padding-right: 10px !important; }
 .nowrap-cell { white-space: nowrap; }
 
-/* ══════════════════════════════════════════════════════════════
-   6. TOTAL PCS ROW
-   ══════════════════════════════════════════════════════════════ */
-.invoice-total-pcs-row {
-  flex-shrink: 0;
-  height: 28px;
-  border-bottom: 1px solid #303030;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
 
-.invoice-total-pcs-value {
-  color: #dc2626;
-  font-size: 24px;
-  font-weight: 900;
-  padding: 0 5px;
-  line-height: 1;
-}
+
 
 /* ══════════════════════════════════════════════════════════════
    7. SUMMARY ROW — 3 columns

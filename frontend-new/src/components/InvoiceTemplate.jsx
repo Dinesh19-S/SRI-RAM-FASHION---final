@@ -231,10 +231,6 @@ const InvoiceTemplate = forwardRef(function InvoiceTemplate(
         </tbody>
       </table>
 
-      <div className="invoice-total-pcs-row">
-        <span>Total Pcs :</span>
-        <span className="invoice-total-pcs-value">{totalPacks || ''}</span>
-      </div>
 
       <div className="invoice-summary-row">
         <div className="invoice-summary-col left-col">
