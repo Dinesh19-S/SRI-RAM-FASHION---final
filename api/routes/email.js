@@ -1,14 +1,20 @@
 import express from 'express';
+import multer from 'multer';
 import Bill from '../models/Bill.js';
 import {
     isEmailConfigured,
     sendBillNotification,
+    sendInvoicePdfNotification,
     sendNotification,
     sendReportEmail,
     calculateAndSendDailySummary
 } from '../services/emailService.js';
 
 const router = express.Router();
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 12 * 1024 * 1024 }
+});
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 const splitRecipients = (value) => {
@@ -244,6 +250,72 @@ router.post('/send-bill/:billId', async (req, res) => {
             : errorMessage;
             
         const failureSuffix = (sent && failedRecipients.length > 0)
+            ? `. Failed: ${formatRecipientList(failedRecipients)}`
+            : '';
+
+        res.json({
+            success: sent,
+            message: appendSkippedInvalidMessage(`${baseMessage}${failureSuffix}`, invalid),
+            sentRecipients,
+            failedRecipients,
+            invalidRecipients: invalid
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Send bill email with client-generated PDF attachment
+router.post('/send-bill-pdf', upload.single('invoicePdf'), async (req, res) => {
+    try {
+        if (!isEmailConfigured()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email service not configured. Set RESEND_API_KEY or EMAIL_USER and EMAIL_PASS in .env'
+            });
+        }
+
+        const uploadedPdf = req.file;
+        if (!uploadedPdf?.buffer || !uploadedPdf.originalname) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invoice PDF attachment is required'
+            });
+        }
+
+        if (uploadedPdf.mimetype !== 'application/pdf') {
+            return res.status(400).json({
+                success: false,
+                message: 'Only PDF attachment is supported'
+            });
+        }
+
+        const { recipients, invalidRecipients: invalid } = resolveRecipients(req);
+        if (recipients.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: buildMissingRecipientMessage(invalid)
+            });
+        }
+
+        const billNumber = String(req.body?.billNumber || '').trim();
+        const customerName = String(req.body?.customerName || '').trim();
+        const results = await sendInvoicePdfNotification({
+            billNumber,
+            customerName,
+            recipientEmails: recipients,
+            pdfBuffer: uploadedPdf.buffer,
+            pdfFileName: uploadedPdf.originalname
+        });
+
+        const sentRecipients = recipients.filter((entry, index) => results[index]?.success);
+        const failedRecipients = recipients.filter((entry, index) => !results[index]?.success);
+        const sent = sentRecipients.length > 0;
+
+        const baseMessage = sent
+            ? `Invoice emailed to ${formatRecipientList(sentRecipients)}`
+            : 'Failed to send invoice email';
+        const failureSuffix = sent && failedRecipients.length > 0
             ? `. Failed: ${formatRecipientList(failedRecipients)}`
             : '';
 

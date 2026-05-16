@@ -224,36 +224,48 @@ const detailRow = (label, value, options = {}) => {
 //  1. BILL NOTIFICATION
 // ================================================================
 export const sendBillNotification = async (bill, recipientEmails) => {
-  const subject = `New Bill Created - ${bill.billNumber}`;
+  const subject = `Tax Invoice - ${bill.billNumber} | Sri Ram Fashions`;
 
   const bodyHtml = `
-    <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.7;">
-      A new bill has been generated in the system. Please find the details below and the bill PDF attached to this email.
-    </p>
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+      <div style="background:#002080; padding:20px; text-align:center;">
+        <h2 style="margin:0; color:#ffffff; font-size:18px; letter-spacing:1px;">TAX INVOICE SUMMARY</h2>
+      </div>
+      
+      <div style="padding:25px;">
+        <p style="margin:0 0 20px; font-size:15px; color:#334155; line-height:1.6;">
+          Hello <strong>${bill.customer?.name || 'Valued Customer'}</strong>,<br><br>
+          Thank you for your business. A new tax invoice has been generated for your recent transaction.
+        </p>
 
-    <!-- Bill details card -->
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-      ${detailRow('Bill Number', bill.billNumber, { bold: true })}
-      ${detailRow('Customer', bill.customer?.name || bill.customer?.companyName || 'Walk-in Customer')}
-      ${detailRow('Date', new Date(bill.date || bill.createdAt).toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }))}
-      ${detailRow('Total Items', `${bill.items?.length || 0} items`)}
-      ${detailRow('Grand Total', `₹${(bill.grandTotal || 0).toLocaleString('en-IN')}`, { large: true, color: '#059669' })}
-      ${detailRow('Payment Status', (bill.paymentStatus || 'Pending').toUpperCase(), {
-    color: bill.paymentStatus === 'paid' ? '#059669' : '#d97706'
-  })}
-    </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+          ${detailRow('Invoice Number', bill.billNumber, { bold: true })}
+          ${detailRow('Date', new Date(bill.date || bill.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))}
+          ${detailRow('Total Quantity', `${bill.totalPacks || bill.items?.length || 0} Pcs`)}
+          ${detailRow('Taxable Amount', `₹${(bill.taxableAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`)}
+          ${detailRow('GST Amount', `₹${(bill.totalTax || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, { color: '#dc2626' })}
+          ${detailRow('Grand Total', `₹${(bill.grandTotal || 0).toLocaleString('en-IN')}`, { large: true, color: '#002080' })}
+        </table>
 
-    <p style="margin:24px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
-      The invoice PDF has been attached for your records.
+        <div style="background:#fff7ed; border-left:4px solid #f97316; padding:15px; border-radius:4px; margin-top:10px;">
+          <p style="margin:0; font-size:13px; color:#9a3412;">
+            <strong>Note:</strong> The detailed breakdown including HSN codes and tax components is available in the attached PDF invoice.
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <p style="margin:25px 0 0; font-size:12px; color:#64748b; text-align:center; font-style:italic;">
+      Please find the attached PDF for your records.
     </p>
   `;
 
   const html = buildEmailLayout({
-    title: 'New Bill Created',
-    subtitle: `Bill #${bill.billNumber}`,
+    title: 'Tax Invoice Generated',
+    subtitle: `Invoice #${bill.billNumber}`,
     icon: '🧾',
-    accentFrom: '#059669',
-    accentTo: '#10b981',
+    accentFrom: '#002080',
+    accentTo: '#1e40af',
     bodyHtml,
   });
 
@@ -275,6 +287,57 @@ export const sendBillNotification = async (bill, recipientEmails) => {
   const emails = Array.isArray(recipientEmails) ? recipientEmails : [recipientEmails];
   const results = await Promise.all(emails.map(email => sendEmail(email, subject, html, attachments)));
   return results;
+};
+
+export const sendInvoicePdfNotification = async ({
+  billNumber,
+  customerName,
+  recipientEmails,
+  pdfBuffer,
+  pdfFileName
+}) => {
+  const subject = 'Invoice From SRI RAM FASHIONS';
+  const displayInvoiceNumber = billNumber || 'N/A';
+  const displayCustomer = customerName || 'Valued Customer';
+
+  const bodyHtml = `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:22px;">
+      <p style="margin:0 0 12px;font-size:15px;color:#334155;line-height:1.7;">
+        Dear <strong>${displayCustomer}</strong>,
+      </p>
+      <p style="margin:0 0 14px;font-size:14px;color:#475569;line-height:1.7;">
+        Please find your invoice attached in PDF format. This attachment is generated directly from our billing template to ensure the exact same layout used in preview, print, and download.
+      </p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+        ${detailRow('Invoice Number', displayInvoiceNumber, { bold: true })}
+        ${detailRow('Issued By', 'SRI RAM FASHIONS')}
+        ${detailRow('Attachment', 'PDF Invoice', { color: '#1e40af' })}
+      </table>
+      <p style="margin:16px 0 0;font-size:12px;color:#64748b;line-height:1.6;">
+        If you need any clarification, please reply to this email or contact our billing desk.
+      </p>
+    </div>
+  `;
+
+  const html = buildEmailLayout({
+    title: 'Invoice Attachment',
+    subtitle: `Invoice #${displayInvoiceNumber}`,
+    icon: '🧾',
+    accentFrom: '#002080',
+    accentTo: '#1e40af',
+    bodyHtml
+  });
+
+  const attachments = pdfBuffer
+    ? [{
+      filename: pdfFileName || `SRI_RAM_FASHIONS_Invoice_${displayInvoiceNumber}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf'
+    }]
+    : [];
+
+  const emails = Array.isArray(recipientEmails) ? recipientEmails : [recipientEmails];
+  return Promise.all(emails.map((email) => sendEmail(email, subject, html, attachments)));
 };
 
 
@@ -690,6 +753,7 @@ export const calculateAndSendDailySummary = async (recipientEmails) => {
 
 export default {
   sendBillNotification,
+  sendInvoicePdfNotification,
   sendPasswordResetEmail,
   sendLowStockAlert,
   sendReportEmail,

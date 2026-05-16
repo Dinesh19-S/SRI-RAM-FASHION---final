@@ -412,7 +412,7 @@ const InventoryPage = () => {
                                             </div>
                                         </td>
                                         <td className="px-10 py-8">
-                                            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                            <div className="flex justify-end gap-3 opacity-70 group-hover:opacity-100 transition-all duration-300">
                                                 <button
                                                     className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                     onClick={() => { setSelectedProduct(p); setStockType('in'); setShowStockModal(true); }}

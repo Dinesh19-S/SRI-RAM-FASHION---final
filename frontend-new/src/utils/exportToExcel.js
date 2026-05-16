@@ -57,6 +57,7 @@ export const exportToExcelStyled = async ({
     columns = [],
     data = [],
     totals = null,
+    summary = null,
     filename = 'report',
     sheetName = 'Report'
 }) => {
@@ -186,6 +187,70 @@ export const exportToExcelStyled = async ({
             if (col.align === 'right' && typeof cell.value === 'number') {
                 cell.numFmt = '#,##0.00';
             }
+        });
+    }
+
+    // === Summary Table (for GST Filing) ===
+    if (summary && summary.length > 0) {
+        ws.addRow([]);
+        ws.addRow([]);
+        ws.addRow([]);
+        
+        // Summary Title with distinctive styling
+        const sTitle = ws.addRow(['GST FILING & FINANCIAL SUMMARY']);
+        ws.mergeCells(sTitle.number, 1, sTitle.number, 4);
+        sTitle.getCell(1).font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+        sTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111827' } }; // Dark Slate
+        sTitle.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        sTitle.height = 30;
+
+        // Summary Table Headers
+        const sHeader = ws.addRow(['Particulars', '', '', 'Amount (INR)']);
+        ws.mergeCells(sHeader.number, 1, sHeader.number, 3);
+        sHeader.height = 24;
+        sHeader.eachCell((cell) => {
+            cell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }; // Indigo-600
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF111827' } },
+                bottom: { style: 'thin', color: { argb: 'FF111827' } }
+            };
+        });
+
+        // Summary Rows
+        summary.forEach((item, idx) => {
+            const row = ws.addRow([item.label, '', '', item.value]);
+            ws.mergeCells(row.number, 1, row.number, 3);
+            row.height = 22;
+            
+            const labelCell = row.getCell(1);
+            const valueCell = row.getCell(4);
+
+            const isLast = idx === summary.length - 1;
+
+            labelCell.font = { bold: true, size: 11, color: { argb: isLast ? 'FF1e40af' : 'FF374151' } };
+            valueCell.font = { bold: true, size: isLast ? 13 : 11, color: { argb: isLast ? 'FF1e40af' : 'FF111827' } };
+            valueCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+            if (item.isCurrency && typeof item.value === 'number') {
+                valueCell.numFmt = '₹ #,##0.00';
+            } else if (typeof item.value === 'number') {
+                valueCell.numFmt = '#,##0';
+            }
+
+            // Zebra striping and borders
+            const bgColor = idx % 2 === 0 ? 'FFF9FAFB' : 'FFFFFFFF';
+            row.eachCell((cell, colIdx) => {
+                if (colIdx <= 4) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isLast ? 'FFEFF6FF' : bgColor } };
+                    cell.border = {
+                        left: colIdx === 1 ? { style: 'medium', color: { argb: 'FFD1D5DB' } } : undefined,
+                        right: colIdx === 4 ? { style: 'medium', color: { argb: 'FFD1D5DB' } } : undefined,
+                        bottom: isLast ? { style: 'medium', color: { argb: 'FF1e40af' } } : { style: 'thin', color: { argb: 'FFD1D5DB' } }
+                    };
+                }
+            });
         });
     }
 

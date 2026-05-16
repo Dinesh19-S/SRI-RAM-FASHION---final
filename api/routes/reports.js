@@ -202,14 +202,26 @@ router.get('/sales-report', async (req, res) => {
 
         bills.forEach(bill => {
             bill.items.forEach(item => {
+                const itemTaxable = (item.price * item.quantity) - ((item.price * item.quantity * (item.discount || 0)) / 100);
+                const itemGst = item.gstAmount || 0;
+                const isInterstate = (bill.igst || 0) > 0;
+
                 reportData.push({
                     sno: sno++,
                     date: bill.date.toISOString().split('T')[0],
                     invNo: bill.billNumber,
+                    customerName: bill.customer.name,
+                    gstin: bill.customer.gstin || 'N/A',
                     item: item.productName,
+                    hsn: item.hsn || item.hsnCode || '',
                     rate: item.price,
                     qty: item.quantity,
-                    total: item.total
+                    taxableAmount: itemTaxable,
+                    cgst: isInterstate ? 0 : itemGst / 2,
+                    sgst: isInterstate ? 0 : itemGst / 2,
+                    igst: isInterstate ? itemGst : 0,
+                    totalGst: itemGst,
+                    total: item.total || (itemTaxable + itemGst)
                 });
             });
         });

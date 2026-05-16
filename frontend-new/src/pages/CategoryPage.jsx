@@ -233,7 +233,7 @@ const CategoryPage = () => {
                                             <p className="text-sm font-bold text-slate-500 max-w-md truncate">{c.description || 'No description provided.'}</p>
                                         </td>
                                         <td className="px-10 py-8">
-                                            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                            <div className="flex justify-end gap-3 opacity-70 group-hover:opacity-100 transition-all duration-300">
                                                 <button
                                                     className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
                                                     onClick={() => handleOpenEditModal(c)}

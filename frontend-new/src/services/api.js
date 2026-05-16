@@ -1178,6 +1178,22 @@ export const emailAPI = {
             throw handleError(error);
         }
     },
+    sendBillPdf: async ({ to, billNumber, customerName, pdfFile }) => {
+        try {
+            const formData = new FormData();
+            formData.append('to', to || '');
+            formData.append('billNumber', billNumber || '');
+            formData.append('customerName', customerName || '');
+            formData.append('invoicePdf', pdfFile);
+
+            const response = await api.post(ENDPOINTS.email.sendBillPdf, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            return response;
+        } catch (error) {
+            throw handleError(error);
+        }
+    },
     sendPurchase: (entryId, to) => api.post(`${ENDPOINTS.email.root}/send-purchase/${entryId}`, { to }),
     sendDailySummary: async (to) => {
         try {

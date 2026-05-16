@@ -76,37 +76,51 @@ const SalesReportsPage = () => {
         const columns = [
             { key: 'sno', header: 'S.No', width: 8, align: 'left' },
             { key: 'date', header: 'Date', width: 14, align: 'left' },
-            { key: 'invNo', header: 'Invoice No', width: 16, align: 'left' },
-            { key: 'customerName', header: 'Customer Name', width: 22, align: 'left' },
-            { key: 'gstin', header: 'GST No', width: 20, align: 'left' },
-            { key: 'item', header: 'Item', width: 28, align: 'left' },
-            { key: 'rate', header: 'Rate', width: 12, align: 'right' },
-            { key: 'qty', header: 'Qty', width: 10, align: 'right' },
-            { key: 'taxable', header: 'Taxable', width: 14, align: 'right' },
+            { key: 'invNo', header: 'Invoice Numbers', width: 18, align: 'left' },
+            { key: 'customerName', header: 'Customer Name', width: 25, align: 'left' },
+            { key: 'gstin', header: 'GST Number', width: 20, align: 'left' },
+            { key: 'total', header: 'Total Amount', width: 16, align: 'right' },
+            { key: 'taxableAmount', header: 'Taxable Amount', width: 16, align: 'right' },
             { key: 'cgst', header: 'CGST', width: 12, align: 'right' },
             { key: 'sgst', header: 'SGST', width: 12, align: 'right' },
             { key: 'igst', header: 'IGST', width: 12, align: 'right' },
-            { key: 'total', header: 'Total', width: 16, align: 'right' }
+            { key: 'totalGst', header: 'Total GST', width: 14, align: 'right' },
+            { key: 'hsn', header: 'HSN Number', width: 14, align: 'left' }
         ];
 
-        const formattedData = reportData.map(row => ({
-            ...row,
-            date: formatDate(row.date),
-            taxable: row.taxableAmount || (row.rate * row.qty),
-            cgst: row.cgst || 0,
-            sgst: row.sgst || 0,
-            igst: row.igst || 0,
-            total: row.total || (row.rate * row.qty)
-        }));
+        const formattedData = reportData.map(row => {
+            const cgst = Number(row.cgst || 0);
+            const sgst = Number(row.sgst || 0);
+            const igst = Number(row.igst || 0);
+            return {
+                ...row,
+                date: formatDate(row.date),
+                total: Number(row.total || 0),
+                taxableAmount: Number(row.taxableAmount || 0),
+                cgst,
+                sgst,
+                igst,
+                totalGst: cgst + sgst + igst
+            };
+        });
 
         const grandTotals = {
-            qty: formattedData.reduce((sum, r) => sum + (Number(r.qty) || 0), 0),
-            taxable: formattedData.reduce((sum, r) => sum + (Number(r.taxable) || 0), 0),
+            total: formattedData.reduce((sum, r) => sum + (Number(r.total) || 0), 0),
+            taxableAmount: formattedData.reduce((sum, r) => sum + (Number(r.taxableAmount) || 0), 0),
             cgst: formattedData.reduce((sum, r) => sum + (Number(r.cgst) || 0), 0),
             sgst: formattedData.reduce((sum, r) => sum + (Number(r.sgst) || 0), 0),
             igst: formattedData.reduce((sum, r) => sum + (Number(r.igst) || 0), 0),
-            total: formattedData.reduce((sum, r) => sum + (Number(r.total) || 0), 0)
+            totalGst: formattedData.reduce((sum, r) => sum + (Number(r.totalGst) || 0), 0)
         };
+
+        const summary = [
+            { label: 'Total No. of Bills', value: totalBills, isCurrency: false },
+            { label: 'Total Taxable Amount', value: grandTotals.taxableAmount, isCurrency: true },
+            { label: 'Total CGST', value: grandTotals.cgst, isCurrency: true },
+            { label: 'Total SGST', value: grandTotals.sgst, isCurrency: true },
+            { label: 'Total IGST', value: grandTotals.igst, isCurrency: true },
+            { label: 'Total GST Result', value: grandTotals.totalGst, isCurrency: true }
+        ];
 
         exportToExcelStyled({
             title: 'Sales Report',
@@ -116,6 +130,7 @@ const SalesReportsPage = () => {
             columns,
             data: formattedData,
             totals: grandTotals,
+            summary,
             filename: `sales_report_${fromDate}_to_${toDate}`,
             sheetName: 'Sales'
         });
@@ -172,8 +187,14 @@ const SalesReportsPage = () => {
         }
     };
 
-    const totalSales = reportData.reduce((sum, row) => sum + (row.total || (row.rate * row.qty)), 0);
+    const totalSales = reportData.reduce((sum, row) => sum + (row.total || 0), 0);
     const totalQty = reportData.reduce((sum, row) => sum + (row.qty || 0), 0);
+    const totalTaxable = reportData.reduce((sum, row) => sum + (row.taxableAmount || (row.rate * row.qty)), 0);
+    const totalCgst = reportData.reduce((sum, row) => sum + (row.cgst || 0), 0);
+    const totalSgst = reportData.reduce((sum, row) => sum + (row.sgst || 0), 0);
+    const totalIgst = reportData.reduce((sum, row) => sum + (row.igst || 0), 0);
+    const totalGstValue = totalCgst + totalSgst + totalIgst;
+    const totalBills = reportData.length;
 
     return (
         <div className="space-y-10 animate-fade-in p-2 pb-20">
@@ -307,53 +328,62 @@ const SalesReportsPage = () => {
                     <table className="page-table">
                         <thead>
                             <tr className="bg-slate-50/50">
-                                <th className="px-10 py-5">S.No</th>
-                                <th className="px-10 py-5">Verified Date</th>
-                                <th className="px-10 py-5">Document ID</th>
-                                <th className="px-10 py-5">Client Profile</th>
-                                <th className="px-10 py-5">Product Details</th>
-                                <th className="px-10 py-5 text-right">Unit Price</th>
-                                <th className="px-10 py-5 text-right">Volume</th>
-                                <th className="px-10 py-5 text-right">Settlement Total</th>
+                                <th className="px-6 py-5">S.No</th>
+                                <th className="px-6 py-5">Date</th>
+                                <th className="px-6 py-5">Invoice</th>
+                                <th className="px-6 py-5">Customer / GSTIN</th>
+                                <th className="px-6 py-5 text-right">Taxable</th>
+                                <th className="px-6 py-5 text-right">CGST</th>
+                                <th className="px-6 py-5 text-right">SGST</th>
+                                <th className="px-6 py-5 text-right">IGST</th>
+                                <th className="px-6 py-5 text-right">Total GST</th>
+                                <th className="px-6 py-5 text-right">Grand Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             {reportData.length > 0 ? (
                                 <>
-                                    {reportData.map((row, index) => (
-                                        <tr key={row.sno} className="group transition-colors hover:bg-slate-50/50">
-                                            <td className="px-10 py-8 text-[10px] font-black text-slate-400 uppercase">{row.sno}</td>
-                                            <td className="px-10 py-8 text-sm font-black text-slate-900 tracking-tighter uppercase">{formatDate(row.date)}</td>
-                                            <td className="px-10 py-8">
-                                                <div className="flex flex-col">
-                                                    <span className="text-base font-black text-slate-900 tracking-tight uppercase group-hover:text-indigo-600 transition-colors">{row.invNo}</span>
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Invoice #</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-8">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-slate-900">{row.customerName || 'Direct Sale'}</span>
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{row.gstin || 'Tax-Exempt / Individual'}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-8">
-                                                <span className="text-sm font-bold text-slate-600">{row.item}</span>
-                                            </td>
-                                            <td className="px-10 py-8 text-right">
-                                                <span className="text-sm font-black text-slate-900 tracking-tighter">₹{row.rate.toLocaleString('en-IN')}</span>
-                                            </td>
-                                            <td className="px-10 py-8 text-right">
-                                                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-slate-100 text-slate-900 rounded-xl font-black text-xs border border-slate-200/50">
-                                                    {row.qty} <span className="text-[9px] text-slate-400 uppercase tracking-widest">Pcs</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-8 text-right">
-                                                <span className="text-lg font-black text-slate-900 tracking-tighter group-hover:text-indigo-600 transition-colors">₹{(row.total || (row.rate * row.qty)).toLocaleString('en-IN')}</span>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {reportData.map((row, index) => {
+                                        const cgst = Number(row.cgst || 0);
+                                        const sgst = Number(row.sgst || 0);
+                                        const igst = Number(row.igst || 0);
+                                        const totalGst = cgst + sgst + igst;
+                                        const taxable = Number(row.taxableAmount || (row.rate * row.qty));
+                                        
+                                        return (
+                                            <tr key={row.sno} className="group transition-colors hover:bg-slate-50/50">
+                                                <td className="px-6 py-6 text-[10px] font-black text-slate-400 uppercase">{row.sno}</td>
+                                                <td className="px-6 py-6 text-[11px] font-black text-slate-900 tracking-tighter uppercase">{formatDate(row.date)}</td>
+                                                <td className="px-6 py-6 text-sm font-black text-slate-900 tracking-tight uppercase group-hover:text-indigo-600 transition-colors">{row.invNo}</td>
+                                                <td className="px-6 py-6">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{row.customerName || 'Direct Sale'}</span>
+                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{row.gstin || 'N/A'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-6 text-right">
+                                                    <span className="text-xs font-bold text-slate-600">₹{taxable.toLocaleString('en-IN')}</span>
+                                                </td>
+                                                <td className="px-6 py-6 text-right">
+                                                    <span className="text-xs font-bold text-slate-500">₹{cgst.toLocaleString('en-IN')}</span>
+                                                </td>
+                                                <td className="px-6 py-6 text-right">
+                                                    <span className="text-xs font-bold text-slate-500">₹{sgst.toLocaleString('en-IN')}</span>
+                                                </td>
+                                                <td className="px-6 py-6 text-right">
+                                                    <span className="text-xs font-bold text-slate-500">₹{igst.toLocaleString('en-IN')}</span>
+                                                </td>
+                                                <td className="px-6 py-6 text-right">
+                                                    <span className="text-xs font-black text-indigo-600">₹{totalGst.toLocaleString('en-IN')}</span>
+                                                </td>
+                                                <td className="px-6 py-6 text-right">
+                                                    <span className="text-base font-black text-slate-900 tracking-tighter group-hover:text-indigo-600 transition-colors">₹{(row.total || (taxable + totalGst)).toLocaleString('en-IN')}</span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                     <tr className="bg-slate-950 text-white border-none shadow-2xl">
-                                        <td colSpan="7" className="px-10 py-10 text-right text-[11px] font-black uppercase tracking-[0.4em] text-slate-400">Total Sales</td>
+                                        <td colSpan="9" className="px-10 py-10 text-right text-[11px] font-black uppercase tracking-[0.4em] text-slate-400">Grand Total Sales</td>
                                         <td className="px-10 py-10 text-right font-black text-3xl tracking-tighter text-blue-400">₹{totalSales.toLocaleString('en-IN')}</td>
                                     </tr>
                                 </>
@@ -372,6 +402,51 @@ const SalesReportsPage = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Detailed Summary Breakdown */}
+                <div className="px-10 py-12 bg-white/50 border-t border-slate-100 flex justify-end">
+                    <div className="w-full max-w-md space-y-4">
+                        <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Total No. of Bills</span>
+                            </div>
+                            <span className="text-lg font-black text-slate-900">{totalBills}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Total Taxable Amount</span>
+                            </div>
+                            <span className="text-lg font-black text-slate-900">₹{totalTaxable.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Total CGST</span>
+                            </div>
+                            <span className="text-lg font-bold text-slate-700">₹{totalCgst.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Total SGST</span>
+                            </div>
+                            <span className="text-lg font-bold text-slate-700">₹{totalSgst.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Total IGST</span>
+                            </div>
+                            <span className="text-lg font-bold text-slate-700">₹{totalIgst.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-5 bg-indigo-600 px-8 rounded-[2rem] mt-6 shadow-2xl shadow-indigo-600/20 text-white">
+                            <span className="text-[11px] font-black uppercase tracking-[0.4em] text-indigo-100">Total GST Result</span>
+                            <span className="text-3xl font-black">₹{totalGstValue.toLocaleString('en-IN')}</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Strategic Actions */}

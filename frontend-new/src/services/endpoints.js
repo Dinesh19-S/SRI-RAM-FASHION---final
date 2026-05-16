@@ -93,6 +93,7 @@ export const ENDPOINTS = {
         status: '/email/status',
         test: '/email/test',
         sendBill: (billId) => `/email/send-bill/${encodeId(billId)}`,
+        sendBillPdf: '/email/send-bill-pdf',
         dailySummary: '/email/daily-summary',
         sendReport: '/email/send-report'
     },

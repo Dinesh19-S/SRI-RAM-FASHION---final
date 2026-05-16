@@ -4,13 +4,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchBills, createBill, deleteBill, updateBillStatus } from '../store/slices/billsSlice';
 import { fetchProducts } from '../store/slices/productsSlice';
 import { fetchSettings } from '../store/slices/settingsSlice';
-import { Plus, Search, Printer, Eye, Trash2, X, FileText, Download, Users, Receipt, Mail, Clock as ClockIcon, ArrowRight, ShoppingCart, IndianRupee, AtSign, Save, Edit3, RotateCcw, FileDown } from 'lucide-react';
+import { Plus, Search, Printer, Eye, Trash2, X, FileText, Download, Users, Receipt, Mail, Clock as ClockIcon, ArrowRight, ShoppingCart, IndianRupee, AtSign, Save, Edit3, RotateCcw, FileDown, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BillTemplate from '../components/BillTemplate';
 import { customersAPI, emailAPI } from '../services/api';
 import { EmailActionModal, useToast } from '../components/common';
 import { getEmailRecipientValidation, pickDefaultRecipient } from '../utils/emailUtils';
-import { downloadInvoicePDF } from '../utils/invoiceGenerator';
+import { downloadInvoicePDF, downloadEmptyTemplate, generateInvoicePdfFile, printInvoice, shareInvoice } from '../utils/invoiceGenerator';
 
 const BILL_REFRESH_INTERVAL = 5 * 60 * 1000;
 
@@ -27,8 +27,9 @@ const BillingPage = () => {
     const { items: products } = useSelector((state) => state.products);
     const settings = useSelector((state) => state.settings.data);
     const { user } = useSelector((state) => state.auth);
-    const billTemplateRef = useRef(null);
+    const previewBillRef = useRef(null);
     const emptyInvoiceRef = useRef(null);
+    const createPreviewRef = useRef(null);
 
 
     const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -432,14 +433,117 @@ const BillingPage = () => {
         }
     };
 
-    const handleDownloadPDF = async (bill) => {
+    const resolvePreviewElement = (bill) => (
+        showPreviewModal && selectedBill?._id === bill?._id ? previewBillRef.current : null
+    );
+
+    const handleDownloadPDF = async (bill, element = null) => {
         try {
             const currentSettings = await ensureSettingsLoaded();
             if (!currentSettings) return;
-            await downloadInvoicePDF(bill, currentSettings);
+            await downloadInvoicePDF(
+                bill,
+                currentSettings,
+                `SRI_RAM_FASHIONS_Invoice_${bill?.billNumber || 'bill'}.pdf`,
+                { element: element || resolvePreviewElement(bill) }
+            );
             toast.success('PDF download started');
         } catch (error) {
             toast.error('Failed to generate PDF');
+        }
+    };
+
+    const handlePrintBill = async (bill, element = null, isEmpty = false) => {
+        try {
+            const currentSettings = await ensureSettingsLoaded();
+            if (!currentSettings) return;
+            await printInvoice(bill, currentSettings, {
+                element: element || resolvePreviewElement(bill),
+                isEmpty
+            });
+        } catch (error) {
+            toast.error('Failed to open print');
+        }
+    };
+
+    const handleShareBill = async (bill, element = null, isEmpty = false) => {
+        try {
+            const currentSettings = await ensureSettingsLoaded();
+            if (!currentSettings) return;
+
+            const result = await shareInvoice(bill, currentSettings, {
+                element: element || resolvePreviewElement(bill),
+                isEmpty,
+                filename: `SRI_RAM_FASHIONS_Invoice_${bill?.billNumber || 'bill'}.pdf`,
+                title: 'Invoice From SRI RAM FASHIONS',
+                text: `Invoice ${bill?.billNumber || ''}`
+            });
+
+            if (!result.shared) {
+                toast.info('Share is not available on this device. PDF downloaded instead.');
+            }
+        } catch (error) {
+            toast.error('Failed to share invoice');
+        }
+    };
+
+    const handleDownloadEmptyTemplate = async () => {
+        try {
+            const currentSettings = await ensureSettingsLoaded();
+            if (!currentSettings) return;
+            await downloadEmptyTemplate(currentSettings, 'SRI_RAM_FASHIONS_Empty_Template.pdf', { element: emptyInvoiceRef.current });
+            toast.success('Template download started');
+        } catch (error) {
+            toast.error('Failed to download template');
+        }
+    };
+
+    const openEmailModal = (bill) => {
+        setEmailBill(bill);
+        setEmailTo(pickDefaultRecipient(bill?.customer?.email, user?.email));
+        setShowEmailModal(true);
+    };
+
+    const handleSendEmail = async () => {
+        const { hasValidRecipients } = getEmailRecipientValidation(emailTo);
+        if (!emailBill || !hasValidRecipients) {
+            toast.warning('Please enter a valid email address');
+            return;
+        }
+
+        setIsSendingEmail(true);
+        const toastId = toast.loading('Generating invoice PDF...');
+
+        try {
+            const currentSettings = await ensureSettingsLoaded();
+            if (!currentSettings) return;
+
+            const invoiceFile = await generateInvoicePdfFile(emailBill, currentSettings, {
+                element: resolvePreviewElement(emailBill),
+                filename: `SRI_RAM_FASHIONS_Invoice_${emailBill?.billNumber || 'bill'}.pdf`
+            });
+
+            toast.update(toastId, { message: 'Sending email...', type: 'info', duration: 3000 });
+
+            const response = await emailAPI.sendBillPdf({
+                to: emailTo,
+                billNumber: emailBill.billNumber,
+                customerName: emailBill.customer?.name,
+                pdfFile: invoiceFile
+            });
+
+            if (response.data?.success) {
+                toast.update(toastId, { message: response.data.message || 'Email sent successfully', type: 'success', duration: 3000 });
+                setShowEmailModal(false);
+                setEmailBill(null);
+                setEmailTo('');
+            } else {
+                toast.update(toastId, { message: response.data?.message || 'Failed to send email', type: 'error', duration: 3000 });
+            }
+        } catch (error) {
+            toast.update(toastId, { message: error?.response?.data?.message || 'Email service error', type: 'error', duration: 3000 });
+        } finally {
+            setIsSendingEmail(false);
         }
     };
 
@@ -573,7 +677,7 @@ const BillingPage = () => {
                                     {isEditable ? 'Preview' : 'Edit Mode'}
                                 </button>
                                 <button
-                                    onClick={() => handleDownloadPDF(currentBillForPreview)}
+                                    onClick={() => handleDownloadPDF(currentBillForPreview, !isEditable ? createPreviewRef.current : null)}
                                     className="px-6 py-3 bg-red-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all"
                                 >
                                     <FileDown size={16} /> PDF
@@ -685,38 +789,73 @@ const BillingPage = () => {
                                         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
                                             <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100">
                                                 <div className="flex items-center justify-between mb-4">
-                                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cart Items ({billItems.length})</h4>
-                                                    <button className="text-[10px] font-black text-red-500 uppercase tracking-widest" onClick={() => setBillItems([])}>Clear</button>
+                                                    <h4 className="text-sm font-black text-slate-900 tracking-tight">Bill Items</h4>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="text-xs font-bold text-blue-600">{billItems.length} items</span>
+                                                        {billItems.length > 0 && (
+                                                            <button className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:text-red-700 transition-colors" onClick={() => setBillItems([])}>Clear</button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="space-y-3">
                                                     {billItems.map((item) => (
-                                                        <div key={item.uniqueId} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-                                                            <div className="flex justify-between items-start">
+                                                        <div key={item.uniqueId} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                                                            {/* Row 1: Name + HSN + Total + Delete */}
+                                                            <div className="flex justify-between items-start mb-4">
                                                                 <div className="min-w-0">
-                                                                    <p className="text-xs font-black text-slate-900 uppercase truncate">{item.name}</p>
+                                                                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{item.name}</p>
+                                                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">HSN: {item.hsnCode}</p>
+                                                                </div>
+                                                                <div className="flex items-start gap-3">
+                                                                    <p className="text-base font-black text-slate-900">{formatCurrency(item.ratePerPack * item.noOfPacks)}</p>
+                                                                    <button className="text-slate-300 hover:text-red-500 mt-0.5 transition-colors" onClick={() => updateItemQuantity(item.uniqueId, 0)}><Trash2 size={16} /></button>
+                                                                </div>
+                                                            </div>
+                                                            {/* Row 2: Size | Rate/Pc | Pcs/Pack | Rate/Pack | No. Packs */}
+                                                            <div className="grid grid-cols-5 gap-2">
+                                                                <div>
+                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Size</label>
                                                                     <input 
-                                                                        className="text-[10px] font-bold text-blue-600 bg-blue-50/50 rounded px-1 mt-1 border-none focus:ring-0 w-24" 
-                                                                        placeholder="Sizes (e.g. M/5)" 
+                                                                        className="w-full h-8 px-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition-all" 
+                                                                        placeholder="e.g. L" 
                                                                         value={item.sizesOrPieces} 
                                                                         onChange={(e) => updateItemField(item.uniqueId, 'sizesOrPieces', e.target.value)} 
                                                                     />
                                                                 </div>
-                                                                <button className="text-slate-300 hover:text-red-500" onClick={() => updateItemQuantity(item.uniqueId, 0)}><Trash2 size={14} /></button>
-                                                            </div>
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-1">
-                                                                    <button className="w-6 h-6 rounded bg-white text-slate-600 shadow-sm text-xs font-black" onClick={() => updateItemQuantity(item.uniqueId, item.noOfPacks - 1)}>-</button>
-                                                                    <span className="text-[10px] font-black w-6 text-center">{item.noOfPacks}</span>
-                                                                    <button className="w-6 h-6 rounded bg-white text-slate-600 shadow-sm text-xs font-black" onClick={() => updateItemQuantity(item.uniqueId, item.noOfPacks + 1)}>+</button>
-                                                                </div>
-                                                                <div className="text-right">
+                                                                <div>
+                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Rate/Pc</label>
                                                                     <input 
                                                                         type="number" 
-                                                                        className="text-[10px] font-black text-slate-400 text-right w-16 bg-transparent border-none focus:ring-0 p-0" 
+                                                                        className="w-full h-8 px-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition-all" 
+                                                                        value={item.ratePerPiece} 
+                                                                        onChange={(e) => updateItemField(item.uniqueId, 'ratePerPiece', Number(e.target.value))} 
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Pcs/Pack</label>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        className="w-full h-8 px-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition-all" 
+                                                                        value={item.pcsInPack} 
+                                                                        onChange={(e) => updateItemField(item.uniqueId, 'pcsInPack', Number(e.target.value))} 
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Rate/Pack</label>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        className="w-full h-8 px-2 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none transition-all" 
                                                                         value={item.ratePerPack} 
                                                                         onChange={(e) => updateItemField(item.uniqueId, 'ratePerPack', Number(e.target.value))} 
                                                                     />
-                                                                    <p className="text-sm font-black text-slate-900">{formatCurrency(item.ratePerPack * item.noOfPacks)}</p>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">No. Packs</label>
+                                                                    <div className="flex items-center h-8 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                                                                        <button className="w-6 h-full text-slate-500 hover:bg-slate-200 text-xs font-black transition-colors" onClick={() => updateItemQuantity(item.uniqueId, item.noOfPacks - 1)}>-</button>
+                                                                        <span className="flex-1 text-center text-xs font-black text-slate-800">{item.noOfPacks}</span>
+                                                                        <button className="w-6 h-full text-slate-500 hover:bg-slate-200 text-xs font-black transition-colors" onClick={() => updateItemQuantity(item.uniqueId, item.noOfPacks + 1)}>+</button>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -768,7 +907,7 @@ const BillingPage = () => {
                                     className="h-full overflow-y-auto bg-slate-200/50 flex justify-center p-12 custom-scrollbar"
                                 >
                                     <div className="max-w-[210mm] w-full">
-                                        <BillTemplate bill={currentBillForPreview} settings={settings} />
+                                        <BillTemplate ref={createPreviewRef} bill={currentBillForPreview} settings={settings} />
                                     </div>
                                 </motion.div>
                             )}
@@ -868,9 +1007,11 @@ const BillingPage = () => {
                                                 </select>
                                             </td>
                                             <td className="px-6 py-5 text-right">
-                                                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                                                     <button onClick={() => handleViewBill(bill)} className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all"><Eye size={16} /></button>
                                                     <button onClick={() => handleDownloadPDF(bill)} className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"><Download size={16} /></button>
+                                                    <button onClick={() => openEmailModal(bill)} className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center hover:bg-purple-600 hover:text-white transition-all"><Mail size={16} /></button>
+                                                    <button onClick={() => handleShareBill(bill)} className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"><Share2 size={16} /></button>
                                                     <button onClick={() => handleDeleteClick(bill)} className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all"><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
@@ -878,6 +1019,29 @@ const BillingPage = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Empty Template Modal */}
+            {showEmptyInvoiceModal && (
+                <div className="modal-overlay" onClick={() => setShowEmptyInvoiceModal(false)}>
+                    <div className="modal-content max-w-[220mm] bg-slate-100" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header bg-white">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600"><FileText size={20} /></div>
+                                <div><h3 className="text-xl font-black text-slate-900 tracking-tight">Empty Bill Template</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sri Ram Fashions Standard A4</p></div>
+                            </div>
+                             <div className="flex items-center gap-2">
+                                <button className="btn btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => handlePrintBill({}, emptyInvoiceRef.current, true)}><Printer size={16} /> Print</button>
+                                <button className="btn bg-slate-900 text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={handleDownloadEmptyTemplate}><Download size={16} /> Download Template</button>
+                                <button className="btn bg-indigo-600 text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => handleShareBill({}, emptyInvoiceRef.current, true)}><Share2 size={16} /> Share</button>
+                                <button className="action-btn ml-2" onClick={() => setShowEmptyInvoiceModal(false)}><X size={24} /></button>
+                            </div>
+                        </div>
+                        <div className="p-8 overflow-auto max-h-[80vh] flex justify-center">
+                            <BillTemplate ref={emptyInvoiceRef} bill={{}} settings={settings} isEmpty />
                         </div>
                     </div>
                 </div>
@@ -892,19 +1056,35 @@ const BillingPage = () => {
                                 <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600"><Receipt size={20} /></div>
                                 <div><h3 className="text-xl font-black text-slate-900 tracking-tight">Preview</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedBill.billNumber}</p></div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button className="btn btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => handleDownloadPDF(selectedBill)}><Download size={16} /> Download PDF</button>
+                             <div className="flex items-center gap-2">
+                                <button className="btn btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => handlePrintBill(selectedBill, previewBillRef.current)}><Printer size={16} /> Print</button>
+                                <button className="btn bg-slate-900 text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => handleDownloadPDF(selectedBill)}><Download size={16} /> Download PDF</button>
+                                <button className="btn bg-purple-600 text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => openEmailModal(selectedBill)}><Mail size={16} /> Send Email</button>
+                                <button className="btn bg-indigo-600 text-white px-6 py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2" onClick={() => handleShareBill(selectedBill, previewBillRef.current)}><Share2 size={16} /> Share</button>
                                 <button className="action-btn ml-2" onClick={() => setShowPreviewModal(false)}><X size={24} /></button>
                             </div>
                         </div>
                         <div className="p-8 overflow-auto max-h-[80vh] flex justify-center">
-                            <BillTemplate bill={selectedBill} settings={settings} />
+                            <BillTemplate ref={previewBillRef} bill={selectedBill} settings={settings} />
                         </div>
                     </div>
                 </div>
             )}
 
-            <EmailActionModal open={Boolean(showEmailModal && emailBill)} title="Email Bill" description={emailBill ? `Send bill ${emailBill.billNumber} via email.` : ''} value={emailTo} onChange={setEmailTo} onClose={() => setShowEmailModal(false)} onSubmit={() => {}} isSubmitting={isSendingEmail} />
+            <EmailActionModal
+                open={Boolean(showEmailModal && emailBill)}
+                title="Email Bill"
+                description={emailBill ? `Send bill ${emailBill.billNumber} via email.` : ''}
+                value={emailTo}
+                onChange={setEmailTo}
+                onClose={() => {
+                    setShowEmailModal(false);
+                    setEmailBill(null);
+                    setEmailTo('');
+                }}
+                onSubmit={handleSendEmail}
+                isSubmitting={isSendingEmail}
+            />
         </div>
     );
 };

@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Search, RefreshCcw, Eye, Download, Mail, X, Printer, FileText, History, ShieldCheck, ChevronLeft, ChevronRight, TrendingUp, ArrowDownRight, CreditCard, ExternalLink } from 'lucide-react';
+import { Search, RefreshCcw, Eye, Download, Mail, X, Printer, FileText, History, ShieldCheck, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import BillTemplate from '../components/BillTemplate';
 import { billsAPI, emailAPI } from '../services/api';
 import { EmailActionModal, useToast } from '../components/common';
-import { downloadInvoicePDF } from '../utils/invoiceGenerator';
+import { downloadInvoicePDF, generateInvoicePdfFile, printInvoice, shareInvoice } from '../utils/invoiceGenerator';
 import { fetchSettings } from '../store/slices/settingsSlice';
 import { getEmailRecipientValidation, pickDefaultRecipient } from '../utils/emailUtils';
 
@@ -30,6 +30,7 @@ const PurchaseBillingPage = () => {
 
     const [selectedBill, setSelectedBill] = useState(null);
     const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const previewBillRef = useRef(null);
 
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [emailTo, setEmailTo] = useState('');
@@ -93,13 +94,51 @@ const PurchaseBillingPage = () => {
         setShowPreviewModal(true);
     };
 
+    const getPreviewElement = (bill) =>
+        showPreviewModal && selectedBill?._id === bill?._id ? previewBillRef.current : null;
+
     const handleDownloadPDF = async (bill) => {
         const toastId = toast.loading('Generating PDF...');
         try {
-            await downloadInvoicePDF(bill, resolvedSettings, `${bill.billNumber || 'PURCHASE_BILL'}.pdf`);
+            await downloadInvoicePDF(
+                bill,
+                resolvedSettings,
+                `${bill.billNumber || 'PURCHASE_BILL'}.pdf`,
+                { element: getPreviewElement(bill) }
+            );
             toast.update(toastId, { message: 'PDF downloaded successfully', type: 'success', duration: 3000 });
         } catch (error) {
             toast.update(toastId, { message: 'Failed to generate PDF', type: 'error', duration: 3000 });
+        }
+    };
+
+    const handlePrintBill = async (bill) => {
+        const toastId = toast.loading('Opening print...');
+        try {
+            await printInvoice(bill, resolvedSettings, { element: getPreviewElement(bill) });
+            toast.update(toastId, { message: 'Print opened', type: 'success', duration: 2000 });
+        } catch (error) {
+            toast.update(toastId, { message: 'Unable to print bill', type: 'error', duration: 3000 });
+        }
+    };
+
+    const handleShareBill = async (bill) => {
+        const toastId = toast.loading('Preparing invoice...');
+        try {
+            const result = await shareInvoice(bill, resolvedSettings, {
+                element: getPreviewElement(bill),
+                filename: `${bill.billNumber || 'PURCHASE_BILL'}.pdf`,
+                title: 'Invoice From SRI RAM FASHIONS',
+                text: `Invoice ${bill.billNumber || ''}`
+            });
+
+            toast.update(toastId, {
+                message: result.shared ? 'Invoice shared successfully' : 'Share unavailable. PDF downloaded instead.',
+                type: 'success',
+                duration: 3000
+            });
+        } catch (error) {
+            toast.update(toastId, { message: 'Unable to share invoice', type: 'error', duration: 3000 });
         }
     };
 
@@ -118,12 +157,24 @@ const PurchaseBillingPage = () => {
         setIsSendingEmail(true);
         const toastId = toast.loading('Sending email...');
         try {
-            const response = await emailAPI.sendBill(selectedBill._id, emailTo);
+            const invoiceFile = await generateInvoicePdfFile(selectedBill, resolvedSettings, {
+                element: getPreviewElement(selectedBill),
+                filename: `${selectedBill.billNumber || 'PURCHASE_BILL'}.pdf`
+            });
+
+            const response = await emailAPI.sendBillPdf({
+                to: emailTo,
+                billNumber: selectedBill.billNumber,
+                customerName: selectedBill.customer?.name,
+                pdfFile: invoiceFile
+            });
             if (response.data?.success) {
                 toast.update(toastId, { message: 'Email sent successfully', type: 'success', duration: 3000 });
                 setShowEmailModal(false);
                 setEmailTo('');
-                setSelectedBill(null);
+                if (!showPreviewModal) {
+                    setSelectedBill(null);
+                }
             } else {
                 toast.update(toastId, { message: 'Failed to send email', type: 'error', duration: 3000 });
             }
@@ -306,7 +357,7 @@ const PurchaseBillingPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-10 py-8">
-                                                <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                                <div className="flex justify-end gap-3 opacity-70 group-hover:opacity-100 transition-all duration-300">
                                                     <button
                                                         className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center shadow-sm border border-blue-100"
                                                         onClick={() => openPreview(bill)}
@@ -327,6 +378,13 @@ const PurchaseBillingPage = () => {
                                                         title="Email Bill"
                                                     >
                                                         <Mail size={20} />
+                                                    </button>
+                                                    <button
+                                                        className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center shadow-sm border border-indigo-100"
+                                                        onClick={() => handleShareBill(bill)}
+                                                        title="Share Bill"
+                                                    >
+                                                        <Share2 size={20} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -399,10 +457,28 @@ const PurchaseBillingPage = () => {
                             </div>
                             <div className="flex gap-4">
                                 <button
+                                    onClick={() => handlePrintBill(selectedBill)}
+                                    className="px-8 py-4 bg-white/10 hover:bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all border border-white/10 flex items-center gap-4"
+                                >
+                                    <Printer size={20} /> Print Bill
+                                </button>
+                                <button
                                     onClick={() => handleDownloadPDF(selectedBill)}
                                     className="px-8 py-4 bg-white/10 hover:bg-blue-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all border border-white/10 flex items-center gap-4"
                                 >
-                                    <Printer size={20} /> Download PDF
+                                    <Download size={20} /> Download PDF
+                                </button>
+                                <button
+                                    onClick={() => openEmailModal(selectedBill)}
+                                    className="px-8 py-4 bg-white/10 hover:bg-purple-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all border border-white/10 flex items-center gap-4"
+                                >
+                                    <Mail size={20} /> Send Email
+                                </button>
+                                <button
+                                    onClick={() => handleShareBill(selectedBill)}
+                                    className="px-8 py-4 bg-white/10 hover:bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all border border-white/10 flex items-center gap-4"
+                                >
+                                    <Share2 size={20} /> Share
                                 </button>
                                 <button onClick={() => setShowPreviewModal(false)} className="w-14 h-14 rounded-2xl bg-white/10 hover:bg-red-500 text-white flex items-center justify-center transition-all border border-white/10">
                                     <X size={24} />
@@ -411,7 +487,7 @@ const PurchaseBillingPage = () => {
                         </div>
                         <div className="p-0 overflow-y-auto max-h-[75vh] bg-slate-100 custom-scrollbar flex justify-center py-16">
                             <div className="shadow-[0_50px_100px_-20px_rgba(0,0,0,0.2)] bg-white rounded-lg transform scale-[0.95] origin-top">
-                                <BillTemplate bill={selectedBill} settings={resolvedSettings} />
+                                <BillTemplate ref={previewBillRef} bill={selectedBill} settings={resolvedSettings} />
                             </div>
                         </div>
                         <div className="px-10 py-8 bg-white border-t border-slate-100 flex justify-between items-center">
@@ -434,7 +510,9 @@ const PurchaseBillingPage = () => {
                 onClose={() => {
                     setShowEmailModal(false);
                     setEmailTo('');
-                    setSelectedBill(null);
+                    if (!showPreviewModal) {
+                        setSelectedBill(null);
+                    }
                 }}
                 onSubmit={handleEmailBill}
                 isSubmitting={isSendingEmail}
